@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSessionFromRequest } from '../../../../lib/auth';
 import { getBlogIndex } from '../../../../lib/posts';
 import { withSessionWorkspace } from '../../../../lib/request-auth';
+import { privateJson } from '../../../../lib/private-response';
 import { getDashboardData } from '../../../../lib/tweets';
 
 export async function GET(request: NextRequest) {
@@ -16,6 +17,6 @@ export async function GET(request: NextRequest) {
       ].sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime());
       return { items };
     });
-    return NextResponse.json({ ok: true, data });
+    return privateJson({ ok: true, data });
   } catch (error) { return NextResponse.json({ ok: false, error: { message: error instanceof Error ? error.message : '无法加载内容库。' } }, { status: 500 }); }
 }

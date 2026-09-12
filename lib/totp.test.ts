@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHmac } from 'node:crypto';
-import { createTotpUri, getAdminTotpConfig, isAdminTotpRequired, verifyAdminTotpToken, verifyTotp } from './totp';
+import { createTotpUri, getAdminTotpConfig, verifyAdminTotpToken, verifyTotp } from './totp';
 
 const FIXED_SECRET = 'JBSWY3DPEHPK3PXP';
 const ORIGINAL_NOW = Date.now;
@@ -12,8 +12,6 @@ beforeEach(() => {
   // `vi.stubEnv` writes through Next.js' readonly NODE_ENV typing; pair with
   // `vi.unstubAllEnvs()` in afterEach for automatic restoration.
   vi.stubEnv('ADMIN_TOTP_JSON', '');
-  vi.stubEnv('ADMIN_TOTP_ENFORCE_IN_DEV', '');
-  vi.stubEnv('ADMIN_TOTP_DEV_BYPASS', '');
   vi.stubEnv('NODE_ENV', 'test');
 });
 
@@ -74,32 +72,6 @@ describe('admin TOTP config', () => {
   it('throws on invalid JSON', () => {
     vi.stubEnv('ADMIN_TOTP_JSON', '{not-json');
     expect(() => getAdminTotpConfig()).toThrow(/Invalid ADMIN_TOTP_JSON/);
-  });
-});
-
-describe('isAdminTotpRequired', () => {
-  it('is required by default in non-production', () => {
-    vi.stubEnv('NODE_ENV', 'development');
-    vi.stubEnv('ADMIN_TOTP_DEV_BYPASS', '');
-    expect(isAdminTotpRequired()).toBe(true);
-  });
-
-  it('can be bypassed in non-production only when ADMIN_TOTP_DEV_BYPASS is set', () => {
-    vi.stubEnv('NODE_ENV', 'development');
-    vi.stubEnv('ADMIN_TOTP_DEV_BYPASS', '1');
-    expect(isAdminTotpRequired()).toBe(false);
-  });
-
-  it('ignores ADMIN_TOTP_DEV_BYPASS in production', () => {
-    vi.stubEnv('NODE_ENV', 'production');
-    vi.stubEnv('ADMIN_TOTP_DEV_BYPASS', '1');
-    expect(isAdminTotpRequired()).toBe(true);
-  });
-
-  it('is always required in production', () => {
-    vi.stubEnv('NODE_ENV', 'production');
-    vi.stubEnv('ADMIN_TOTP_DEV_BYPASS', '');
-    expect(isAdminTotpRequired()).toBe(true);
   });
 });
 

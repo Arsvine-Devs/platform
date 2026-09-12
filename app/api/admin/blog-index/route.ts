@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSessionFromRequest } from '../../../../lib/auth';
 import { getBlogIndex } from '../../../../lib/posts';
 import { withSessionWorkspace } from '../../../../lib/request-auth';
+import { privateJson } from '../../../../lib/private-response';
 
 export async function GET(request: NextRequest) {
   const session = await getSessionFromRequest(request);
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const data = await withSessionWorkspace(session, () => getBlogIndex());
-    return NextResponse.json({ ok: true, data });
+    return privateJson({ ok: true, data });
   } catch (error) {
     return NextResponse.json(
       {

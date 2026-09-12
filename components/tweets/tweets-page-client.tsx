@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { History, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -64,6 +65,7 @@ function normalizeFormFromTweetItem(tweet: TweetItem): TweetFormState {
 }
 
 export default function TweetsPageClient({ csrfToken }: TweetsPageClientProps) {
+  const router = useRouter();
   const [data, setData] = useState<TweetsDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -82,7 +84,7 @@ export default function TweetsPageClient({ csrfToken }: TweetsPageClientProps) {
     try {
       const response = await fetch('/api/admin/tweets', { cache: 'no-store' });
       if (response.status === 401) {
-        window.location.href = '/login';
+        router.push('/login');
         return;
       }
       const json = (await response.json()) as AdminResponse<TweetsDashboardData>;
@@ -98,7 +100,7 @@ export default function TweetsPageClient({ csrfToken }: TweetsPageClientProps) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -174,7 +176,7 @@ export default function TweetsPageClient({ csrfToken }: TweetsPageClientProps) {
         },
       });
       if (response.status === 401) {
-        window.location.href = '/login';
+        router.push('/login');
         return null;
       }
       const json = (await response.json()) as AdminResponse<unknown>;
@@ -262,7 +264,7 @@ export default function TweetsPageClient({ csrfToken }: TweetsPageClientProps) {
         headers: { 'x-csrf-token': csrfToken },
       });
       if (response.status === 401) {
-        window.location.href = '/login';
+        router.push('/login');
         return;
       }
       const json = (await response.json()) as AdminResponse<{ month?: string }>;
@@ -287,7 +289,7 @@ export default function TweetsPageClient({ csrfToken }: TweetsPageClientProps) {
         body: JSON.stringify({ mode }),
       });
       if (response.status === 401) {
-        window.location.href = '/login';
+        router.push('/login');
         return;
       }
       const json = (await response.json()) as AdminResponse<{

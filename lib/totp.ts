@@ -41,10 +41,6 @@ export function createTotpUri(params: {
   return `otpauth://totp/${encodeURIComponent(label)}?${search.toString()}`;
 }
 
-function isTruthyEnv(value: string | undefined) {
-  return value === '1' || value?.toLowerCase() === 'true';
-}
-
 function base32Decode(value: string) {
   const normalized = value.toUpperCase().replace(/=+$/g, '').replace(/[\s-]/g, '');
   let bits = '';
@@ -136,17 +132,6 @@ export function verifyTotp(opts: {
   }
 
   return false;
-}
-
-export function isAdminTotpRequired() {
-  // TOTP is mandatory by default. The only way to disable it is to (a) run
-  // outside production AND (b) explicitly opt in to the dev bypass via
-  // `ADMIN_TOTP_DEV_BYPASS=1`. The legacy `ADMIN_TOTP_ENFORCE_IN_DEV=1`
-  // (force TOTP in dev) is still honored for backward compatibility, but it
-  // is now a no-op because the default is already "required".
-  if (process.env.NODE_ENV === 'production') return true;
-  if (isTruthyEnv(process.env.ADMIN_TOTP_DEV_BYPASS?.trim())) return false;
-  return true;
 }
 
 export function getAdminTotpConfig() {

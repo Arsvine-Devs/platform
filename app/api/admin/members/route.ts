@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createInvitation, listMembers, listPendingInvitations } from '../../../../lib/accounts';
 import { getSessionFromRequest, isOwner, verifyCsrf } from '../../../../lib/auth';
+import { privateJson } from '../../../../lib/private-response';
 
 function forbidden() { return NextResponse.json({ ok: false, error: { message: 'Forbidden' } }, { status: 403 }); }
 
@@ -8,7 +9,7 @@ export async function GET(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session || !isOwner(session)) return forbidden();
   const [members, invitations] = await Promise.all([listMembers(), listPendingInvitations()]);
-  return NextResponse.json({ ok: true, data: { members, invitations } });
+  return privateJson({ ok: true, data: { members, invitations } });
 }
 
 export async function POST(request: NextRequest) {
