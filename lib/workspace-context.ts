@@ -15,8 +15,12 @@ export type XTimelineSyncState = {
   lastSyncError?: string;
 };
 
+export type XTimelineSyncMethod = 'none' | 'api';
+
 export type XTimelineConfig = {
-  enabled: boolean;
+  syncMethod?: XTimelineSyncMethod;
+  /** Kept for reading configurations written before syncMethod was introduced. */
+  enabled?: boolean;
   bearerToken: string;
   targetUserId: string;
   targetUsername: string;
@@ -24,6 +28,11 @@ export type XTimelineConfig = {
   includeRetweets: boolean;
   sync?: XTimelineSyncState;
 };
+
+export function resolveXTimelineSyncMethod(config: XTimelineConfig): XTimelineSyncMethod {
+  if (config.syncMethod) return config.syncMethod;
+  return config.enabled === false || !config.bearerToken ? 'none' : 'api';
+}
 
 const storage = new AsyncLocalStorage<WorkspaceConfig>();
 

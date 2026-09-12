@@ -24,10 +24,11 @@ type Form = {
   xTargetUserId: string;
   xTargetUsername: string;
   xBearerToken: string;
-  xEnabled: boolean;
+  xSyncMethod: 'none' | 'api';
   xIncludeReplies: boolean;
   xIncludeRetweets: boolean;
-  xConfigured: boolean;
+  xStored: boolean;
+  xHasBearerToken: boolean;
 };
 
 const EMPTY: Form = {
@@ -44,10 +45,11 @@ const EMPTY: Form = {
   xTargetUserId: '',
   xTargetUsername: '',
   xBearerToken: '',
-  xEnabled: false,
+  xSyncMethod: 'none',
   xIncludeReplies: true,
   xIncludeRetweets: false,
-  xConfigured: false,
+  xStored: false,
+  xHasBearerToken: false,
 };
 
 export default function WorkspacePageClient({ csrfToken, email }: Props) {
@@ -71,10 +73,11 @@ export default function WorkspacePageClient({ csrfToken, email }: Props) {
         model: json.data.translation?.model ?? '',
         xTargetUserId: json.data.x?.targetUserId ?? '',
         xTargetUsername: json.data.x?.targetUsername ?? '',
-        xEnabled: json.data.x?.enabled ?? Boolean(json.data.x?.hasBearerToken),
+        xSyncMethod: json.data.x?.syncMethod ?? 'none',
         xIncludeReplies: json.data.x?.includeReplies ?? true,
         xIncludeRetweets: json.data.x?.includeRetweets ?? false,
-        xConfigured: Boolean(json.data.x?.hasBearerToken),
+        xStored: Boolean(json.data.x),
+        xHasBearerToken: Boolean(json.data.x?.hasBearerToken),
       }));
     })();
   }, []);
@@ -86,17 +89,17 @@ export default function WorkspacePageClient({ csrfToken, email }: Props) {
   const save = async () => {
     setSaving(true);
     try {
-      const hasXInput = Boolean(form.xTargetUserId || form.xTargetUsername || form.xBearerToken || form.xEnabled || form.xConfigured);
+      const hasXInput = Boolean(form.xTargetUserId || form.xTargetUsername || form.xBearerToken || form.xSyncMethod !== 'none' || form.xStored);
       const x = hasXInput
         ? {
-            enabled: form.xEnabled,
+            syncMethod: form.xSyncMethod,
             targetUserId: form.xTargetUserId,
             targetUsername: form.xTargetUsername,
             bearerToken: form.xBearerToken,
             includeReplies: form.xIncludeReplies,
             includeRetweets: form.xIncludeRetweets,
           }
-        : form.xConfigured
+        : form.xStored
           ? null
           : undefined;
       const response = await fetch('/api/admin/workspace', {
@@ -126,8 +129,9 @@ export default function WorkspacePageClient({ csrfToken, email }: Props) {
         contentUrl: json.data.revalidate.hasContentUrl ? '已配置' : '',
         tweetsUrl: json.data.revalidate.hasTweetsUrl ? '已配置' : '',
         xBearerToken: '',
-        xEnabled: Boolean(json.data.x?.enabled),
-        xConfigured: Boolean(json.data.x?.hasBearerToken),
+        xSyncMethod: json.data.x?.syncMethod ?? 'none',
+        xStored: Boolean(json.data.x),
+        xHasBearerToken: Boolean(json.data.x?.hasBearerToken),
       }));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '保存失败。');
@@ -155,10 +159,6 @@ export default function WorkspacePageClient({ csrfToken, email }: Props) {
             <h2 className="text-lg font-medium">私有仓库</h2>
             <p className="mt-1 text-sm text-muted-foreground">使用可写入该内容仓库的细粒度 GitHub Token。</p>
           </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={form.xEnabled} onChange={(e) => update('xEnabled', e.target.checked)} />
-            启用 X 同步
-          </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="GitHub Owner"><Input value={form.owner} onChange={(e) => update('owner', e.target.value)} /></Field>
             <Field label="Repository"><Input value={form.repo} onChange={(e) => update('repo', e.target.value)} /></Field>
@@ -171,29 +171,39 @@ export default function WorkspacePageClient({ csrfToken, email }: Props) {
 
         <div className="grid gap-5">
           <div>
-            <h2 className="text-lg font-medium">X 时间线来源</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              使用官方 X API 读取目标账户，再写入你的私有内容仓库。未配置 token 时不会调用 X；是否充值由你在 X Developer Console 中决定。
-            </p>
+            <h2 className="text-lg font-medium">X 目标账号</h2>
+            <p className="mt-1 text-sm text-muted-foreground">先保存要追踪的账号信息。这里不要求 token，也不决定同步方式。</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="X User ID"><Input value={form.xTargetUserId} onChange={(e) => update('xTargetUserId', e.target.value)} placeholder="例如 2244994945" /></Field>
             <Field label="X username"><Input value={form.xTargetUsername} onChange={(e) => update('xTargetUsername', e.target.value)} placeholder="不带 @" /></Field>
-            <div className="sm:col-span-2">
-              <Field label="X Bearer Token"><Input type="password" autoComplete="off" placeholder={form.xConfigured ? '留空以保留当前 token' : '留空以暂不启用'} value={form.xBearerToken} onChange={(e) => update('xBearerToken', e.target.value)} /></Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="同步方式">
+              <select className="h-9 rounded-md border bg-transparent px-3 text-sm" value={form.xSyncMethod} onChange={(e) => update('xSyncMethod', e.target.value as Form['xSyncMethod'])}>
+                <option value="none">暂不同步（可先保存账号）</option>
+                <option value="api">官方 X API（手动 + 每日同步）</option>
+              </select>
+            </Field>
+            {form.xSyncMethod === 'api' ? (
+              <Field label="X Bearer Token"><Input type="password" autoComplete="off" placeholder={form.xHasBearerToken ? '留空以保留当前 token' : '配置后才会启用 API 同步'} value={form.xBearerToken} onChange={(e) => update('xBearerToken', e.target.value)} /></Field>
+            ) : null}
+          </div>
+          {form.xSyncMethod === 'api' ? (
+            <div className="flex flex-col gap-3 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={form.xIncludeReplies} onChange={(e) => update('xIncludeReplies', e.target.checked)} />
+                同步 replies
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={form.xIncludeRetweets} onChange={(e) => update('xIncludeRetweets', e.target.checked)} />
+                同步 retweets
+              </label>
+              <p className="text-xs text-muted-foreground">选择官方 X API 后才要求 Bearer Token；其他同步方式可以在后续扩展。</p>
             </div>
-          </div>
-          <div className="flex flex-col gap-3 text-sm">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={form.xIncludeReplies} onChange={(e) => update('xIncludeReplies', e.target.checked)} />
-              同步 replies
-            </label>
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={form.xIncludeRetweets} onChange={(e) => update('xIncludeRetweets', e.target.checked)} />
-              同步 retweets
-            </label>
-            <p className="text-xs text-muted-foreground">关闭时可以留空 Bearer Token；手动同步和每日同步都会跳过 X。启用后才要求有效 token。</p>
-          </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">账号信息已经独立保存。暂不同步时，手动同步和每日任务都会跳过 X。</p>
+          )}
         </div>
 
         <Separator />

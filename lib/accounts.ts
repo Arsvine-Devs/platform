@@ -4,7 +4,7 @@ import { getDb } from './db';
 import { accountEvents, invitations, users, workspaceConfigs } from './db/schema';
 import { getAdminTotpConfig, type TotpSecretConfig } from './totp';
 import { decryptSecret, encryptSecret } from './secrets';
-import type { WorkspaceConfig } from './workspace-context';
+import { resolveXTimelineSyncMethod, type WorkspaceConfig } from './workspace-context';
 
 export type Account = typeof users.$inferSelect;
 export type PublicMember = Pick<Account, 'id' | 'email' | 'role' | 'status' | 'createdAt' | 'updatedAt'>;
@@ -104,7 +104,7 @@ export async function getWorkspaceSummary(userId: string) {
     revalidate: { hasContentUrl: Boolean(config.revalidate.contentUrl), hasTweetsUrl: Boolean(config.revalidate.tweetsUrl), hasSecret: Boolean(config.revalidate.secret) },
     translation: config.translation ? { baseUrl: config.translation.baseUrl, model: config.translation.model ?? '', hasApiKey: Boolean(config.translation.apiKey) } : null,
     x: config.x ? {
-      enabled: config.x.enabled ?? Boolean(config.x.bearerToken),
+      syncMethod: resolveXTimelineSyncMethod(config.x),
       targetUserId: config.x.targetUserId,
       targetUsername: config.x.targetUsername,
       hasBearerToken: Boolean(config.x.bearerToken),

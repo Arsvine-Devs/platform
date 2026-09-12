@@ -3,6 +3,7 @@ import { fetchXTimelinePage, XApiError } from './x-timeline';
 import type { XTimelineConfig } from './workspace-context';
 
 const config: XTimelineConfig = {
+  syncMethod: 'api',
   enabled: true,
   bearerToken: 'test-bearer',
   targetUserId: '2244994945',

@@ -3,7 +3,7 @@ import { triggerTweetsRevalidate } from './github';
 import { getRecentImportedXExternalIds, mergeImportedTweets, removeImportedTweetsByExternalIds } from './tweets';
 import { fetchXPostsByIds, fetchXTimelinePage, XApiError } from './x-timeline';
 import type { ImportedTweet } from './tweets-types';
-import type { WorkspaceConfig, XTimelineConfig } from './workspace-context';
+import { resolveXTimelineSyncMethod, type WorkspaceConfig, type XTimelineConfig } from './workspace-context';
 import { withWorkspace } from './workspace-context';
 
 export type XTimelineSyncMode = 'recent' | 'backfill';
@@ -54,7 +54,7 @@ function normalizeOptions(options: XTimelineSyncOptions): Required<Pick<XTimelin
 
 function requireXConfig(config: WorkspaceConfig): XTimelineConfig {
   if (!config.x) throw new XTimelineSyncError(422, 'X timeline is not configured for this workspace.');
-  if (config.x.enabled === false) throw new XTimelineSyncError(422, 'X timeline sync is disabled for this workspace.');
+  if (resolveXTimelineSyncMethod(config.x) !== 'api') throw new XTimelineSyncError(422, 'X timeline sync is not enabled for the selected method.');
   if (!config.x.bearerToken) throw new XTimelineSyncError(422, 'X bearer token is not configured.');
   return config.x;
 }
@@ -176,7 +176,7 @@ export async function syncAllConfiguredXWorkspaces(options: XTimelineSyncOptions
   const results: Array<{ userId: string; result?: XTimelineSyncResult; error?: string }> = [];
 
   for (const workspace of workspaces) {
-    if (!workspace.config.x || workspace.config.x.enabled === false) continue;
+    if (!workspace.config.x || resolveXTimelineSyncMethod(workspace.config.x) !== 'api') continue;
     try {
       results.push({
         userId: workspace.userId,

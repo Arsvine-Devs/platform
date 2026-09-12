@@ -86,7 +86,7 @@ When stored in `.env.local`, each `$` must be escaped as `\$`, otherwise Next wi
 
 ### X timeline sync
 
-Configure the target X User ID, username and bearer token from `/workspace`. The token is stored inside the encrypted workspace configuration and is never sent to the browser or the public site.
+Configure the target X User ID and username first from `/workspace`. Selecting the sync method is separate: the account identity can be saved with no token, while the current official X API method asks for a bearer token only when selected. The token is stored inside the encrypted workspace configuration and is never sent to the browser or the public site.
 
 The `/tweets` page provides manual recent sync and resumable backfill. Vercel invokes `/api/cron/x-timeline` once per day using `CRON_SECRET`; the route processes each active workspace that has X configured and keeps the incremental cursor in the encrypted workspace state. Vercel Hobby scheduling is deliberately low-frequency; the site does not depend on real-time delivery.
 

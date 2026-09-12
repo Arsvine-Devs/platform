@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getWorkspaceConfig, getWorkspaceSummary, saveWorkspaceConfig } from '../../../../lib/accounts';
 import { getSessionFromRequest, verifyCsrf } from '../../../../lib/auth';
-import type { WorkspaceConfig, XTimelineConfig } from '../../../../lib/workspace-context';
+import { resolveXTimelineSyncMethod, type WorkspaceConfig, type XTimelineConfig } from '../../../../lib/workspace-context';
 
 function unauthorized() { return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 }); }
 
@@ -27,14 +27,21 @@ export async function PUT(request: NextRequest) {
       const targetUserId = input.x.targetUserId?.trim() || existing?.x?.targetUserId || '';
       const targetUsername = input.x.targetUsername?.trim() || existing?.x?.targetUsername || '';
       const bearerToken = input.x.bearerToken?.trim() || existing?.x?.bearerToken || '';
-      const enabled = input.x.enabled ?? existing?.x?.enabled ?? Boolean(bearerToken);
-      const hasAnyXValue = Boolean(targetUserId || targetUsername || bearerToken);
-      if (hasAnyXValue) {
-        if (enabled && !/^\d{1,19}$/.test(targetUserId)) throw new Error('X target user id must be a numeric user id.');
-        if (enabled && !/^[A-Za-z0-9_]{1,15}$/.test(targetUsername)) throw new Error('X username is invalid.');
-        if (enabled && !bearerToken) throw new Error('Please configure an X bearer token.');
+      const syncMethod = input.x.syncMethod ?? (
+        input.x.enabled === false
+          ? 'none'
+          : existing?.x
+            ? resolveXTimelineSyncMethod(existing.x)
+            : 'none'
+      );
+      const hasAnyXValue = Boolean(targetUserId || targetUsername || bearerToken || input.x.syncMethod || input.x.enabled !== undefined);
+      if (hasAnyXValue && !(syncMethod === 'none' && !targetUserId && !targetUsername && !bearerToken)) {
+        if (!/^\d{1,19}$/.test(targetUserId)) throw new Error('X target user id must be a numeric user id.');
+        if (!/^[A-Za-z0-9_]{1,15}$/.test(targetUsername)) throw new Error('X username is invalid.');
+        if (syncMethod === 'api' && !bearerToken) throw new Error('Please configure an X bearer token.');
         x = {
-          enabled,
+          syncMethod,
+          enabled: syncMethod === 'api',
           bearerToken,
           targetUserId,
           targetUsername,
