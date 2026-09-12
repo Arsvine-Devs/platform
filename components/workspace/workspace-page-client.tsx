@@ -24,6 +24,7 @@ type Form = {
   xTargetUserId: string;
   xTargetUsername: string;
   xBearerToken: string;
+  xEnabled: boolean;
   xIncludeReplies: boolean;
   xIncludeRetweets: boolean;
   xConfigured: boolean;
@@ -43,6 +44,7 @@ const EMPTY: Form = {
   xTargetUserId: '',
   xTargetUsername: '',
   xBearerToken: '',
+  xEnabled: false,
   xIncludeReplies: true,
   xIncludeRetweets: false,
   xConfigured: false,
@@ -69,6 +71,7 @@ export default function WorkspacePageClient({ csrfToken, email }: Props) {
         model: json.data.translation?.model ?? '',
         xTargetUserId: json.data.x?.targetUserId ?? '',
         xTargetUsername: json.data.x?.targetUsername ?? '',
+        xEnabled: json.data.x?.enabled ?? Boolean(json.data.x?.hasBearerToken),
         xIncludeReplies: json.data.x?.includeReplies ?? true,
         xIncludeRetweets: json.data.x?.includeRetweets ?? false,
         xConfigured: Boolean(json.data.x?.hasBearerToken),
@@ -83,9 +86,10 @@ export default function WorkspacePageClient({ csrfToken, email }: Props) {
   const save = async () => {
     setSaving(true);
     try {
-      const hasXInput = Boolean(form.xTargetUserId || form.xTargetUsername || form.xBearerToken);
+      const hasXInput = Boolean(form.xTargetUserId || form.xTargetUsername || form.xBearerToken || form.xEnabled || form.xConfigured);
       const x = hasXInput
         ? {
+            enabled: form.xEnabled,
             targetUserId: form.xTargetUserId,
             targetUsername: form.xTargetUsername,
             bearerToken: form.xBearerToken,
@@ -122,6 +126,7 @@ export default function WorkspacePageClient({ csrfToken, email }: Props) {
         contentUrl: json.data.revalidate.hasContentUrl ? '已配置' : '',
         tweetsUrl: json.data.revalidate.hasTweetsUrl ? '已配置' : '',
         xBearerToken: '',
+        xEnabled: Boolean(json.data.x?.enabled),
         xConfigured: Boolean(json.data.x?.hasBearerToken),
       }));
     } catch (error) {
@@ -150,6 +155,10 @@ export default function WorkspacePageClient({ csrfToken, email }: Props) {
             <h2 className="text-lg font-medium">私有仓库</h2>
             <p className="mt-1 text-sm text-muted-foreground">使用可写入该内容仓库的细粒度 GitHub Token。</p>
           </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={form.xEnabled} onChange={(e) => update('xEnabled', e.target.checked)} />
+            启用 X 同步
+          </label>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="GitHub Owner"><Input value={form.owner} onChange={(e) => update('owner', e.target.value)} /></Field>
             <Field label="Repository"><Input value={form.repo} onChange={(e) => update('repo', e.target.value)} /></Field>
@@ -183,7 +192,7 @@ export default function WorkspacePageClient({ csrfToken, email }: Props) {
               <input type="checkbox" checked={form.xIncludeRetweets} onChange={(e) => update('xIncludeRetweets', e.target.checked)} />
               同步 retweets
             </label>
-            <p className="text-xs text-muted-foreground">手动同步和每日同步共用同一份来源配置与增量 cursor。</p>
+            <p className="text-xs text-muted-foreground">关闭时可以留空 Bearer Token；手动同步和每日同步都会跳过 X。启用后才要求有效 token。</p>
           </div>
         </div>
 

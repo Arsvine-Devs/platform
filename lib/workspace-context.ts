@@ -16,6 +16,7 @@ export type XTimelineSyncState = {
 };
 
 export type XTimelineConfig = {
+  enabled: boolean;
   bearerToken: string;
   targetUserId: string;
   targetUsername: string;

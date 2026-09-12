@@ -27,12 +27,14 @@ export async function PUT(request: NextRequest) {
       const targetUserId = input.x.targetUserId?.trim() || existing?.x?.targetUserId || '';
       const targetUsername = input.x.targetUsername?.trim() || existing?.x?.targetUsername || '';
       const bearerToken = input.x.bearerToken?.trim() || existing?.x?.bearerToken || '';
+      const enabled = input.x.enabled ?? existing?.x?.enabled ?? Boolean(bearerToken);
       const hasAnyXValue = Boolean(targetUserId || targetUsername || bearerToken);
       if (hasAnyXValue) {
-        if (!/^\d{1,19}$/.test(targetUserId)) throw new Error('X target user id must be a numeric user id.');
-        if (!/^[A-Za-z0-9_]{1,15}$/.test(targetUsername)) throw new Error('X username is invalid.');
-        if (!bearerToken) throw new Error('Please configure an X bearer token.');
+        if (enabled && !/^\d{1,19}$/.test(targetUserId)) throw new Error('X target user id must be a numeric user id.');
+        if (enabled && !/^[A-Za-z0-9_]{1,15}$/.test(targetUsername)) throw new Error('X username is invalid.');
+        if (enabled && !bearerToken) throw new Error('Please configure an X bearer token.');
         x = {
+          enabled,
           bearerToken,
           targetUserId,
           targetUsername,

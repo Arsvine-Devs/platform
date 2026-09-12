@@ -54,6 +54,7 @@ function normalizeOptions(options: XTimelineSyncOptions): Required<Pick<XTimelin
 
 function requireXConfig(config: WorkspaceConfig): XTimelineConfig {
   if (!config.x) throw new XTimelineSyncError(422, 'X timeline is not configured for this workspace.');
+  if (config.x.enabled === false) throw new XTimelineSyncError(422, 'X timeline sync is disabled for this workspace.');
   if (!config.x.bearerToken) throw new XTimelineSyncError(422, 'X bearer token is not configured.');
   return config.x;
 }
@@ -175,7 +176,7 @@ export async function syncAllConfiguredXWorkspaces(options: XTimelineSyncOptions
   const results: Array<{ userId: string; result?: XTimelineSyncResult; error?: string }> = [];
 
   for (const workspace of workspaces) {
-    if (!workspace.config.x) continue;
+    if (!workspace.config.x || workspace.config.x.enabled === false) continue;
     try {
       results.push({
         userId: workspace.userId,

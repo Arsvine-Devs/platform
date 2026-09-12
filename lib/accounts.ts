@@ -104,6 +104,7 @@ export async function getWorkspaceSummary(userId: string) {
     revalidate: { hasContentUrl: Boolean(config.revalidate.contentUrl), hasTweetsUrl: Boolean(config.revalidate.tweetsUrl), hasSecret: Boolean(config.revalidate.secret) },
     translation: config.translation ? { baseUrl: config.translation.baseUrl, model: config.translation.model ?? '', hasApiKey: Boolean(config.translation.apiKey) } : null,
     x: config.x ? {
+      enabled: config.x.enabled ?? Boolean(config.x.bearerToken),
       targetUserId: config.x.targetUserId,
       targetUsername: config.x.targetUsername,
       hasBearerToken: Boolean(config.x.bearerToken),
