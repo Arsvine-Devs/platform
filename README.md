@@ -11,6 +11,8 @@ Web-only, privacy-preserving content console for private repositories.
 - auto-translate `zh-CN` blog variants into `zh-TW` / `en` drafts using the shared MDX guide
 - rebuild `blog-index.json`
 - manage `tweets/index.json` and `tweets/YYYY-MM.json` from `/tweets`
+- manually sync an X user timeline into the private tweet archive
+- run the same X incremental sync once per day through the Vercel Hobby Cron route
 - auto-translate and retranslate tweets
 - call the public site's `/api/revalidate-content` and `/api/revalidate`
 - Neon Postgres for accounts, invitations and encrypted private workspace configuration
@@ -82,6 +84,12 @@ When stored in `.env.local`, each `$` must be escaped as `\$`, otherwise Next wi
 - `/activate`: invite acceptance and TOTP enrollment
 - `/`: redirects to `/library`
 
+### X timeline sync
+
+Configure the target X User ID and username first from `/workspace`. Selecting the sync method is separate: the account identity can be saved with no token, while the current official X API method asks for a bearer token only when selected. The token is stored inside the encrypted workspace configuration and is never sent to the browser or the public site.
+
+The `/tweets` page provides manual recent sync and resumable backfill. Vercel invokes `/api/cron/x-timeline` once per day using `CRON_SECRET`; the route processes each active workspace that has X configured and keeps the incremental cursor in the encrypted workspace state. Vercel Hobby scheduling is deliberately low-frequency; the site does not depend on real-time delivery.
+
 ## Vercel Deployment
 
 1. Create a separate Vercel project for `arsvine-admin`.
@@ -100,6 +108,7 @@ ADMIN_TOTP_JSON
 PUBLIC_REVALIDATE_URL
 PUBLIC_TWEETS_REVALIDATE_URL
 PUBLIC_REVALIDATE_SECRET
+CRON_SECRET
 UPSTASH_REDIS_REST_URL
 UPSTASH_REDIS_REST_TOKEN
 ```

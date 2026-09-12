@@ -2,12 +2,14 @@ import {
   TWEET_LANGS,
   TWEET_VISIBILITIES,
   type CreateTweetInput,
+  type ImportedTweet,
   type RepoSummary,
   type TweetIndexItem,
   type TweetItem,
   type TweetLang,
   type TweetMonthRecord,
   type TweetTranslation,
+  type TweetOrigin,
   type TweetVisibility,
   type TweetsDashboardData,
   type UpdateTweetInput,
@@ -362,6 +364,182 @@ export async function getDashboardData(): Promise<TweetsDashboardData> {
   };
 }
 
+function sourceKey(origin?: TweetOrigin) {
+  return origin?.provider === 'x' ? origin.externalId : undefined;
+}
+
+function sameOrigin(left: TweetOrigin | undefined, right: TweetOrigin) {
+  return Boolean(
+    left &&
+      left.provider === right.provider &&
+      left.externalId === right.externalId &&
+      left.canonicalUrl === right.canonicalUrl &&
+      left.authorId === right.authorId &&
+      left.authorUsername === right.authorUsername,
+  );
+}
+
+export async function mergeImportedTweets(posts: ImportedTweet[], syncAt = toShanghaiIso(new Date())) {
+  if (posts.length === 0) return { created: 0, updated: 0, changed: false, months: [] as string[] };
+
+  const records = await loadMonthRecords();
+  const existingByExternalId = new Map<string, { record: TweetMonthRecord; index: number }>();
+  for (const record of records) {
+    record.tweets.forEach((tweet, index) => {
+      const key = sourceKey(tweet.origin);
+      if (key) existingByExternalId.set(key, { record, index });
+    });
+  }
+
+  let created = 0;
+  let updated = 0;
+  const changedMonths = new Set<string>();
+
+  for (const post of posts) {
+    const createdAt = normalizeCreatedAtInput(post.createdAt);
+    const targetMonth = monthFromDate(createdAt);
+    const existingLocation = existingByExternalId.get(post.externalId);
+    const existingTweet = existingLocation?.record.tweets[existingLocation.index];
+    const origin: TweetOrigin = {
+      provider: 'x',
+      externalId: post.externalId,
+      canonicalUrl: post.canonicalUrl,
+      authorId: post.authorId,
+      authorUsername: post.authorUsername,
+      importedAt: existingTweet?.origin?.importedAt ?? syncAt,
+      syncedAt: syncAt,
+    };
+
+    if (existingLocation) {
+      const existing = existingTweet;
+      if (!existing) continue;
+      const contentChanged = existing.content !== post.content;
+      const sourceChanged =
+        contentChanged ||
+        existing.createdAt !== createdAt ||
+        existing.lang !== post.lang ||
+        !sameOrigin(existing.origin, origin);
+      if (!sourceChanged) continue;
+
+      const nextTweet: TweetItem = {
+        ...existing,
+        content: post.content,
+        createdAt,
+        lang: post.lang,
+        updatedAt: syncAt,
+        origin,
+        translations: contentChanged || existing.lang !== post.lang
+          ? markTweetTranslationsStale(existing.translations)
+          : existing.translations,
+      };
+
+      if (existingLocation.record.month === targetMonth) {
+        existingLocation.record.tweets[existingLocation.index] = nextTweet;
+        existingLocation.record.updatedAt = syncAt;
+        existingLocation.record.count = existingLocation.record.tweets.length;
+        changedMonths.add(existingLocation.record.month);
+      } else {
+        existingLocation.record.tweets = existingLocation.record.tweets.filter(
+          (_, index) => index !== existingLocation.index,
+        );
+        existingLocation.record.count = existingLocation.record.tweets.length;
+        existingLocation.record.updatedAt = syncAt;
+        changedMonths.add(existingLocation.record.month);
+
+        let targetRecord = records.find((record) => record.month === targetMonth);
+        if (!targetRecord) {
+          targetRecord = {
+            month: targetMonth,
+            path: buildMonthPath(targetMonth),
+            count: 0,
+            updatedAt: syncAt,
+            tweets: [],
+          };
+          records.push(targetRecord);
+        }
+        targetRecord.tweets.push(nextTweet);
+        targetRecord.count = targetRecord.tweets.length;
+        targetRecord.updatedAt = syncAt;
+        changedMonths.add(targetRecord.month);
+        existingByExternalId.set(post.externalId, { record: targetRecord, index: targetRecord.tweets.length - 1 });
+      }
+      updated += 1;
+      continue;
+    }
+
+    let targetRecord = records.find((record) => record.month === targetMonth);
+    if (!targetRecord) {
+      targetRecord = {
+        month: targetMonth,
+        path: buildMonthPath(targetMonth),
+        count: 0,
+        updatedAt: syncAt,
+        tweets: [],
+      };
+      records.push(targetRecord);
+    }
+
+    const tweet = {
+      ...buildTweet(
+        {
+          content: post.content,
+          lang: post.lang,
+          tags: [],
+          visibility: 'public',
+          pinned: false,
+          createdAt,
+        },
+        targetRecord.tweets,
+      ),
+      origin,
+    } satisfies TweetItem;
+    targetRecord.tweets.push(tweet);
+    targetRecord.count = targetRecord.tweets.length;
+    targetRecord.updatedAt = syncAt;
+    existingByExternalId.set(post.externalId, { record: targetRecord, index: targetRecord.tweets.length - 1 });
+    changedMonths.add(targetRecord.month);
+    created += 1;
+  }
+
+  if (created > 0 || updated > 0) {
+    await saveMonthRecords(records.filter((record) => record.tweets.length > 0), 'chore: sync X timeline');
+  }
+
+  return { created, updated, changed: created > 0 || updated > 0, months: [...changedMonths].sort() };
+}
+
+export async function getRecentImportedXExternalIds(cutoff: string, limit = 100) {
+  const records = await loadMonthRecords();
+  return records
+    .flatMap((record) => record.tweets)
+    .filter((tweet) => tweet.origin?.provider === 'x' && new Date(tweet.createdAt).getTime() >= new Date(cutoff).getTime())
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
+    .map((tweet) => tweet.origin!.externalId)
+    .slice(0, limit);
+}
+
+export async function removeImportedTweetsByExternalIds(externalIds: string[], syncAt = toShanghaiIso(new Date())) {
+  const ids = new Set(externalIds);
+  if (ids.size === 0) return { removed: 0, changed: false };
+  const records = await loadMonthRecords();
+  let removed = 0;
+  const nextRecords = records
+    .map((record) => {
+      const tweets = record.tweets.filter((tweet) => {
+        const shouldRemove = tweet.origin?.provider === 'x' && ids.has(tweet.origin.externalId);
+        if (shouldRemove) removed += 1;
+        return !shouldRemove;
+      });
+      return tweets.length === record.tweets.length
+        ? record
+        : { ...record, tweets, count: tweets.length, updatedAt: syncAt };
+    })
+    .filter((record) => record.tweets.length > 0);
+
+  if (removed > 0) await saveMonthRecords(nextRecords, 'chore: remove unavailable X posts');
+  return { removed, changed: removed > 0 };
+}
+
 export async function createTweet(input: CreateTweetInput) {
   const records = await loadMonthRecords();
   const sourceLang = assertLang(input.lang) ?? 'other';
@@ -415,6 +593,9 @@ export async function updateTweet(tweetId: string, input: UpdateTweetInput) {
     input.lang === undefined ? existingTweet.lang : assertLang(input.lang);
   const contentChanged = nextContent !== existingTweet.content;
   const langChanged = nextLang !== existingTweet.lang;
+  if (existingTweet.origin?.provider === 'x' && (contentChanged || langChanged)) {
+    throw new StoreError(409, 'X 来源内容只能通过同步更新；如需改写请新建一条本地推文。');
+  }
   const nextTweet: TweetItem = {
     ...existingTweet,
     content: nextContent,
