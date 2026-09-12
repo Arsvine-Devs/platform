@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { History, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 
 import {
   AlertDialog,
@@ -73,6 +75,7 @@ export default function TweetsPageClient({ csrfToken }: TweetsPageClientProps) {
   const [composerMode, setComposerMode] = useState<'create' | 'edit' | null>(null);
   const [form, setForm] = useState<TweetFormState>(INITIAL_TWEET_FORM);
   const [pendingDelete, setPendingDelete] = useState<TweetItem | null>(null);
+  const [syncing, setSyncing] = useState<'recent' | 'backfill' | null>(null);
 
   const loadDashboard = useCallback(async (preferredGroupKey?: string) => {
     setLoading(true);
@@ -275,9 +278,55 @@ export default function TweetsPageClient({ csrfToken }: TweetsPageClientProps) {
     }
   }
 
+  async function runXSync(mode: 'recent' | 'backfill') {
+    setSyncing(mode);
+    try {
+      const response = await fetch('/api/admin/tweets/sync/x', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+        body: JSON.stringify({ mode }),
+      });
+      if (response.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
+      const json = (await response.json()) as AdminResponse<{
+        fetched: number;
+        created: number;
+        updated: number;
+        removed: number;
+        hasMore: boolean;
+        revalidated?: { revalidated: boolean };
+      }>;
+      if (!response.ok || !json.ok) throw new Error(unwrapError(json, 'X 同步失败。'));
+      await loadDashboard(activeGroupKey || selectedGroupKey);
+      const suffix = json.data.hasMore ? '，仍有历史内容待回填' : '';
+      toast.success(`X 同步完成：新增 ${json.data.created}，更新 ${json.data.updated}，移除 ${json.data.removed}${suffix}。`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'X 同步失败。');
+    } finally {
+      setSyncing(null);
+    }
+  }
+
   return (
     <div className="min-h-[calc(100svh-3.5rem)] p-5 lg:p-8">
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b pb-4"><div><p className="text-sm text-muted-foreground">Tweets / <span className="font-mono text-xs">{targetMonthPath}</span></p><h1 className="mt-1 text-2xl font-semibold tracking-tight">推文编辑</h1></div></div>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b pb-4">
+        <div>
+          <p className="text-sm text-muted-foreground">Tweets / <span className="font-mono text-xs">{targetMonthPath}</span></p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">推文编辑</h1>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" disabled={syncing !== null} onClick={() => void runXSync('recent')}>
+            {syncing === 'recent' ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+            {syncing === 'recent' ? '同步中…' : '同步 X'}
+          </Button>
+          <Button type="button" variant="ghost" disabled={syncing !== null} onClick={() => void runXSync('backfill')}>
+            {syncing === 'backfill' ? <Loader2 className="animate-spin" /> : <History />}
+            {syncing === 'backfill' ? '回填中…' : '继续回填'}
+          </Button>
+        </div>
+      </div>
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[15rem_minmax(0,1fr)]">
         <aside className="lg:border-r lg:pr-5"><MonthIndexPanel
           groups={groups}

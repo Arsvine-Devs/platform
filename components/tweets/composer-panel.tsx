@@ -83,6 +83,7 @@ export default function ComposerPanel({
 }: ComposerPanelProps) {
   const summary = editingTweet ? getTranslationSummary(editingTweet) : [];
   const hasStaleOrMissing = summary.some((item) => item.state !== 'fresh');
+  const isExternalSource = editingTweet?.origin?.provider === 'x';
 
   return (
     <Card>
@@ -91,9 +92,11 @@ export default function ComposerPanel({
           <CardDescription>{mode === 'edit' ? 'Editing' : 'New Tweet'}</CardDescription>
           <CardTitle>{mode === 'edit' && editingTweet ? `编辑 ${editingTweet.id}` : '编写推文'}</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground">
-            {mode === 'edit'
-              ? '修改原文后，已有自动译文会被标记为过期，之后可手动重新生成。'
-              : '先写原文，再决定发布时间、标签、置顶与是否自动翻译。'}
+            {isExternalSource
+              ? '这是 X 来源内容。原文由同步更新；此处可以管理标签、可见性、置顶和译文。'
+              : mode === 'edit'
+                ? '修改原文后，已有自动译文会被标记为过期，之后可手动重新生成。'
+                : '先写原文，再决定发布时间、标签、置顶与是否自动翻译。'}
           </p>
         </div>
         <div className="flex gap-2">
@@ -121,6 +124,7 @@ export default function ComposerPanel({
                 <FieldLabel>正文</FieldLabel>
                 <Textarea
                   value={form.content}
+                  disabled={isExternalSource}
                   onChange={(event) => onChange('content', event.target.value)}
                   placeholder="写下这条推文的正文…"
                   rows={6}
@@ -142,7 +146,7 @@ export default function ComposerPanel({
                 </Field>
                 <Field>
                   <FieldLabel>语言</FieldLabel>
-                  <Select value={form.lang} onValueChange={(value) => onChange('lang', value ?? 'zh-CN')}>
+                  <Select disabled={isExternalSource} value={form.lang} onValueChange={(value) => onChange('lang', value ?? 'zh-CN')}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>

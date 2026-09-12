@@ -103,12 +103,36 @@ export async function getWorkspaceSummary(userId: string) {
     github: { owner: config.github.owner, repo: config.github.repo, branch: config.github.branch, hasToken: Boolean(config.github.token) },
     revalidate: { hasContentUrl: Boolean(config.revalidate.contentUrl), hasTweetsUrl: Boolean(config.revalidate.tweetsUrl), hasSecret: Boolean(config.revalidate.secret) },
     translation: config.translation ? { baseUrl: config.translation.baseUrl, model: config.translation.model ?? '', hasApiKey: Boolean(config.translation.apiKey) } : null,
+    x: config.x ? {
+      targetUserId: config.x.targetUserId,
+      targetUsername: config.x.targetUsername,
+      hasBearerToken: Boolean(config.x.bearerToken),
+      includeReplies: config.x.includeReplies,
+      includeRetweets: config.x.includeRetweets,
+      lastSyncAt: config.x.sync?.lastSyncAt ?? null,
+      hasPendingBackfill: Boolean(config.x.sync?.paginationToken),
+    } : null,
   };
 }
 
 export async function saveWorkspaceConfig(userId: string, config: WorkspaceConfig) {
   const encryptedConfig = encryptSecret(JSON.stringify(config));
   await getDb().insert(workspaceConfigs).values({ userId, encryptedConfig }).onConflictDoUpdate({ target: workspaceConfigs.userId, set: { encryptedConfig, updatedAt: new Date() } });
+}
+
+export async function listActiveWorkspaceConfigs() {
+  const activeUsers = await getDb().select({ userId: users.id }).from(users).where(eq(users.status, 'active'));
+  const result: Array<{ userId: string; config: WorkspaceConfig }> = [];
+
+  for (const user of activeUsers) {
+    try {
+      result.push({ userId: user.userId, config: await getWorkspaceConfig(user.userId) });
+    } catch (error) {
+      console.warn(`[accounts] skipping workspace ${user.userId}:`, error instanceof Error ? error.message : error);
+    }
+  }
+
+  return result;
 }
 
 export async function createInvitation(actorId: string, rawEmail: string) {

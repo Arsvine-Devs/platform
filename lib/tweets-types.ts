@@ -14,6 +14,16 @@ export type TweetVisibility = (typeof TWEET_VISIBILITIES)[number];
 export type TweetFilter = (typeof TWEET_FILTERS)[number];
 export type TweetTranslationPromptKey = (typeof TWEET_TRANSLATION_PROMPT_KEYS)[number];
 
+export type TweetOrigin = {
+    provider: 'x';
+    externalId: string;
+    canonicalUrl: string;
+    authorId: string;
+    authorUsername: string;
+    importedAt: string;
+    syncedAt?: string;
+};
+
 export type TweetTranslation = {
     content: string;
     sourceLang: TweetLang;
@@ -33,6 +43,17 @@ export type TweetItem = {
     visibility?: TweetVisibility;
     pinned?: boolean;
     translations?: Partial<Record<SiteTweetLocale, TweetTranslation>>;
+    origin?: TweetOrigin;
+};
+
+export type ImportedTweet = {
+    externalId: string;
+    createdAt: string;
+    content: string;
+    lang?: TweetLang;
+    authorId: string;
+    authorUsername: string;
+    canonicalUrl: string;
 };
 
 export type TweetIndexItem = {
