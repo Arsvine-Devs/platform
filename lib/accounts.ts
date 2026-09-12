@@ -1,5 +1,5 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import { and, asc, eq, gt } from 'drizzle-orm';
+import { and, asc, eq, gt, sql } from 'drizzle-orm';
 import { getDb } from './db';
 import { accountEvents, invitations, users, workspaceConfigs } from './db/schema';
 import { getAdminTotpConfig, type TotpSecretConfig } from './totp';
@@ -11,6 +11,11 @@ export type PublicMember = Pick<Account, 'id' | 'email' | 'role' | 'status' | 'c
 export type PublicInvitation = Pick<typeof invitations.$inferSelect, 'id' | 'email' | 'status' | 'expiresAt' | 'createdAt'>;
 
 const INVITATION_TTL_MS = 72 * 60 * 60 * 1000;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isUniqueViolation(error: unknown) {
+  return typeof error === 'object' && error !== null && 'code' in error && (error as { code?: unknown }).code === '23505';
+}
 
 function normalizedEmail(value: string) {
   const email = value.trim().toLowerCase();
@@ -65,10 +70,20 @@ export async function ensureOwnerBootstrap() {
   const passwordHash = process.env.ADMIN_PASSWORD_HASH?.trim();
   if (!email || !passwordHash) throw new Error('Missing OWNER_ADMIN_EMAIL or ADMIN_PASSWORD_HASH');
   const totp = getAdminTotpConfig();
-  const [created] = await db.insert(users).values({
-    email: normalizedEmail(email), role: 'owner', status: 'active', passwordHash,
-    totpEncrypted: encryptSecret(JSON.stringify(totp)),
-  }).returning();
+  let created: Account;
+  try {
+    [created] = await db.insert(users).values({
+      email: normalizedEmail(email), role: 'owner', status: 'active', authMethod: 'password+totp', passwordHash,
+      totpEncrypted: encryptSecret(JSON.stringify(totp)),
+    }).returning();
+  } catch (error) {
+    // The partial unique index is the final authority when two first requests
+    // race to bootstrap the single Owner.
+    if (!isUniqueViolation(error)) throw error;
+    const [existing] = await db.select().from(users).where(eq(users.role, 'owner')).limit(1);
+    if (!existing) throw error;
+    return existing;
+  }
   const workspace = legacyWorkspace();
   if (workspace) await db.insert(workspaceConfigs).values({ userId: created.id, encryptedConfig: encryptSecret(JSON.stringify(workspace)) });
   await db.insert(accountEvents).values({ actorId: created.id, targetId: created.id, type: 'owner_bootstrapped' });
@@ -188,8 +203,37 @@ export async function acceptInvitation(token: string, passwordHash: string, totp
 
 export async function activateInvitation(invitationId: string, userId: string) {
   const db = getDb();
-  await db.update(users).set({ status: 'active', updatedAt: new Date() }).where(eq(users.id, userId));
-  await db.update(invitations).set({ status: 'accepted', acceptedAt: new Date() }).where(eq(invitations.id, invitationId));
+  if (!UUID_PATTERN.test(invitationId) || !UUID_PATTERN.test(userId)) throw new Error('邀请已失效。');
+  const now = new Date();
+  // Neon HTTP does not provide interactive transactions. Lock both rows and
+  // consume the invitation plus activate the user in one atomic SQL
+  // statement, so a concurrent activation cannot leave either half applied.
+  const result = await db.execute(sql`
+    WITH eligible AS MATERIALIZED (
+      SELECT invitation.id AS invitation_id, account.id AS user_id
+      FROM "invitations" AS invitation
+      JOIN "users" AS account ON account.id = ${userId}::uuid
+      WHERE invitation.id = ${invitationId}::uuid
+        AND invitation.status = 'pending'
+        AND account.status = 'pending'
+      FOR UPDATE OF invitation, account
+    ),
+    accepted AS (
+      UPDATE "invitations" AS invitation
+      SET status = 'accepted', accepted_at = ${now}
+      WHERE invitation.id IN (SELECT invitation_id FROM eligible)
+      RETURNING invitation.id
+    ),
+    activated AS (
+      UPDATE "users" AS account
+      SET status = 'active', updated_at = ${now}
+      WHERE account.id IN (SELECT user_id FROM eligible)
+        AND EXISTS (SELECT 1 FROM accepted)
+      RETURNING account.id
+    )
+    SELECT id FROM activated
+  `);
+  if (!result.rows?.length) throw new Error('邀请已失效。');
   await db.insert(accountEvents).values({ targetId: userId, type: 'accepted_invitation' });
 }
 

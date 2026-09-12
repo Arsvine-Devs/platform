@@ -8,6 +8,13 @@
       "when": 1783759275239,
       "tag": "0000_hard_the_hunter",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789194207725,
+      "tag": "0001_serious_iron_patriot",
+      "breakpoints": true
     }
   ]
 }

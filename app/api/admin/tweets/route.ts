@@ -6,6 +6,7 @@ import { createTweet, getDashboardData, StoreError } from '../../../../lib/tweet
 import { triggerTweetsRevalidate } from '../../../../lib/github';
 import type { CreateTweetInput } from '../../../../lib/tweets-types';
 import { withSessionWorkspace } from '../../../../lib/request-auth';
+import { privateJson } from '../../../../lib/private-response';
 
 function toErrorResponse(error: unknown, fallbackMessage: string) {
   if (error instanceof StoreError) {
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const data = await withSessionWorkspace(session, () => getDashboardData());
-    return NextResponse.json({ ok: true, data });
+    return privateJson({ ok: true, data });
   } catch (error) {
     return toErrorResponse(error, 'Failed to load tweets.');
   }

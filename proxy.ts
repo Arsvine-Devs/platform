@@ -5,7 +5,11 @@ const SESSION_COOKIE = 'arsvine_admin_session';
 // Admin API endpoints that legitimately accept unauthenticated requests.
 // Everything else under /api/admin/* must carry the session cookie at the
 // edge — individual route handlers still re-verify the HMAC signature.
-const PUBLIC_ADMIN_API_PATHS = new Set<string>(['/api/admin/login']);
+const PUBLIC_ADMIN_API_PATHS = new Set<string>([
+  '/api/admin/login',
+  '/api/admin/webauthn/authentication/options',
+  '/api/admin/webauthn/authentication/verify',
+]);
 
 function isAdminApi(pathname: string) {
   return pathname === '/api/admin' || pathname.startsWith('/api/admin/');

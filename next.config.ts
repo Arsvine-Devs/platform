@@ -39,6 +39,7 @@ if (isProduction) {
 }
 
 const nextConfig: NextConfig = {
+  agentRules: false,
   async headers() {
     return [
       {

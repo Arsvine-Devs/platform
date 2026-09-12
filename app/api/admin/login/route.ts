@@ -78,7 +78,12 @@ export async function POST(request: NextRequest) {
     }
 
     const account = await getAccountByEmail(email);
-    if (!account || account.status !== 'active' || !verifyPasswordHash(password, account.passwordHash)) {
+    if (
+      !account ||
+      account.status !== 'active' ||
+      (account.role === 'owner' && account.authMethod === 'webauthn') ||
+      !verifyPasswordHash(password, account.passwordHash)
+    ) {
       return genericFailure('wrong password');
     }
     const totp = JSON.parse(decryptSecret(account.totpEncrypted)) as TotpSecretConfig;
@@ -86,8 +91,15 @@ export async function POST(request: NextRequest) {
       return genericFailure('wrong TOTP token');
     }
 
-    const response = NextResponse.json({ ok: true });
-    applyAuthCookies(response, createSession(account));
+    const response = NextResponse.json({
+      ok: true,
+      data: {
+        role: account.role,
+        authMethod: account.authMethod,
+        needsWebAuthnSetup: account.role === 'owner' && account.authMethod !== 'webauthn',
+      },
+    });
+    applyAuthCookies(response, createSession(account, 'password+totp'));
     return response;
   } catch (error) {
     // Log the full reason server-side so operators can still diagnose

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Check, Copy, KeyRound, QrCode } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,12 +13,17 @@ import { Input } from '@/components/ui/input';
 type Enrollment = { email: string; secret: string; uri: string };
 
 export default function ActivationPageClient() {
+  const router = useRouter();
   const token = useSearchParams().get('token') ?? '';
   const [password, setPassword] = useState('');
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
   const [qrCode, setQrCode] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (token) window.history.replaceState(null, '', '/activate');
+  }, [token]);
 
   useEffect(() => {
     if (!enrollment) return;
@@ -53,7 +58,7 @@ export default function ActivationPageClient() {
       });
       const json = await response.json() as { ok: boolean; error?: { message: string } };
       if (!response.ok || !json.ok) throw new Error(json.error?.message ?? '验证码无效。');
-      window.location.assign('/onboarding');
+      router.push('/onboarding');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '验证码无效。');
     } finally { setBusy(false); }

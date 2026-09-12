@@ -7,7 +7,7 @@ const SESSION_COOKIE = 'arsvine_admin_session';
 const CSRF_COOKIE = 'arsvine_admin_csrf';
 const SESSION_TTL_SECONDS = 60 * 60 * 12;
 
-export type AuthMethod = 'password+totp';
+export type AuthMethod = 'password+totp' | 'webauthn';
 export type AuthenticatedSession = {
   userId: string;
   email: string;
@@ -16,6 +16,7 @@ export type AuthenticatedSession = {
   exp: number;
   sessionVersion: number;
   amr: AuthMethod;
+  authAt: number;
 };
 
 type SignedSession = Omit<AuthenticatedSession, 'email'> & { sig: string };
@@ -28,7 +29,7 @@ function getSessionSecret() {
 
 function signSession(session: Omit<SignedSession, 'sig'>) {
   return createHmac('sha256', getSessionSecret())
-    .update(`${session.userId}:${session.role}:${session.sessionVersion}:${session.exp}:${session.csrf}:${session.amr}`)
+    .update(`${session.userId}:${session.role}:${session.sessionVersion}:${session.exp}:${session.csrf}:${session.amr}:${session.authAt}`)
     .digest('base64url');
 }
 
@@ -37,15 +38,17 @@ function decode(value: string) {
 }
 
 function validSignature(session: SignedSession | null): session is SignedSession {
-  if (!session || session.exp <= Date.now()) return false;
+  if (!session || session.exp <= Date.now() || !Number.isFinite(session.authAt) || (session.amr !== 'password+totp' && session.amr !== 'webauthn')) return false;
   const expected = Buffer.from(signSession(session));
   const actual = Buffer.from(session.sig);
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-export function createSession(account: { id: string; role: 'owner' | 'editor'; sessionVersion: number }) {
+export type SessionAccount = { id: string; role: 'owner' | 'editor'; sessionVersion: number };
+
+export function createSession(account: SessionAccount, amr: AuthMethod = 'password+totp', authAt = Date.now()) {
   const csrf = randomBytes(18).toString('base64url');
-  const unsigned = { userId: account.id, role: account.role, sessionVersion: account.sessionVersion, exp: Date.now() + SESSION_TTL_SECONDS * 1000, csrf, amr: 'password+totp' as const };
+  const unsigned = { userId: account.id, role: account.role, sessionVersion: account.sessionVersion, exp: Date.now() + SESSION_TTL_SECONDS * 1000, csrf, amr, authAt };
   return { value: Buffer.from(JSON.stringify({ ...unsigned, sig: signSession(unsigned) }), 'utf8').toString('base64url'), csrf, exp: unsigned.exp };
 }
 
@@ -54,6 +57,7 @@ async function resolve(value: string | undefined): Promise<AuthenticatedSession 
   if (!validSignature(parsed)) return null;
   const account = await getActiveAccount(parsed.userId);
   if (!account || account.role !== parsed.role || account.sessionVersion !== parsed.sessionVersion) return null;
+  if ((account.role === 'owner' && parsed.amr !== account.authMethod) || (account.role === 'editor' && parsed.amr !== 'password+totp')) return null;
   return { ...parsed, email: account.email };
 }
 

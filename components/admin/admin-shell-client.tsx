@@ -1,7 +1,8 @@
 'use client';
 
-import { LogOut, MessageCircle, FileText, Library, Settings, Users } from 'lucide-react';
+import { KeyRound, LogOut, MessageCircle, FileText, Library, Settings, Users } from 'lucide-react';
 import { useTransition, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 
 import {
   Sidebar,
@@ -52,6 +53,7 @@ export default function AdminShellClient({
   role,
   children,
 }: AdminShellClientProps) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   const handleLogout = () => {
@@ -60,7 +62,7 @@ export default function AdminShellClient({
         method: 'POST',
         headers: { 'x-csrf-token': csrfToken },
       });
-      window.location.href = '/login';
+      router.push('/login');
     });
   };
 
@@ -86,7 +88,7 @@ export default function AdminShellClient({
             <SidebarGroupLabel>Modules</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {[...NAV_ITEMS, ...(role === 'owner' ? [{ href: '/members', label: '成员', icon: <Users /> }] : [])].map((item) => (
+                {[...NAV_ITEMS, ...(role === 'owner' ? [{ href: '/security', label: '安全设置', icon: <KeyRound /> }, { href: '/members', label: '成员', icon: <Users /> }] : [])].map((item) => (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       render={<a href={item.href} />}

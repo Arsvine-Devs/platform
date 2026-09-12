@@ -2,13 +2,14 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getWorkspaceConfig, getWorkspaceSummary, saveWorkspaceConfig } from '../../../../lib/accounts';
 import { getSessionFromRequest, verifyCsrf } from '../../../../lib/auth';
 import { resolveXTimelineSyncMethod, type WorkspaceConfig, type XTimelineConfig } from '../../../../lib/workspace-context';
+import { privateJson } from '../../../../lib/private-response';
 
 function unauthorized() { return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 }); }
 
 export async function GET(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) return unauthorized();
-  try { return NextResponse.json({ ok: true, data: await getWorkspaceSummary(session.userId) }); }
+  try { return privateJson({ ok: true, data: await getWorkspaceSummary(session.userId) }); }
   catch (error) { return NextResponse.json({ ok: false, error: { message: error instanceof Error ? error.message : '无法读取工作区配置。' } }, { status: 404 }); }
 }
 
@@ -71,6 +72,6 @@ export async function PUT(request: NextRequest) {
     if (!config.github.owner || !config.github.repo || !config.github.token) throw new Error('请填写完整的私有仓库配置。');
     if (config.translation && (!config.translation.baseUrl || !config.translation.apiKey)) throw new Error('翻译服务地址和密钥必须同时填写。');
     await saveWorkspaceConfig(session.userId, config);
-    return NextResponse.json({ ok: true, data: await getWorkspaceSummary(session.userId) });
+    return privateJson({ ok: true, data: await getWorkspaceSummary(session.userId) });
   } catch (error) { return NextResponse.json({ ok: false, error: { message: error instanceof Error ? error.message : '无法保存工作区配置。' } }, { status: 422 }); }
 }
