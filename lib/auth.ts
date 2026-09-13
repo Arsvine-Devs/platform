@@ -2,9 +2,11 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
 import type { NextRequest, NextResponse } from 'next/server';
 import { getActiveAccount } from './accounts';
+import { isDevelopmentBypassEnabled } from './development-preview';
 
 const SESSION_COOKIE = 'arsvine_admin_session';
 const CSRF_COOKIE = 'arsvine_admin_csrf';
+export const DEVELOPMENT_SESSION_COOKIE = 'arsvine_admin_dev_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 12;
 
 export type AuthMethod = 'password+totp' | 'webauthn';
@@ -17,6 +19,7 @@ export type AuthenticatedSession = {
   sessionVersion: number;
   amr: AuthMethod;
   authAt: number;
+  developmentBypass?: boolean;
 };
 
 type SignedSession = Omit<AuthenticatedSession, 'email'> & { sig: string };
@@ -31,6 +34,49 @@ function signSession(session: Omit<SignedSession, 'sig'>) {
   return createHmac('sha256', getSessionSecret())
     .update(`${session.userId}:${session.role}:${session.sessionVersion}:${session.exp}:${session.csrf}:${session.amr}:${session.authAt}`)
     .digest('base64url');
+}
+
+type DevelopmentSession = Omit<AuthenticatedSession, 'developmentBypass'> & { developmentBypass: true; sig: string };
+
+function signDevelopmentSession(session: Omit<DevelopmentSession, 'sig'>) {
+  return createHmac('sha256', getSessionSecret())
+    .update(`development:${session.userId}:${session.email}:${session.role}:${session.sessionVersion}:${session.exp}:${session.csrf}:${session.amr}:${session.authAt}:${session.developmentBypass}`)
+    .digest('base64url');
+}
+
+function decodeDevelopment(value: string | undefined) {
+  if (!value) return null;
+  try {
+    return JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as DevelopmentSession;
+  } catch {
+    return null;
+  }
+}
+
+function resolveDevelopment(value: string | undefined): AuthenticatedSession | null {
+  if (!isDevelopmentBypassEnabled()) return null;
+  const parsed = decodeDevelopment(value);
+  if (!parsed || parsed.developmentBypass !== true || typeof parsed.email !== 'string' || typeof parsed.csrf !== 'string' || !Number.isFinite(parsed.exp) || parsed.exp <= Date.now() || parsed.userId !== '00000000-0000-4000-8000-000000000099' || parsed.role !== 'owner' || !Number.isFinite(parsed.sessionVersion) || parsed.amr !== 'password+totp' || !Number.isFinite(parsed.authAt)) return null;
+  const expected = Buffer.from(signDevelopmentSession(parsed));
+  const actual = Buffer.from(parsed.sig);
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
+  return { userId: parsed.userId, email: parsed.email, role: parsed.role, csrf: parsed.csrf, exp: parsed.exp, sessionVersion: parsed.sessionVersion, amr: parsed.amr, authAt: parsed.authAt, developmentBypass: true };
+}
+
+export function createDevelopmentSession() {
+  const csrf = randomBytes(18).toString('base64url');
+  const unsigned: Omit<DevelopmentSession, 'sig'> = {
+    userId: '00000000-0000-4000-8000-000000000099',
+    email: 'preview@localhost',
+    role: 'owner',
+    csrf,
+    exp: Date.now() + SESSION_TTL_SECONDS * 1000,
+    sessionVersion: 1,
+    amr: 'password+totp',
+    authAt: Date.now(),
+    developmentBypass: true,
+  };
+  return { value: Buffer.from(JSON.stringify({ ...unsigned, sig: signDevelopmentSession(unsigned) }), 'utf8').toString('base64url'), csrf, exp: unsigned.exp };
 }
 
 function decode(value: string) {
@@ -62,11 +108,15 @@ async function resolve(value: string | undefined): Promise<AuthenticatedSession 
 }
 
 export async function getSessionFromRequest(request: NextRequest) {
+  const development = resolveDevelopment(request.cookies.get(DEVELOPMENT_SESSION_COOKIE)?.value);
+  if (development) return development;
   return resolve(request.cookies.get(SESSION_COOKIE)?.value);
 }
 
 export async function getSessionFromCookieStore() {
   const store = await cookies();
+  const development = resolveDevelopment(store.get(DEVELOPMENT_SESSION_COOKIE)?.value);
+  if (development) return development;
   return resolve(store.get(SESSION_COOKIE)?.value);
 }
 
@@ -78,7 +128,12 @@ export function applyAuthCookies(response: NextResponse, session: ReturnType<typ
 
 export function clearAuthCookies(response: NextResponse) {
   const secure = process.env.NODE_ENV === 'production';
-  for (const name of [SESSION_COOKIE, CSRF_COOKIE]) response.cookies.set(name, '', { httpOnly: name === SESSION_COOKIE, secure, sameSite: 'lax', path: '/', maxAge: 0 });
+  for (const name of [SESSION_COOKIE, DEVELOPMENT_SESSION_COOKIE, CSRF_COOKIE]) response.cookies.set(name, '', { httpOnly: name !== CSRF_COOKIE, secure, sameSite: 'lax', path: '/', maxAge: 0 });
+}
+
+export function applyDevelopmentAuthCookies(response: NextResponse, session: ReturnType<typeof createDevelopmentSession>) {
+  response.cookies.set(DEVELOPMENT_SESSION_COOKIE, session.value, { httpOnly: true, secure: false, sameSite: 'lax', path: '/', maxAge: SESSION_TTL_SECONDS });
+  response.cookies.set(CSRF_COOKIE, session.csrf, { httpOnly: false, secure: false, sameSite: 'lax', path: '/', maxAge: SESSION_TTL_SECONDS });
 }
 
 function constantTimeEqual(leftValue: string, rightValue: string) {

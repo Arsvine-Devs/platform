@@ -2,17 +2,13 @@
 
 import { Plus } from 'lucide-react';
 
+import { EmptyState, LoadingState } from '@/components/admin/blocks';
+import { useI18n } from '@/components/i18n/locale-provider';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TweetCard from './tweet-card';
 
-import { FILTER_LABELS, TWEET_FILTERS } from './filter-labels';
-import { formatMonthLabel } from './tweet-utils';
+import { TWEET_FILTERS } from './filter-labels';
 import type { TweetFilter, TweetItem } from '../../lib/tweets-types';
 
 type TweetListPanelProps = {
@@ -38,49 +34,24 @@ export default function TweetListPanel({
   onEdit,
   onDelete,
 }: TweetListPanelProps) {
+  const { t } = useI18n();
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-4 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="text-lg font-semibold">{monthLabel}</h2>
-            <p className="text-xs text-muted-foreground">这里显示的是读者最终会看到的排列顺序</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Tabs value={filter} onValueChange={(value) => onFilterChange((value ?? 'all') as TweetFilter)}>
-              <TabsList>
-                {TWEET_FILTERS.map((f) => (
-                  <TabsTrigger key={f} value={f}>
-                    {FILTER_LABELS[f]}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-            <Button type="button" onClick={onCreate} size="icon-sm" aria-label="新建推文" title="新建推文">
-              <Plus />
-            </Button>
-          </div>
-        </div>
-
-        {loading ? (
-          <p className="text-sm text-muted-foreground">正在读取内容仓库推文数据…</p>
-        ) : tweets.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{emptyHint}</p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {tweets.map((tweet) => (
-              <TweetCard
-                key={tweet.id}
-                tweet={tweet}
-                onEdit={() => onEdit(tweet)}
-                onDelete={() => onDelete(tweet)}
-              />
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+    <section className="rounded-2xl border bg-card p-4 shadow-sm sm:p-5" aria-label={t('tweets.list')}>
+      <div className="flex flex-col gap-4 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div><h2 className="font-heading text-lg font-semibold">{monthLabel}</h2><p className="mt-1 text-xs text-muted-foreground">{t('tweets.listHint')}</p></div>
+        <div className="flex flex-wrap items-center gap-2"><Tabs value={filter} onValueChange={(value) => onFilterChange((value ?? 'all') as TweetFilter)}><TabsList>{TWEET_FILTERS.map((item) => <TabsTrigger key={item} value={item}>{filterLabel(item, t)}</TabsTrigger>)}</TabsList></Tabs><Button type="button" className="min-h-10" onClick={onCreate}><Plus data-icon="inline-start" />{t('tweets.new')}</Button></div>
+      </div>
+      <div className="pt-4">{loading ? <LoadingState label={t('tweets.loading')} /> : tweets.length === 0 ? <EmptyState title={t('tweets.noMatch')} description={emptyHint} action={<Button type="button" variant="outline" className="min-h-10" onClick={onCreate}>{t('tweets.writeOne')}</Button>} className="min-h-32" /> : <div className="grid gap-3">{tweets.map((tweet) => <TweetCard key={tweet.id} tweet={tweet} onEdit={() => onEdit(tweet)} onDelete={() => onDelete(tweet)} />)}</div>}</div>
+    </section>
   );
 }
 
-export { formatMonthLabel };
+type Translate = (key: string, values?: Record<string, string | number>) => string;
+
+function filterLabel(filter: TweetFilter, t: Translate) {
+  if (filter === 'all') return t('tweets.all');
+  if (filter === 'public') return t('tweets.public');
+  if (filter === 'private') return t('tweets.private');
+  if (filter === 'hidden') return t('tweets.hidden');
+  return t('tweets.pinned');
+}

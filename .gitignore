@@ -2,6 +2,8 @@ node_modules/
 .next/
 out/
 coverage/
+output/playwright/
+.playwright-cli/
 
 .env
 .env.*

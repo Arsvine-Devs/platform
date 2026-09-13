@@ -5,6 +5,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { privateJson } from '@/lib/private-response';
 import { applyWebAuthnCeremonyCookie, createAuthenticationOptions, getWebAuthnConfig, WEBAUTHN_CHALLENGE_TTL_MS } from '@/lib/webauthn';
 import { createWebAuthnChallenge, getOwnerAccount, listActiveWebAuthnCredentials, toStoredWebAuthnCredential } from '@/lib/webauthn-store';
+import { isDevelopmentBypassEnabled } from '@/lib/development-preview';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,6 +13,7 @@ export const dynamic = 'force-dynamic';
 const GENERIC_ERROR = '安全密钥登录暂不可用，请稍后重试。';
 
 export async function POST(request: NextRequest) {
+  if (isDevelopmentBypassEnabled()) return privateJson({ ok: false, error: { code: 'development_bypass', message: 'Use the local preview sign-in.' } }, { status: 409 });
   const limiter = await enforceRateLimit(`webauthn-auth-options:${getClientKey(request)}`, 12, 10 * 60_000);
   if (!limiter.ok) {
     return NextResponse.json(

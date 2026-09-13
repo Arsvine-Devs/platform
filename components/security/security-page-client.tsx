@@ -6,144 +6,124 @@ import { useRouter } from 'next/navigation';
 import { KeyRound, Loader2, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { adminRequest, isAdminApiError } from '@/lib/admin-api/client';
+import type { SecurityCredential, SecurityData } from '@/lib/admin-api/contracts';
+import { AsyncAction, ConfirmAction, EmptyState, PageFrame, PageHeader } from '@/components/admin/blocks';
+import { useI18n } from '@/components/i18n/locale-provider';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 
-type Credential = {
-  id: string;
-  label: string;
-  aaguid: string;
-  attestationFormat: string;
-  transports: string[];
-  deviceType: string;
-  backedUp: boolean;
-  createdAt: string;
-  lastUsedAt: string | null;
+type RegistrationOptions = {
+  ceremonyId: string;
+  options: Parameters<typeof startRegistration>[0]['optionsJSON'];
 };
 
-type SecurityData = { authMethod: 'password+totp' | 'webauthn'; credentials: Credential[] };
-type SecurityResponse = { ok: boolean; data?: SecurityData; error?: { code?: string; message: string } };
-type RegistrationOptionsResponse = { ok: boolean; data?: { ceremonyId: string; options: Parameters<typeof startRegistration>[0]['optionsJSON'] }; error?: { message: string } };
-
-function formatDate(value: string | null) {
-  if (!value) return '尚未使用';
+function formatDate(value: string | null, fallback: string) {
+  if (!value) return fallback;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : date.toISOString().replace('T', ' ').slice(0, 16);
 }
 
-async function readJson<T>(response: Response): Promise<T | null> {
-  const text = await response.text();
-  if (!text) return null;
-  try { return JSON.parse(text) as T; } catch { return null; }
-}
-
-export default function SecurityPageClient({ csrfToken }: { csrfToken: string }) {
+export default function SecurityPageClient({ csrfToken, developmentBypass = false }: { csrfToken: string; developmentBypass?: boolean }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [data, setData] = useState<SecurityData | null>(null);
   const [label, setLabel] = useState('');
   const [registering, setRegistering] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [pendingRevoke, setPendingRevoke] = useState<SecurityCredential | null>(null);
 
   const load = useCallback(async () => {
-    const response = await fetch('/api/admin/security/credentials', { cache: 'no-store' });
-    const json = await readJson<SecurityResponse>(response);
-    if (response.status === 401 || response.status === 403) {
-      router.push('/login');
-      return;
+    try {
+      setData(await adminRequest<SecurityData>('/api/admin/security/credentials'));
+    } catch (caught) {
+      if (isAdminApiError(caught) && (caught.status === 401 || caught.status === 403)) {
+        router.push('/login');
+        return;
+      }
+      throw caught;
     }
-    if (!response.ok || !json?.ok || !json.data) throw new Error(json?.error?.message ?? '无法读取安全设置。');
-    setData(json.data);
   }, [router]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void load().catch((error) => toast.error(error instanceof Error ? error.message : '无法读取安全设置。'));
-    }, 0);
+    const timer = window.setTimeout(() => { void load().catch((caught) => toast.error(caught instanceof Error ? caught.message : t('security.loadError'))); }, 0);
     return () => window.clearTimeout(timer);
-  }, [load]);
+  }, [load, t]);
 
   async function register() {
     if (!label.trim()) {
-      toast.error('请先输入安全密钥名称。');
+      toast.error(t('security.labelRequired'));
       return;
     }
     setRegistering(true);
     try {
-      const optionsResponse = await fetch('/api/admin/webauthn/registration/options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
-        body: JSON.stringify({ label }),
-      });
-      const optionsJson = await readJson<RegistrationOptionsResponse>(optionsResponse);
-      if (!optionsResponse.ok || !optionsJson?.ok || !optionsJson.data) throw new Error(optionsJson?.error?.message ?? '无法开始安全密钥注册。');
-
-      const registrationResponse = await startRegistration({ optionsJSON: optionsJson.data.options });
-      const verifyResponse = await fetch('/api/admin/webauthn/registration/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
-        body: JSON.stringify({ ceremonyId: optionsJson.data.ceremonyId, response: registrationResponse }),
-      });
-      const verifyJson = await readJson<{ ok: boolean; error?: { message: string } }>(verifyResponse);
-      if (!verifyResponse.ok || !verifyJson?.ok) throw new Error(verifyJson?.error?.message ?? '安全密钥注册失败。');
-      toast.success('安全密钥已登记。');
+      if (developmentBypass) {
+        await adminRequest<{ credentialId: string; authMethod: 'webauthn' }>('/api/admin/webauthn/registration/verify', { method: 'POST', csrfToken, body: { development: true, label } });
+        toast.success(t('security.registeredSuccess'));
+        setLabel('');
+        await load();
+        return;
+      }
+      const options = await adminRequest<RegistrationOptions>('/api/admin/webauthn/registration/options', { method: 'POST', csrfToken, body: { label } });
+      const response = await startRegistration({ optionsJSON: options.options });
+      await adminRequest<{ credentialId: string; authMethod: 'webauthn' }>('/api/admin/webauthn/registration/verify', { method: 'POST', csrfToken, body: { ceremonyId: options.ceremonyId, response } });
+      toast.success(t('security.registeredSuccess'));
       router.push('/security?enrolled=1');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : '安全密钥注册失败。');
+    } catch (caught) {
+      if (isAdminApiError(caught) && (caught.status === 401 || caught.status === 403)) router.push('/login');
+      else toast.error(caught instanceof Error ? caught.message : t('security.registerError'));
     } finally {
       setRegistering(false);
     }
   }
 
-  async function revoke(id: string) {
-    if (!window.confirm('确定撤销这枚安全密钥吗？撤销后所有现有会话都会结束。')) return;
-    setRevoking(id);
+  async function revoke() {
+    if (!pendingRevoke) return;
+    const credential = pendingRevoke;
+    setPendingRevoke(null);
+    setRevoking(credential.id);
     try {
-      const response = await fetch(`/api/admin/security/credentials/${id}`, {
-        method: 'DELETE',
-        headers: { 'x-csrf-token': csrfToken },
-      });
-      const json = await readJson<{ ok: boolean; error?: { message: string } }>(response);
-      if (!response.ok || !json?.ok) throw new Error(json?.error?.message ?? '无法撤销安全密钥。');
-      toast.success('安全密钥已撤销，当前会话已结束。');
+      await adminRequest<void>(`/api/admin/security/credentials/${credential.id}`, { method: 'DELETE', csrfToken });
+      toast.success(t('security.revokedSuccess'));
       router.push('/login');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : '无法撤销安全密钥。');
+    } catch (caught) {
+      if (isAdminApiError(caught) && (caught.status === 401 || caught.status === 403)) router.push('/login');
+      else toast.error(caught instanceof Error ? caught.message : t('security.revokeError'));
     } finally {
       setRevoking(null);
     }
   }
 
-  if (!data) return <main className="mx-auto w-full max-w-4xl p-5 lg:p-8"><Card><CardContent className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="animate-spin" />加载安全设置…</CardContent></Card></main>;
+  if (!data) return <PageFrame size="default"><PageHeader title={t('security.title')} description={t('security.loadingDescription')} /><div className="rounded-2xl border bg-card p-8"><div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status"><Loader2 className="animate-spin motion-reduce:animate-none" />{t('common.loading')}</div></div></PageFrame>;
 
   const isLegacy = data.authMethod === 'password+totp';
   const onlyOne = data.credentials.length === 1;
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-5 lg:p-8">
-      <div>
-        <div className="flex items-center gap-2"><ShieldCheck className="text-primary" /><h1 className="text-2xl font-semibold tracking-tight">安全设置</h1></div>
-        <p className="mt-1 text-sm text-muted-foreground">Owner 的管理后台登录使用 FIDO2 安全密钥。密钥私钥不会上传到服务器。</p>
-      </div>
+    <PageFrame size="default">
+      <PageHeader title={t('security.title')} icon={<ShieldCheck className="size-7" />} description={t('security.description')} />
+      {isLegacy ? <section className="rounded-2xl border border-brand/40 bg-brand/5 p-5 sm:p-6"><h2 className="font-heading text-base font-semibold">{t('security.migrationTitle')}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{t('security.migrationDescription')}</p><p className="mt-3 text-sm leading-6">{t('security.migrationHint')}</p></section> : null}
+      {!isLegacy && onlyOne ? <section className="rounded-2xl border border-warning/40 bg-warning/10 p-5 sm:p-6"><h2 className="font-heading text-base font-semibold">{t('security.backupTitle')}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{t('security.backupDescription')}</p></section> : null}
 
-      {isLegacy && <Card className="border-primary/40"><CardHeader><CardTitle>完成 Owner 安全密钥迁移</CardTitle><CardDescription>当前仍处于一次性密码 + TOTP 迁移模式。登记第一枚密钥后，Owner 的网页密码/TOTP 登录会立即关闭。</CardDescription></CardHeader><CardContent><p className="text-sm text-muted-foreground">请插入支持 FIDO2、PIN 和用户验证的硬件安全密钥。系统会要求你为它设置一个便于识别的名称。</p></CardContent></Card>}
+      <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+        <div><h2 className="font-heading text-base font-semibold">{t('security.registerTitle')}</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">{t('security.registerDescription')}</p></div>
+        <FieldGroup className="mt-5"><Field><FieldLabel htmlFor="credential-label">{t('security.label')}</FieldLabel><Input id="credential-label" value={label} maxLength={64} placeholder={t('security.labelPlaceholder')} onChange={(event) => setLabel(event.target.value)} /><FieldDescription>{t('security.labelHint')}</FieldDescription></Field></FieldGroup>
+        <AsyncAction type="button" className="mt-5 min-h-11" busy={registering} busyLabel={t('security.registering')} onClick={() => void register()}><Plus />{t('security.register')}</AsyncAction>
+      </section>
 
-      {!isLegacy && onlyOne && <Card className="border-amber-500/50"><CardHeader><CardTitle>建议添加备用密钥</CardTitle><CardDescription>当前只有一枚有效安全密钥。丢失它后只能通过离线运维流程恢复账户。</CardDescription></CardHeader></Card>}
+      <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+        <div><h2 className="font-heading text-base font-semibold">{t('security.keysTitle')}</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">{t('security.keysDescription')}</p></div>
+        <div className="mt-5 grid gap-3">{data.credentials.length === 0 ? <EmptyState title={t('security.noKeys')} description={t('security.noKeysHint')} className="min-h-32" /> : data.credentials.map((credential) => <CredentialRow key={credential.id} credential={credential} disabled={revoking !== null || data.credentials.length <= 1} revoking={revoking === credential.id} onRevoke={() => setPendingRevoke(credential)} />)}</div>
+      </section>
 
-      <Card>
-        <CardHeader><CardTitle>登记新的安全密钥</CardTitle><CardDescription>浏览器会提示使用跨平台安全密钥，并要求完成 PIN 和触摸验证。</CardDescription></CardHeader>
-        <CardContent><FieldGroup><Field><FieldLabel htmlFor="credential-label">密钥名称</FieldLabel><Input id="credential-label" value={label} maxLength={64} placeholder="例如：日常 YubiKey" onChange={(event) => setLabel(event.target.value)} /><FieldDescription>名称只用于你在此页面识别密钥，不会参与认证。</FieldDescription></Field></FieldGroup></CardContent>
-        <CardFooter><Button type="button" onClick={() => void register()} disabled={registering}>{registering ? <><Loader2 className="animate-spin" />验证中…</> : <><Plus />登记安全密钥</>}</Button></CardFooter>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle>已登记的密钥</CardTitle><CardDescription>只有有效 credential 可以登录；撤销会使所有现有会话失效。</CardDescription></CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {data.credentials.length === 0 ? <p className="text-sm text-muted-foreground">尚未登记安全密钥。</p> : data.credentials.map((credential) => <div key={credential.id} className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2 font-medium"><KeyRound className="size-4" />{credential.label}{credential.backedUp && <Badge variant="destructive">已备份</Badge>}</div><div className="mt-1 text-xs text-muted-foreground">设备：{credential.deviceType} · 证明：{credential.attestationFormat} · 传输：{credential.transports.join('、') || '未提供'}</div><div className="mt-1 font-mono text-xs text-muted-foreground">AAGUID {credential.aaguid} · 登记 {formatDate(credential.createdAt)} · 最近使用 {formatDate(credential.lastUsedAt)}</div></div><Button type="button" variant="outline" size="sm" onClick={() => void revoke(credential.id)} disabled={revoking !== null || data.credentials.length <= 1}><Trash2 />{revoking === credential.id ? '撤销中…' : '撤销'}</Button></div>)}
-        </CardContent>
-      </Card>
-    </main>
+      <ConfirmAction open={pendingRevoke !== null} onOpenChange={(open) => { if (!open) setPendingRevoke(null); }} title={t('security.revokeTitle')} description={t('security.revokeDescription')} confirmLabel={t('security.revokeConfirm')} destructive busy={revoking !== null} onConfirm={() => void revoke()} />
+    </PageFrame>
   );
+}
+
+function CredentialRow({ credential, disabled, revoking, onRevoke }: { credential: SecurityCredential; disabled: boolean; revoking: boolean; onRevoke: () => void }) {
+  const { t } = useI18n();
+  return <article className="flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2 font-medium"><KeyRound className="size-4" aria-hidden="true" />{credential.label}{credential.backedUp ? <Badge variant="destructive">{t('security.backedUp')}</Badge> : null}</div><p className="mt-1 text-sm text-muted-foreground">{credential.deviceType} · {t('security.registered', { date: formatDate(credential.createdAt, t('security.notUsed')) })} · {t('security.lastUsed', { date: formatDate(credential.lastUsedAt, t('security.notUsed')) })}</p><details className="mt-2 text-xs text-muted-foreground"><summary className="cursor-pointer outline-none focus-visible:ring-2">{t('security.technical')}</summary><p className="mt-2 font-mono leading-5">{t('security.attestation')}: {credential.attestationFormat} · {t('security.transports')}: {credential.transports.join('、') || t('security.notProvided')}<br />AAGUID: {credential.aaguid}</p></details></div><Button type="button" variant="outline" className="min-h-10 sm:shrink-0" onClick={onRevoke} disabled={disabled}>{revoking ? <><Loader2 className="animate-spin" />{t('security.revoking')}</> : <><Trash2 />{t('security.revoke')}</>}</Button></article>;
 }

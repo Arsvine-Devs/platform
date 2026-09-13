@@ -6,33 +6,27 @@ import { useRouter } from 'next/navigation';
 import { KeyRound, Loader2, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { adminRequest, isAdminApiError } from '@/lib/admin-api/client';
+import type { LoginData } from '@/lib/admin-api/contracts';
+import { useI18n } from '@/components/i18n/locale-provider';
+import LocaleSwitcher from '@/components/i18n/locale-switcher';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldGroup, FieldLabel, FieldSet } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-
-type LegacyLoginResponse =
-  | { ok: true; data?: { role?: 'owner' | 'editor'; authMethod?: 'password+totp' | 'webauthn'; needsWebAuthnSetup?: boolean } }
-  | { ok: false; error: { message: string } };
-
-type WebAuthnOptionsResponse =
-  | { ok: true; data: { ceremonyId: string; options: Parameters<typeof startAuthentication>[0]['optionsJSON'] } }
-  | { ok: false; error: { code?: string; message: string } };
-
-async function readJson<T>(response: Response): Promise<T | null> {
-  const text = await response.text();
-  if (!text) return null;
-  try { return JSON.parse(text) as T; } catch { return null; }
-}
+import { Separator } from '@/components/ui/separator';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [totpToken, setTotpToken] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [keySubmitting, setKeySubmitting] = useState(false);
+  const [devSubmitting, setDevSubmitting] = useState(false);
   const [webAuthnSupported, setWebAuthnSupported] = useState<boolean | null>(null);
+  const devPreviewAvailable = process.env.NEXT_PUBLIC_ADMIN_DEV_LOGIN_BYPASS === '1';
 
   useEffect(() => {
     const timer = window.setTimeout(() => setWebAuthnSupported(browserSupportsWebAuthn()), 0);
@@ -42,25 +36,12 @@ export default function LoginPage() {
   async function handleWebAuthnLogin() {
     setKeySubmitting(true);
     try {
-      const optionsResponse = await fetch('/api/admin/webauthn/authentication/options', { method: 'POST', cache: 'no-store' });
-      const optionsJson = await readJson<WebAuthnOptionsResponse>(optionsResponse);
-      if (!optionsResponse.ok || !optionsJson || !optionsJson.ok) {
-        throw new Error(optionsJson && !optionsJson.ok ? optionsJson.error.message : `无法开始安全密钥登录（HTTP ${optionsResponse.status}）。`);
-      }
-
-      const authenticationResponse = await startAuthentication({ optionsJSON: optionsJson.data.options });
-      const verifyResponse = await fetch('/api/admin/webauthn/authentication/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ceremonyId: optionsJson.data.ceremonyId, response: authenticationResponse }),
-      });
-      const verifyJson = await readJson<{ ok: boolean; error?: { message: string } }>(verifyResponse);
-      if (!verifyResponse.ok || !verifyJson?.ok) {
-        throw new Error(verifyJson?.error?.message ?? `安全密钥登录失败（HTTP ${verifyResponse.status}）。`);
-      }
+      const options = await adminRequest<{ ceremonyId: string; options: Parameters<typeof startAuthentication>[0]['optionsJSON'] }>('/api/admin/webauthn/authentication/options', { method: 'POST' });
+      const authenticationResponse = await startAuthentication({ optionsJSON: options.options });
+      await adminRequest<void>('/api/admin/webauthn/authentication/verify', { method: 'POST', body: { ceremonyId: options.ceremonyId, response: authenticationResponse } });
       router.push('/blog');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : '安全密钥登录失败。');
+      toast.error(error instanceof Error ? error.message : t('auth.keyLoginError'));
     } finally {
       setKeySubmitting(false);
     }
@@ -71,67 +52,27 @@ export default function LoginPage() {
     setSubmitting(true);
 
     try {
-      const response = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, totpToken }),
-      });
-      const json = await readJson<LegacyLoginResponse>(response);
-      if (!response.ok || !json?.ok) {
-        throw new Error(json?.ok ? '登录失败。' : json?.error.message ?? `登录失败（HTTP ${response.status}）。`);
-      }
-      router.push(json.data?.needsWebAuthnSetup ? '/security?setup=1' : '/blog');
+      const data = await adminRequest<LoginData>('/api/admin/login', { method: 'POST', body: { email, password, totpToken } });
+      router.push(data.needsWebAuthnSetup ? '/security?setup=1' : '/blog');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : '登录失败。');
+      toast.error(error instanceof Error ? error.message : t('auth.loginError'));
     } finally {
       setSubmitting(false);
     }
   }
 
-  return (
-    <div className="flex min-h-svh items-center justify-center bg-background p-6">
-      <Card className="w-full max-w-lg">
-        <CardHeader>
-          <CardDescription>Admin Login</CardDescription>
-          <CardTitle>ARSVINE ADMIN</CardTitle>
-          <p className="text-sm text-muted-foreground">Owner 使用安全密钥登录；Editor 使用账户凭据登录。</p>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-6">
-          <section className="rounded-lg border bg-muted/20 p-4">
-            <div className="mb-3 flex items-center gap-2 font-medium"><KeyRound />Owner 安全密钥登录</div>
-            <p className="mb-4 text-sm text-muted-foreground">插入并触摸已登记的 FIDO2 安全密钥，按提示输入密钥 PIN。</p>
-            <Button type="button" className="w-full" onClick={() => void handleWebAuthnLogin()} disabled={keySubmitting || webAuthnSupported === false}>
-              {keySubmitting ? <><Loader2 className="animate-spin" />验证中…</> : <><KeyRound />使用安全密钥登录</>}
-            </Button>
-            {webAuthnSupported === false && <p className="mt-2 text-xs text-destructive">当前浏览器不支持 WebAuthn，请更换现代浏览器。</p>}
-            <p className="mt-2 text-xs text-muted-foreground">首次迁移或尚未登记密钥时，请使用下方现有凭据完成一次设置。</p>
-          </section>
+  async function handleDevelopmentLogin() {
+    setDevSubmitting(true);
+    try {
+      await adminRequest<{ email: string; role: 'owner'; developmentBypass: true }>('/api/admin/dev-login', { method: 'POST' });
+      router.push('/library');
+    } catch (error) {
+      if (isAdminApiError(error) && error.status === 404) toast.error(t('auth.devPreviewDisabled'));
+      else toast.error(error instanceof Error ? error.message : t('auth.devPreviewDisabled'));
+    } finally {
+      setDevSubmitting(false);
+    }
+  }
 
-          <div className="relative flex items-center"><div className="h-px flex-1 bg-border" /><span className="px-3 text-xs text-muted-foreground">Editor / 首次迁移</span><div className="h-px flex-1 bg-border" /></div>
-
-          <form onSubmit={handleLegacyLogin} className="flex flex-col gap-4">
-            <FieldSet>
-              <FieldGroup>
-                <Field>
-                  <FieldLabel htmlFor="email">邮箱地址</FieldLabel>
-                  <Input id="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="password">密码</FieldLabel>
-                  <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} />
-                </Field>
-                <Field>
-                  <FieldLabel htmlFor="totp">TOTP 验证码</FieldLabel>
-                  <Input id="totp" inputMode="numeric" autoComplete="one-time-code" value={totpToken} maxLength={6} onChange={(event) => setTotpToken(event.target.value.replace(/\D/g, '').slice(0, 6))} />
-                </Field>
-              </FieldGroup>
-            </FieldSet>
-            <Button type="submit" variant="outline" disabled={submitting} className="w-full">
-              {submitting ? <><Loader2 className="animate-spin" />登录中…</> : <><LogIn />使用账户凭据登录</>}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  return <div className="relative flex min-h-svh items-center justify-center bg-muted/20 px-4 py-8 sm:px-6"><div className="absolute right-4 top-4 sm:right-6 sm:top-6"><LocaleSwitcher /></div><main className="w-full max-w-2xl"><div className="mb-8 text-center"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">ARSVINE ADMIN</p><h1 className="mt-3 font-heading text-3xl font-semibold tracking-tight">{t('auth.welcome')}</h1><p className="mt-2 text-sm text-muted-foreground">{t('auth.chooseLogin')}</p></div><Card className="overflow-hidden"><CardHeader className="border-b bg-card px-5 py-5 sm:px-7"><CardDescription>{t('auth.secureLogin')}</CardDescription><CardTitle>{t('auth.enterWorkspace')}</CardTitle></CardHeader><CardContent className="grid gap-6 px-5 py-6 sm:px-7"><section className="rounded-2xl border border-brand/30 bg-brand/5 p-5"><div className="flex items-center gap-2 font-medium"><KeyRound className="text-brand" />{t('auth.ownerKey')}</div><p className="mt-2 text-sm leading-6 text-muted-foreground">{t('auth.ownerKeyDescription')}</p><Button type="button" className="mt-4 min-h-11 w-full" onClick={() => void handleWebAuthnLogin()} disabled={keySubmitting || webAuthnSupported === false}>{keySubmitting ? <><Loader2 className="animate-spin motion-reduce:animate-none" />{t('auth.verifying')}</> : <><KeyRound />{t('auth.useKey')}</>}</Button>{webAuthnSupported === false ? <p className="mt-3 text-xs text-destructive" role="alert">{t('auth.unsupportedWebAuthn')}</p> : null}<p className="mt-3 text-xs leading-5 text-muted-foreground">{t('auth.migrationHint')}</p></section><div className="relative flex items-center"><div className="h-px flex-1 bg-border" /><span className="px-3 text-xs text-muted-foreground">{t('auth.editorMigration')}</span><div className="h-px flex-1 bg-border" /></div><form onSubmit={handleLegacyLogin} className="grid gap-4"><FieldSet><FieldGroup><Field><FieldLabel htmlFor="email">{t('auth.email')}</FieldLabel><Input id="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></Field><Field><FieldLabel htmlFor="password">{t('auth.password')}</FieldLabel><Input id="password" type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} /></Field><Field><FieldLabel htmlFor="totp">{t('auth.totp')}</FieldLabel><Input id="totp" inputMode="numeric" autoComplete="one-time-code" value={totpToken} maxLength={6} onChange={(event) => setTotpToken(event.target.value.replace(/\D/g, '').slice(0, 6))} /></Field></FieldGroup></FieldSet><Button type="submit" variant="outline" disabled={submitting} className="min-h-11 w-full">{submitting ? <><Loader2 className="animate-spin motion-reduce:animate-none" />{t('auth.loggingIn')}</> : <><LogIn />{t('auth.useCredentials')}</>}</Button></form>{devPreviewAvailable ? <><Separator /><section className="rounded-2xl border border-dashed border-brand/50 bg-brand/5 p-5"><div className="flex items-center gap-2 text-sm font-medium"><span className="rounded-full bg-brand/15 px-2 py-1 text-xs text-brand">{t('auth.devOnly')}</span>{t('auth.devPreview')}</div><p className="mt-2 text-sm leading-6 text-muted-foreground">{t('auth.devPreviewDescription')}</p><Button type="button" variant="secondary" className="mt-4 min-h-11 w-full" onClick={() => void handleDevelopmentLogin()} disabled={devSubmitting}>{devSubmitting ? t('auth.devPreviewSigning') : t('auth.devPreviewButton')}</Button></section></> : null}</CardContent></Card></main></div>;
 }

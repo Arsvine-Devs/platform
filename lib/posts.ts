@@ -12,63 +12,18 @@ import {
   sanitizeCommitMessage,
 } from './input-validation';
 
-export const BLOG_LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ru', 'fr'] as const;
+import {
+  BLOG_LOCALES,
+  type BlogAccessMode,
+  type BlogIndexItem,
+  type BlogIndexVariant,
+  type BlogLocale,
+  type BlogPublishBatchInput,
+  type BlogPublishInput,
+  type BlogPublishVariantInput,
+} from './admin-api/contracts';
 
-export type BlogLocale = (typeof BLOG_LOCALES)[number];
-type AccessMode = 'public' | 'totp';
-
-export type PublishInput = {
-  slug: string;
-  locale: BlogLocale;
-  title: string;
-  excerpt: string;
-  date: string;
-  tags: string[];
-  pinned: boolean;
-  accessMode: AccessMode;
-  accessGroup?: string;
-  content: string;
-  originLocale?: BlogLocale;
-};
-
-export type PublishVariantInput = {
-  locale: BlogLocale;
-  title: string;
-  excerpt: string;
-  tags: string[];
-  content: string;
-  originLocale?: BlogLocale;
-};
-
-export type PublishBatchInput = {
-  slug: string;
-  date: string;
-  pinned: boolean;
-  accessMode: AccessMode;
-  accessGroup?: string;
-  variants: PublishVariantInput[];
-};
-
-export type BlogIndexVariant = {
-  title: string;
-  excerpt: string;
-  tags?: string[];
-  originLocale?: BlogLocale;
-};
-
-export type BlogIndexItem = {
-  slug: string;
-  date: string;
-  updatedAt: string;
-  tags: string[];
-  pinned: boolean;
-  access: {
-    mode: AccessMode;
-    group?: string;
-  };
-  availableLocales: BlogLocale[];
-  variants: Partial<Record<BlogLocale, BlogIndexVariant>>;
-};
+type AccessMode = BlogAccessMode;
 
 type BlogIndex = {
   version: number;
@@ -345,14 +300,14 @@ export async function getBlogVariant(slug: string, locale: string) {
     date: typeof data.date === 'string' ? data.date : '',
     tags: Array.isArray(data.tags) ? data.tags : [],
     pinned: Boolean(data.pinned),
-    accessMode: data.access?.mode === 'totp' ? 'totp' : 'public',
+    accessMode: data.access?.mode === 'totp' ? ('totp' as const) : ('public' as const),
     accessGroup: data.access?.group?.trim() || '',
     originLocale: data.originLocale || '',
     content: parsed.content,
   };
 }
 
-export async function publishPost(input: PublishInput) {
+export async function publishPost(input: BlogPublishInput) {
   const result = await publishPostBatch({
     slug: input.slug,
     date: input.date,
@@ -378,14 +333,14 @@ export async function publishPost(input: PublishInput) {
   };
 }
 
-export async function publishPostBatch(input: PublishBatchInput) {
+export async function publishPostBatch(input: BlogPublishBatchInput) {
   const slug = normalizeSlug(input.slug);
   const date = normalizeDate(input.date);
   const access = buildAccess(input.accessMode, input.accessGroup);
   const timestamp = new Date().toISOString();
   const existingVariants = await readExistingVariants(slug);
   const existingByLocale = new Map(existingVariants.map((variant) => [variant.locale, variant]));
-  const requestedVariants = new Map<BlogLocale, PublishVariantInput>();
+  const requestedVariants = new Map<BlogLocale, BlogPublishVariantInput>();
 
   for (const variant of input.variants) {
     const locale = normalizeLocale(variant.locale);

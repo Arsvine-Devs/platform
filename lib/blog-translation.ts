@@ -1,8 +1,8 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-import type { BlogLocale } from './posts';
-import { getWorkspace } from './workspace-context';
+import type { BlogLocale } from './admin-api/contracts';
+import { getWorkspace, isDevelopmentWorkspace } from './workspace-context';
 
 const DEFAULT_MODEL = 'deepseek-v4-flash';
 const DEFAULT_DEEPSEEK_THINKING = 'enabled';
@@ -139,6 +139,9 @@ async function requestTranslation(params: {
   content: string;
   targetLocale: BlogTranslationTargetLocale;
 }) {
+  if (isDevelopmentWorkspace()) {
+    throw new Error('Development preview cannot access translation services.');
+  }
   const { baseUrl, apiKey, model, thinking, reasoningEffort } = getTranslationApiConfig();
   const systemPrompt = await loadPromptTemplate(params.targetLocale);
   const useDeepSeekThinking = isDeepSeekTranslationConfig({ baseUrl, model });

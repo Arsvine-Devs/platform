@@ -1,8 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Copy, Link, Plus, UserRoundX } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Copy, Link as LinkIcon, Plus, UserRoundX } from 'lucide-react';
 import { toast } from 'sonner';
+
+import { adminRequest, isAdminApiError } from '@/lib/admin-api/client';
+import type { Invitation, InviteData, Member, MembersData } from '@/lib/admin-api/contracts';
+import { ConfirmAction, EmptyState, PageFrame, PageHeader } from '@/components/admin/blocks';
+import { useI18n } from '@/components/i18n/locale-provider';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -10,56 +16,114 @@ import { Field, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-type Member = { id: string; email: string; role: 'owner' | 'editor'; status: 'pending' | 'active' | 'disabled'; createdAt: string; updatedAt: string };
-type Invitation = { id: string; email: string; status: 'pending'; expiresAt: string; createdAt: string };
-type MemberData = { members: Member[]; invitations: Invitation[] };
+function formatDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toISOString().slice(0, 10);
+}
 
-function formatDate(value: string) { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toISOString().slice(0, 10); }
+type Translate = (key: string, values?: Record<string, string | number>) => string;
+
+function memberRole(role: Member['role'], t: Translate) {
+  return role === 'owner' ? t('members.owner') : t('members.editor');
+}
+
+function memberStatus(status: Member['status'], t: Translate) {
+  return status === 'active' ? t('members.active') : status === 'pending' ? t('members.pending') : t('members.disabled');
+}
 
 export default function MembersPageClient({ csrfToken }: { csrfToken: string }) {
-  const [data, setData] = useState<MemberData>({ members: [], invitations: [] });
+  const router = useRouter();
+  const { t } = useI18n();
+  const [data, setData] = useState<MembersData>({ members: [], invitations: [] });
   const [email, setEmail] = useState('');
   const [open, setOpen] = useState(false);
-  const [createdLink, setCreatedLink] = useState<string | null>(null);
+  const [createdLink, setCreatedLink] = useState<InviteData | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<{ member: Member; status: 'active' | 'disabled' } | null>(null);
+  const [changingStatus, setChangingStatus] = useState(false);
 
   const load = useCallback(async () => {
-    const response = await fetch('/api/admin/members', { cache: 'no-store' });
-    const json = await response.json() as { ok: boolean; data?: MemberData };
-    if (response.ok && json.ok && json.data) setData(json.data);
-  }, []);
-  useEffect(() => { const timer = window.setTimeout(() => { void load(); }, 0); return () => window.clearTimeout(timer); }, [load]);
+    try {
+      setData(await adminRequest<MembersData>('/api/admin/members'));
+    } catch (caught) {
+      if (isAdminApiError(caught) && (caught.status === 401 || caught.status === 403)) router.push('/login');
+      else toast.error(caught instanceof Error ? caught.message : t('members.loadError'));
+    }
+  }, [router, t]);
 
-  async function copy(value: string, message: string) { await navigator.clipboard.writeText(value); toast.success(message); }
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+
+  async function copy(value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(t('members.copied'));
+    } catch {
+      toast.error(t('members.copyFailed'));
+    }
+  }
+
   async function invite() {
     setInviting(true);
     try {
-      const response = await fetch('/api/admin/members', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify({ email }) });
-      const json = await response.json() as { ok: boolean; data?: { invitationUrl: string }; error?: { message: string } };
-      if (!response.ok || !json.ok || !json.data) throw new Error(json.error?.message ?? '创建邀请失败。');
-      setCreatedLink(json.data.invitationUrl); setEmail(''); await load();
-    } catch (error) { toast.error(error instanceof Error ? error.message : '创建邀请失败。'); }
-    finally { setInviting(false); }
-  }
-  async function revoke(id: string) {
-    try {
-      const response = await fetch(`/api/admin/members/invitations/${id}`, { method: 'DELETE', headers: { 'x-csrf-token': csrfToken } });
-      const json = await response.json() as { ok: boolean; error?: { message: string } };
-      if (!response.ok || !json.ok) throw new Error(json.error?.message ?? '撤销邀请失败。');
-      toast.success('邀请已撤销。'); await load();
-    } catch (error) { toast.error(error instanceof Error ? error.message : '撤销邀请失败。'); }
-  }
-  async function setStatus(member: Member, status: 'active' | 'disabled') {
-    try {
-      const response = await fetch(`/api/admin/members/${member.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken }, body: JSON.stringify({ status }) });
-      const json = await response.json() as { ok: boolean; error?: { message: string } };
-      if (!response.ok || !json.ok) throw new Error(json.error?.message ?? '更新失败。');
-      toast.success(status === 'disabled' ? '账户已停用，私密配置已删除。' : '账户已重新启用。'); await load();
-    } catch (error) { toast.error(error instanceof Error ? error.message : '更新失败。'); }
+      const result = await adminRequest<InviteData>('/api/admin/members', { method: 'POST', csrfToken, body: { email } });
+      setCreatedLink(result);
+      setEmail('');
+      await load();
+    } catch (caught) {
+      if (isAdminApiError(caught) && (caught.status === 401 || caught.status === 403)) router.push('/login');
+      else toast.error(caught instanceof Error ? caught.message : t('members.createError'));
+    } finally {
+      setInviting(false);
+    }
   }
 
-  return <main className="mx-auto w-full max-w-6xl p-5 lg:p-8"><div className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><h1 className="text-2xl font-semibold tracking-tight">成员</h1><p className="mt-1 text-sm text-muted-foreground">仅管理账户与邀请。成员的内容、仓库和凭据始终不可见。</p></div><Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) setCreatedLink(null); }}><DialogTrigger render={<Button><Plus data-icon="inline-start" />邀请编辑</Button>} /><DialogContent><DialogHeader><DialogTitle>{createdLink ? '邀请链接已创建' : '邀请编辑'}</DialogTitle><DialogDescription>{createdLink ? '复制并通过你自己的渠道发送此一次性链接。二维码、TOTP 密钥和接入说明仅会在接收者打开链接后显示。' : '系统会生成一条仅能使用一次、72 小时后失效的邀请链接。'}</DialogDescription></DialogHeader>{createdLink ? <div className="flex gap-2"><Input value={createdLink} readOnly /><Button type="button" variant="outline" size="icon" aria-label="复制邀请链接" onClick={() => void copy(createdLink, '邀请链接已复制。')}><Copy /></Button></div> : <FieldGroup><Field><FieldLabel htmlFor="member-email">邮箱地址</FieldLabel><Input id="member-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></Field></FieldGroup>}<DialogFooter>{createdLink ? <Button onClick={() => setOpen(false)}>完成</Button> : <Button onClick={() => void invite()} disabled={inviting || !email}>{inviting ? '创建中…' : <><Link data-icon="inline-start" />创建邀请链接</>}</Button>}</DialogFooter></DialogContent></Dialog></div>
-    <section><h2 className="mb-3 text-sm font-medium">待接受的邀请</h2><Table><TableHeader><TableRow><TableHead>邮箱</TableHead><TableHead>有效至</TableHead><TableHead><span className="sr-only">操作</span></TableHead></TableRow></TableHeader><TableBody>{data.invitations.length === 0 ? <TableRow><TableCell colSpan={3} className="text-muted-foreground">没有待接受的邀请。</TableCell></TableRow> : data.invitations.map((invitation) => <TableRow key={invitation.id}><TableCell>{invitation.email}</TableCell><TableCell className="font-mono text-xs text-muted-foreground">{formatDate(invitation.expiresAt)}</TableCell><TableCell className="text-right"><Button size="sm" variant="outline" onClick={() => void revoke(invitation.id)}>撤销</Button></TableCell></TableRow>)}</TableBody></Table></section>
-    <section className="mt-8"><h2 className="mb-3 text-sm font-medium">账户</h2><Table><TableHeader><TableRow><TableHead>邮箱</TableHead><TableHead>角色</TableHead><TableHead>状态</TableHead><TableHead>加入时间</TableHead><TableHead><span className="sr-only">操作</span></TableHead></TableRow></TableHeader><TableBody>{data.members.map((member) => <TableRow key={member.id}><TableCell className="font-medium">{member.email}</TableCell><TableCell>{member.role === 'owner' ? '唯一管理员' : '编辑'}</TableCell><TableCell><Badge variant={member.status === 'active' ? 'secondary' : 'outline'}>{member.status === 'active' ? '活跃' : member.status === 'pending' ? '待激活' : '已停用'}</Badge></TableCell><TableCell className="font-mono text-xs text-muted-foreground">{formatDate(member.createdAt)}</TableCell><TableCell className="text-right">{member.role === 'editor' ? <Button size="sm" variant={member.status === 'disabled' ? 'outline' : 'destructive'} onClick={() => void setStatus(member, member.status === 'disabled' ? 'active' : 'disabled')}>{member.status === 'disabled' ? '重新启用' : <><UserRoundX data-icon="inline-start" />停用</>}</Button> : <span className="text-xs text-muted-foreground">受保护</span>}</TableCell></TableRow>)}</TableBody></Table></section>
-  </main>;
+  async function revokeInvitation(invitation: Invitation) {
+    try {
+      await adminRequest<void>(`/api/admin/members/invitations/${invitation.id}`, { method: 'DELETE', csrfToken });
+      toast.success(t('members.invitationRevoked'));
+      await load();
+    } catch (caught) {
+      if (isAdminApiError(caught) && (caught.status === 401 || caught.status === 403)) router.push('/login');
+      else toast.error(caught instanceof Error ? caught.message : t('members.revokeError'));
+    }
+  }
+
+  async function setStatus() {
+    if (!pendingStatus) return;
+    const { member, status } = pendingStatus;
+    setPendingStatus(null);
+    setChangingStatus(true);
+    try {
+      await adminRequest<void>(`/api/admin/members/${member.id}`, { method: 'PATCH', csrfToken, body: { status } });
+      toast.success(status === 'disabled' ? t('members.disabledSuccess') : t('members.enabledSuccess'));
+      await load();
+    } catch (caught) {
+      if (isAdminApiError(caught) && (caught.status === 401 || caught.status === 403)) router.push('/login');
+      else toast.error(caught instanceof Error ? caught.message : t('members.statusError'));
+    } finally {
+      setChangingStatus(false);
+    }
+  }
+
+  const statusDescription = pendingStatus?.status === 'disabled' ? t('members.disableDescription', { email: pendingStatus.member.email }) : pendingStatus ? t('members.enableDescription', { email: pendingStatus.member.email }) : '';
+
+  return (
+    <PageFrame size="wide">
+      <PageHeader title={t('members.title')} description={t('members.description')} actions={<Dialog open={open} onOpenChange={(next) => { setOpen(next); if (!next) setCreatedLink(null); }}><DialogTrigger render={<Button className="min-h-11"><Plus data-icon="inline-start" />{t('members.invite')}</Button>} /><DialogContent><DialogHeader><DialogTitle>{createdLink ? t('members.invitationCreated') : t('members.inviteDialog')}</DialogTitle><DialogDescription>{createdLink ? t('members.invitationCreatedDescription', { date: formatDate(createdLink.expiresAt) }) : t('members.inviteDialogDescription')}</DialogDescription></DialogHeader>{createdLink ? <div className="flex gap-2"><Input value={createdLink.invitationUrl} readOnly aria-label={t('members.invitationLink')} /><Button type="button" variant="outline" className="min-h-11 shrink-0" aria-label={t('members.copy')} onClick={() => void copy(createdLink.invitationUrl)}><Copy /></Button></div> : <FieldGroup><Field><FieldLabel htmlFor="member-email">{t('members.email')}</FieldLabel><Input id="member-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></Field></FieldGroup>}<DialogFooter>{createdLink ? <Button className="min-h-11" onClick={() => setOpen(false)}>{t('members.invitationDone')}</Button> : <Button className="min-h-11" onClick={() => void invite()} disabled={inviting || !email}>{inviting ? t('members.creating') : <><LinkIcon data-icon="inline-start" />{t('members.createInvitation')}</>}</Button>}</DialogFooter></DialogContent></Dialog>} />
+
+      <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6"><div className="mb-4"><h2 className="font-heading text-base font-semibold">{t('members.pendingTitle')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('members.pendingDescription')}</p></div>{data.invitations.length === 0 ? <EmptyState title={t('members.noInvites')} className="min-h-28" /> : <><div className="hidden overflow-x-auto sm:block"><Table><TableHeader><TableRow><TableHead>{t('members.email')}</TableHead><TableHead>{t('members.expires')}</TableHead><TableHead><span className="sr-only">{t('common.actions')}</span></TableHead></TableRow></TableHeader><TableBody>{data.invitations.map((invitation) => <TableRow key={invitation.id}><TableCell>{invitation.email}</TableCell><TableCell className="font-mono text-xs text-muted-foreground">{formatDate(invitation.expiresAt)}</TableCell><TableCell className="text-right"><Button type="button" variant="outline" className="min-h-10" onClick={() => void revokeInvitation(invitation)}>{t('members.revokeInvitation')}</Button></TableCell></TableRow>)}</TableBody></Table></div><div className="grid gap-2 sm:hidden">{data.invitations.map((invitation) => <div key={invitation.id} className="flex items-center justify-between gap-3 rounded-xl border p-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{invitation.email}</p><p className="mt-1 text-xs text-muted-foreground">{t('members.expires')} {formatDate(invitation.expiresAt)}</p></div><Button type="button" variant="outline" className="min-h-10 shrink-0" onClick={() => void revokeInvitation(invitation)}>{t('members.revokeInvitation')}</Button></div>)}</div></>}</section>
+
+      <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6"><div className="mb-4"><h2 className="font-heading text-base font-semibold">{t('members.accountsTitle')}</h2><p className="mt-1 text-sm text-muted-foreground">{t('members.accountsDescription')}</p></div><div className="hidden overflow-x-auto sm:block"><Table><TableHeader><TableRow><TableHead>{t('members.email')}</TableHead><TableHead>{t('members.role')}</TableHead><TableHead>{t('members.status')}</TableHead><TableHead>{t('members.joined')}</TableHead><TableHead><span className="sr-only">{t('common.actions')}</span></TableHead></TableRow></TableHeader><TableBody>{data.members.map((member) => <MemberRow key={member.id} member={member} onStatusChange={(status) => setPendingStatus({ member, status })} />)}</TableBody></Table></div><div className="grid gap-2 sm:hidden">{data.members.map((member) => <article key={member.id} className="rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{member.email}</p><p className="mt-1 text-xs text-muted-foreground">{memberRole(member.role, t)} · {t('members.joinedOn', { date: formatDate(member.createdAt) })}</p></div><Badge variant={member.status === 'active' ? 'secondary' : 'outline'}>{memberStatus(member.status, t)}</Badge></div>{member.role === 'editor' ? <Button type="button" variant={member.status === 'disabled' ? 'outline' : 'destructive'} className="mt-4 min-h-10 w-full" onClick={() => setPendingStatus({ member, status: member.status === 'disabled' ? 'active' : 'disabled' })}>{member.status === 'disabled' ? t('members.enable') : <><UserRoundX data-icon="inline-start" />{t('members.disable')}</>}</Button> : <p className="mt-4 text-xs text-muted-foreground">{t('members.ownerProtected')}</p>}</article>)}</div></section>
+
+      <ConfirmAction open={pendingStatus !== null} onOpenChange={(next) => { if (!next) setPendingStatus(null); }} title={pendingStatus?.status === 'disabled' ? t('members.disableTitle') : t('members.enableTitle')} description={statusDescription} confirmLabel={pendingStatus?.status === 'disabled' ? t('members.disable') : t('members.enable')} destructive={pendingStatus?.status === 'disabled'} busy={changingStatus} onConfirm={() => void setStatus()} />
+    </PageFrame>
+  );
+}
+
+function MemberRow({ member, onStatusChange }: { member: Member; onStatusChange: (status: 'active' | 'disabled') => void }) {
+  const { t } = useI18n();
+  return <TableRow><TableCell className="font-medium">{member.email}</TableCell><TableCell>{memberRole(member.role, t)}</TableCell><TableCell><Badge variant={member.status === 'active' ? 'secondary' : 'outline'}>{memberStatus(member.status, t)}</Badge></TableCell><TableCell className="font-mono text-xs text-muted-foreground">{formatDate(member.createdAt)}</TableCell><TableCell className="text-right">{member.role === 'editor' ? <Button type="button" size="sm" className="min-h-10" variant={member.status === 'disabled' ? 'outline' : 'destructive'} onClick={() => onStatusChange(member.status === 'disabled' ? 'active' : 'disabled')}>{member.status === 'disabled' ? t('members.enable') : <><UserRoundX data-icon="inline-start" />{t('members.disable')}</>}</Button> : <span className="text-xs text-muted-foreground">{t('members.protected')}</span>}</TableCell></TableRow>;
 }

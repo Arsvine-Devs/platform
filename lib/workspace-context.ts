@@ -35,13 +35,18 @@ export function resolveXTimelineSyncMethod(config: XTimelineConfig): XTimelineSy
 }
 
 const storage = new AsyncLocalStorage<WorkspaceConfig>();
+const executionMode = new AsyncLocalStorage<'remote' | 'development'>();
 
-export function withWorkspace<T>(config: WorkspaceConfig, callback: () => T) {
-  return storage.run(config, callback);
+export function withWorkspace<T>(config: WorkspaceConfig, callback: () => T, mode: 'remote' | 'development' = 'remote') {
+  return storage.run(config, () => executionMode.run(mode, callback));
 }
 
 export function getWorkspace() {
   const config = storage.getStore();
   if (!config) throw new Error('Missing authenticated workspace configuration');
   return config;
+}
+
+export function isDevelopmentWorkspace() {
+  return executionMode.getStore() === 'development';
 }

@@ -116,7 +116,7 @@ export async function getWorkspaceSummary(userId: string) {
   const config = await getWorkspaceConfig(userId);
   return {
     github: { owner: config.github.owner, repo: config.github.repo, branch: config.github.branch, hasToken: Boolean(config.github.token) },
-    revalidate: { hasContentUrl: Boolean(config.revalidate.contentUrl), hasTweetsUrl: Boolean(config.revalidate.tweetsUrl), hasSecret: Boolean(config.revalidate.secret) },
+    revalidate: { contentUrl: config.revalidate.contentUrl ?? '', tweetsUrl: config.revalidate.tweetsUrl ?? '', hasContentUrl: Boolean(config.revalidate.contentUrl), hasTweetsUrl: Boolean(config.revalidate.tweetsUrl), hasSecret: Boolean(config.revalidate.secret) },
     translation: config.translation ? { baseUrl: config.translation.baseUrl, model: config.translation.model ?? '', hasApiKey: Boolean(config.translation.apiKey) } : null,
     x: config.x ? {
       syncMethod: resolveXTimelineSyncMethod(config.x),

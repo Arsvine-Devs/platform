@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
+    "@mdxeditor/editor": "4.2.4",
     "@neondatabase/serverless": "^1.1.0",
     "@simplewebauthn/browser": "14.0.0",
     "@simplewebauthn/server": "14.0.1",

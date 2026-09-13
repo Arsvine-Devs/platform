@@ -8,7 +8,7 @@ import {
     type TweetLang,
     type TweetTranslation,
 } from './tweets-types';
-import { getWorkspace } from './workspace-context';
+import { getWorkspace, isDevelopmentWorkspace } from './workspace-context';
 
 const PROMPTS_DIR = path.join(process.cwd(), 'prompts');
 const DEFAULT_MODEL = 'deepseek-v4-flash';
@@ -157,6 +157,9 @@ async function requestTranslation(params: {
     content: string;
     targetLocale: SiteTweetLocale;
 }) {
+    if (isDevelopmentWorkspace()) {
+        throw new Error('Development preview cannot access translation services.');
+    }
     const { baseUrl, apiKey, model, thinking, reasoningEffort } = getTranslationApiConfig();
     const systemPrompt = await loadPromptTemplate(params.targetLocale);
     const useDeepSeekThinking = isDeepSeekTranslationConfig({ baseUrl, model });

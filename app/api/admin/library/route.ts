@@ -4,12 +4,15 @@ import { getBlogIndex } from '../../../../lib/posts';
 import { withSessionWorkspace } from '../../../../lib/request-auth';
 import { privateJson } from '../../../../lib/private-response';
 import { getDashboardData } from '../../../../lib/tweets';
+import type { LibraryData } from '../../../../lib/admin-api/contracts';
+import { getDevelopmentLibraryData, isDevelopmentBypassSession } from '../../../../lib/development-preview';
 
 export async function GET(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
+  if (isDevelopmentBypassSession(session)) return privateJson({ ok: true, data: getDevelopmentLibraryData() });
   try {
-    const data = await withSessionWorkspace(session, async () => {
+    const data: LibraryData = await withSessionWorkspace(session, async () => {
       const [blog, tweets] = await Promise.all([getBlogIndex(), getDashboardData()]);
       const items = [
         ...blog.posts.map((post) => ({ id: `blog:${post.slug}`, type: 'blog' as const, title: post.variants['zh-CN']?.title || post.variants.en?.title || post.slug, locale: post.availableLocales.join(' · '), status: 'published' as const, updatedAt: post.updatedAt, href: `/blog?slug=${encodeURIComponent(post.slug)}&locale=${encodeURIComponent(post.availableLocales[0] ?? 'zh-CN')}` })),

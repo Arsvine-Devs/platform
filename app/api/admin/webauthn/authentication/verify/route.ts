@@ -6,6 +6,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { privateJson } from '@/lib/private-response';
 import { clearWebAuthnCeremonyCookie, getWebAuthnCeremonyId, isAuthenticationResponse, isHardwareOrientedCredential, verifyAuthentication } from '@/lib/webauthn';
 import { consumeWebAuthnChallenge, getActiveWebAuthnCredential, getOwnerAccount, recordWebAuthnEvent, toWebAuthnVerificationCredential, updateWebAuthnCredentialAfterAuthentication } from '@/lib/webauthn-store';
+import { isDevelopmentBypassEnabled } from '@/lib/development-preview';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,7 @@ function genericFailure(reason: string) {
 }
 
 export async function POST(request: NextRequest) {
+  if (isDevelopmentBypassEnabled()) return genericFailure('development bypass is enabled');
   const limiter = await enforceRateLimit(`webauthn-auth-verify:${getClientKey(request)}`, 12, 10 * 60_000);
   if (!limiter.ok) {
     return NextResponse.json(

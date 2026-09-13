@@ -6,7 +6,7 @@ vi.mock('./accounts', async (importOriginal) => {
 });
 
 import { getActiveAccount, hashPassword, verifyPasswordHash } from './accounts';
-import { createSession, getSessionFromRequest } from './auth';
+import { createDevelopmentSession, createSession, DEVELOPMENT_SESSION_COOKIE, getSessionFromRequest } from './auth';
 import { NextRequest } from 'next/server';
 
 beforeEach(() => { vi.stubEnv('SESSION_SECRET', 'test-session-secret'); });
@@ -52,5 +52,43 @@ describe('signed sessions', () => {
     const session = createSession(account, 'webauthn');
     const request = new NextRequest('http://localhost/library', { headers: { cookie: `arsvine_admin_session=${session.value}` } });
     await expect(getSessionFromRequest(request)).resolves.toMatchObject({ amr: 'webauthn', authAt: expect.any(Number) });
+  });
+
+  it('resolves the signed local preview session without querying the account store', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('ADMIN_DEV_LOGIN_BYPASS', '1');
+    const session = createDevelopmentSession();
+    const request = new NextRequest('http://localhost/library', { headers: { cookie: `${DEVELOPMENT_SESSION_COOKIE}=${session.value}` } });
+
+    await expect(getSessionFromRequest(request)).resolves.toMatchObject({
+      userId: '00000000-0000-4000-8000-000000000099',
+      email: 'preview@localhost',
+      role: 'owner',
+      developmentBypass: true,
+      csrf: session.csrf,
+    });
+    expect(getActiveAccount).not.toHaveBeenCalled();
+  });
+
+  it('ignores a local preview cookie when the development flag is disabled', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('ADMIN_DEV_LOGIN_BYPASS', '0');
+    const session = createDevelopmentSession();
+    const request = new NextRequest('http://localhost/library', { headers: { cookie: `${DEVELOPMENT_SESSION_COOKIE}=${session.value}` } });
+
+    await expect(getSessionFromRequest(request)).resolves.toBeNull();
+    expect(getActiveAccount).not.toHaveBeenCalled();
+  });
+
+  it('rejects a tampered local preview identity', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('ADMIN_DEV_LOGIN_BYPASS', '1');
+    const session = createDevelopmentSession();
+    const raw = JSON.parse(Buffer.from(session.value, 'base64url').toString('utf8')) as Record<string, unknown>;
+    raw.email = 'attacker@localhost';
+    const request = new NextRequest('http://localhost/library', { headers: { cookie: `${DEVELOPMENT_SESSION_COOKIE}=${Buffer.from(JSON.stringify(raw)).toString('base64url')}` } });
+
+    await expect(getSessionFromRequest(request)).resolves.toBeNull();
+    expect(getActiveAccount).not.toHaveBeenCalled();
   });
 });

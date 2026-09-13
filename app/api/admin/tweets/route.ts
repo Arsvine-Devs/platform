@@ -4,9 +4,10 @@ import { getClientKey } from '../../../../lib/client-key';
 import { enforceRateLimit } from '../../../../lib/rate-limit';
 import { createTweet, getDashboardData, StoreError } from '../../../../lib/tweets';
 import { triggerTweetsRevalidate } from '../../../../lib/github';
-import type { CreateTweetInput } from '../../../../lib/tweets-types';
 import { withSessionWorkspace } from '../../../../lib/request-auth';
 import { privateJson } from '../../../../lib/private-response';
+import type { CreateTweetInput } from '../../../../lib/tweets-types';
+import { createDevelopmentTweet, getDevelopmentTweetsData, isDevelopmentBypassSession } from '../../../../lib/development-preview';
 
 function toErrorResponse(error: unknown, fallbackMessage: string) {
   if (error instanceof StoreError) {
@@ -31,6 +32,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  if (isDevelopmentBypassSession(session)) return privateJson({ ok: true, data: getDevelopmentTweetsData() });
+
   try {
     const data = await withSessionWorkspace(session, () => getDashboardData());
     return privateJson({ ok: true, data });
@@ -53,6 +56,14 @@ export async function POST(request: NextRequest) {
       { ok: false, error: { message: 'Invalid CSRF token.' } },
       { status: 403 },
     );
+  }
+
+  if (isDevelopmentBypassSession(session)) {
+    const input = (await request.json()) as CreateTweetInput;
+    if (!input || typeof input.content !== 'string' || !input.content.trim()) {
+      return privateJson({ ok: false, error: { message: 'Tweet content cannot be empty.' } }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true, data: { ...createDevelopmentTweet(input), revalidated: { revalidated: false, paths: [], error: 'Development preview: remote revalidation skipped.' } } }, { status: 201 });
   }
 
   const limiter = await enforceRateLimit(`tweets:${getClientKey(request)}`, 20, 60_000);

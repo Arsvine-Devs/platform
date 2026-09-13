@@ -3,6 +3,7 @@ import { getSessionFromRequest } from '../../../../../lib/auth';
 import { withSessionWorkspace } from '../../../../../lib/request-auth';
 import { verifyRepositoryConnection } from '../../../../../lib/github';
 import { privateJson } from '../../../../../lib/private-response';
+import { isDevelopmentBypassSession, verifyDevelopmentRepository } from '../../../../../lib/development-preview';
 
 function unauthorized() {
   return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
@@ -11,6 +12,9 @@ function unauthorized() {
 export async function POST(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) return unauthorized();
+  if (isDevelopmentBypassSession(session)) {
+    return privateJson({ ok: true, data: verifyDevelopmentRepository() });
+  }
   try {
     const repository = await withSessionWorkspace(session, verifyRepositoryConnection);
     return privateJson({ ok: true, data: { repository } });

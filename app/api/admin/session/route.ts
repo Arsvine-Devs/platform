@@ -3,6 +3,7 @@ import { getSessionFromRequest } from '../../../../lib/auth';
 import { getClientKey } from '../../../../lib/client-key';
 import { enforceRateLimit } from '../../../../lib/rate-limit';
 import { privateJson } from '../../../../lib/private-response';
+import type { SessionData } from '../../../../lib/admin-api/contracts';
 
 export async function GET(request: NextRequest) {
   // Lightweight read endpoint, but it's a useful probe for both session
@@ -23,16 +24,18 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const data: SessionData = {
+    userId: session.userId,
+    email: session.email,
+    role: session.role,
+    exp: session.exp,
+    authAt: session.authAt,
+    csrf: session.csrf,
+    amr: session.amr,
+    developmentBypass: Boolean(session.developmentBypass),
+  };
   return privateJson({
     ok: true,
-    data: {
-      userId: session.userId,
-      email: session.email,
-      role: session.role,
-      exp: session.exp,
-      authAt: session.authAt,
-      csrf: session.csrf,
-      amr: session.amr,
-    },
+    data,
   });
 }

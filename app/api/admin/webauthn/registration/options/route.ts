@@ -6,11 +6,16 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { privateJson } from '@/lib/private-response';
 import { applyWebAuthnCeremonyCookie, createRegistrationOptions, getWebAuthnConfig, hashSessionBinding, isRecentWebAuthnSession, normalizeCredentialLabel, WEBAUTHN_CHALLENGE_TTL_MS } from '@/lib/webauthn';
 import { createWebAuthnChallenge, getOwnerAccount, listActiveWebAuthnCredentials, toStoredWebAuthnCredential } from '@/lib/webauthn-store';
+import { isDevelopmentBypassEnabled, isDevelopmentBypassSession } from '@/lib/development-preview';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  if (isDevelopmentBypassEnabled()) {
+    const developmentSession = await getSessionFromRequest(request);
+    if (isDevelopmentBypassSession(developmentSession)) return privateJson({ ok: false, error: { code: 'development_bypass', message: 'Use the local preview security-key flow.' } }, { status: 409 });
+  }
   const limiter = await enforceRateLimit(`webauthn-registration-options:${getClientKey(request)}`, 12, 10 * 60_000);
   if (!limiter.ok) {
     return NextResponse.json(

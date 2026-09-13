@@ -5,6 +5,7 @@ import { enforceRateLimit } from '../../../../../../lib/rate-limit';
 import { retranslateTweet, StoreError } from '../../../../../../lib/tweets';
 import { triggerTweetsRevalidate } from '../../../../../../lib/github';
 import { withSessionWorkspace } from '../../../../../../lib/request-auth';
+import { isDevelopmentBypassSession, retranslateDevelopmentTweet } from '../../../../../../lib/development-preview';
 
 function toErrorResponse(error: unknown, fallbackMessage: string) {
   if (error instanceof StoreError) {
@@ -37,6 +38,14 @@ export async function POST(
       { ok: false, error: { message: 'Invalid CSRF token.' } },
       { status: 403 },
     );
+  }
+
+  if (isDevelopmentBypassSession(session)) {
+    const { id } = await context.params;
+    const data = retranslateDevelopmentTweet(id);
+    return data
+      ? NextResponse.json({ ok: true, data: { ...data, revalidated: { revalidated: false, paths: [], error: 'Development preview: remote revalidation skipped.' } } })
+      : NextResponse.json({ ok: false, error: { message: 'Tweet not found.' } }, { status: 404 });
   }
 
   const limiter = await enforceRateLimit(`tweets-retranslate:${getClientKey(request)}`, 10, 60_000);

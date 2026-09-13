@@ -2,8 +2,18 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { clearAuthCookies, getSessionFromRequest, verifyCsrf } from '../../../../lib/auth';
 import { getClientKey } from '../../../../lib/client-key';
 import { enforceRateLimit } from '../../../../lib/rate-limit';
+import { isDevelopmentBypassEnabled, isDevelopmentBypassSession } from '../../../../lib/development-preview';
 
 export async function POST(request: NextRequest) {
+  if (isDevelopmentBypassEnabled()) {
+    const developmentSession = await getSessionFromRequest(request);
+    if (developmentSession && isDevelopmentBypassSession(developmentSession)) {
+      if (!verifyCsrf(request, developmentSession)) return NextResponse.json({ ok: false, error: { message: 'Invalid CSRF token.' } }, { status: 403 });
+      const response = NextResponse.json({ ok: true });
+      clearAuthCookies(response);
+      return response;
+    }
+  }
   const limiter = await enforceRateLimit(`logout:${getClientKey(request)}`, 30, 60_000);
   if (!limiter.ok) {
     return NextResponse.json(

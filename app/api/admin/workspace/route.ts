@@ -1,15 +1,21 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getWorkspaceConfig, getWorkspaceSummary, saveWorkspaceConfig } from '../../../../lib/accounts';
 import { getSessionFromRequest, verifyCsrf } from '../../../../lib/auth';
-import { resolveXTimelineSyncMethod, type WorkspaceConfig, type XTimelineConfig } from '../../../../lib/workspace-context';
+import { resolveXTimelineSyncMethod, type WorkspaceConfig } from '../../../../lib/workspace-context';
 import { privateJson } from '../../../../lib/private-response';
+import type { WorkspaceSummary, WorkspaceUpdateInput } from '../../../../lib/admin-api/contracts';
+import { getDevelopmentWorkspaceSummary, isDevelopmentBypassSession, updateDevelopmentWorkspace } from '../../../../lib/development-preview';
 
 function unauthorized() { return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 }); }
 
 export async function GET(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) return unauthorized();
-  try { return privateJson({ ok: true, data: await getWorkspaceSummary(session.userId) }); }
+  if (isDevelopmentBypassSession(session)) return privateJson({ ok: true, data: getDevelopmentWorkspaceSummary() });
+  try {
+    const data: WorkspaceSummary = await getWorkspaceSummary(session.userId);
+    return privateJson({ ok: true, data });
+  }
   catch (error) { return NextResponse.json({ ok: false, error: { message: error instanceof Error ? error.message : '无法读取工作区配置。' } }, { status: 404 }); }
 }
 
@@ -17,8 +23,12 @@ export async function PUT(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) return unauthorized();
   if (!verifyCsrf(request, session)) return NextResponse.json({ ok: false, error: { message: 'Invalid CSRF token.' } }, { status: 403 });
+  if (isDevelopmentBypassSession(session)) {
+    const input = (await request.json()) as WorkspaceUpdateInput;
+    return privateJson({ ok: true, data: updateDevelopmentWorkspace(input) });
+  }
   try {
-    const input = (await request.json()) as Partial<WorkspaceConfig> & { x?: Partial<XTimelineConfig> | null };
+    const input = (await request.json()) as WorkspaceUpdateInput;
     let existing: WorkspaceConfig | null = null;
     try { existing = await getWorkspaceConfig(session.userId); } catch { /* first configuration */ }
     let x: WorkspaceConfig['x'] = existing?.x;
@@ -29,20 +39,15 @@ export async function PUT(request: NextRequest) {
       const targetUsername = input.x.targetUsername?.trim() || existing?.x?.targetUsername || '';
       const bearerToken = input.x.bearerToken?.trim() || existing?.x?.bearerToken || '';
       const syncMethod = input.x.syncMethod ?? (
-        input.x.enabled === false
-          ? 'none'
-          : existing?.x
-            ? resolveXTimelineSyncMethod(existing.x)
-            : 'none'
+        existing?.x ? resolveXTimelineSyncMethod(existing.x) : 'none'
       );
-      const hasAnyXValue = Boolean(targetUserId || targetUsername || bearerToken || input.x.syncMethod || input.x.enabled !== undefined);
+      const hasAnyXValue = Boolean(targetUserId || targetUsername || bearerToken || input.x.syncMethod);
       if (hasAnyXValue && !(syncMethod === 'none' && !targetUserId && !targetUsername && !bearerToken)) {
         if (!/^\d{1,19}$/.test(targetUserId)) throw new Error('X target user id must be a numeric user id.');
         if (!/^[A-Za-z0-9_]{1,15}$/.test(targetUsername)) throw new Error('X username is invalid.');
         if (syncMethod === 'api' && !bearerToken) throw new Error('Please configure an X bearer token.');
         x = {
           syncMethod,
-          enabled: syncMethod === 'api',
           bearerToken,
           targetUserId,
           targetUsername,
@@ -72,6 +77,7 @@ export async function PUT(request: NextRequest) {
     if (!config.github.owner || !config.github.repo || !config.github.token) throw new Error('请填写完整的私有仓库配置。');
     if (config.translation && (!config.translation.baseUrl || !config.translation.apiKey)) throw new Error('翻译服务地址和密钥必须同时填写。');
     await saveWorkspaceConfig(session.userId, config);
-    return privateJson({ ok: true, data: await getWorkspaceSummary(session.userId) });
+    const data: WorkspaceSummary = await getWorkspaceSummary(session.userId);
+    return privateJson({ ok: true, data });
   } catch (error) { return NextResponse.json({ ok: false, error: { message: error instanceof Error ? error.message : '无法保存工作区配置。' } }, { status: 422 }); }
 }

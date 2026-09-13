@@ -1,22 +1,18 @@
 'use client';
 
-import { Loader2, Save, X, Trash2, Languages } from 'lucide-react';
+import { Languages, Loader2, Save, Trash2, X } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Field, FieldDescription, FieldGroup, FieldLabel, FieldSet } from '@/components/ui/field';
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { useI18n } from '@/components/i18n/locale-provider';
 
-import { LANG_LABELS, TWEET_LANGS, TWEET_VISIBILITIES } from './filter-labels';
-import {
-  formatTranslationSummaryItem,
-  getTranslationSummary,
-} from './tweet-utils';
+import { TWEET_LANGS, TWEET_VISIBILITIES } from './filter-labels';
+import { getTranslationSummary } from './tweet-utils';
 import type { TweetItem, TweetVisibility } from '../../lib/tweets-types';
 
 export type TweetFormState = {
@@ -29,28 +25,12 @@ export type TweetFormState = {
   autoTranslate: boolean;
 };
 
-export const INITIAL_TWEET_FORM = (): TweetFormState => ({
-  content: '',
-  lang: 'zh-CN',
-  tags: '',
-  visibility: 'public',
-  pinned: false,
-  createdAt: formatNowLocal(),
-  autoTranslate: false,
-});
+export const INITIAL_TWEET_FORM = (): TweetFormState => ({ content: '', lang: 'zh-CN', tags: '', visibility: 'public', pinned: false, createdAt: formatNowLocal(), autoTranslate: false });
 
 function formatNowLocal() {
   const date = new Date();
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Shanghai',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  });
-  const parts = Object.fromEntries(formatter.formatToParts(date).map((p) => [p.type, p.value]));
+  const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+  const parts = Object.fromEntries(formatter.formatToParts(date).map((part) => [part.type, part.value]));
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 }
 
@@ -68,226 +48,42 @@ type ComposerPanelProps = {
   onRetranslate?: () => void;
 };
 
-export default function ComposerPanel({
-  mode,
-  form,
-  onChange,
-  editingTweet,
-  translationTargets,
-  saving,
-  retranslating,
-  onSubmit,
-  onCancel,
-  onDelete,
-  onRetranslate,
-}: ComposerPanelProps) {
+export default function ComposerPanel({ mode, form, onChange, editingTweet, translationTargets, saving, retranslating, onSubmit, onCancel, onDelete, onRetranslate }: ComposerPanelProps) {
+  const { t } = useI18n();
   const summary = editingTweet ? getTranslationSummary(editingTweet) : [];
   const hasStaleOrMissing = summary.some((item) => item.state !== 'fresh');
   const isExternalSource = editingTweet?.origin?.provider === 'x';
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-2">
-        <div>
-          <CardDescription>{mode === 'edit' ? 'Editing' : 'New Tweet'}</CardDescription>
-          <CardTitle>{mode === 'edit' && editingTweet ? `编辑 ${editingTweet.id}` : '编写推文'}</CardTitle>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {isExternalSource
-              ? '这是 X 来源内容。原文由同步更新；此处可以管理标签、可见性、置顶和译文。'
-              : mode === 'edit'
-                ? '修改原文后，已有自动译文会被标记为过期，之后可手动重新生成。'
-                : '先写原文，再决定发布时间、标签、置顶与是否自动翻译。'}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {mode === 'edit' && onDelete ? (
-            <Button type="button" variant="destructive" size="sm" disabled={saving || retranslating} onClick={onDelete}>
-              <Trash2 /> 删除这条推文
-            </Button>
-          ) : null}
-          <Button type="button" variant="outline" size="sm" disabled={saving || retranslating} onClick={onCancel}>
-            <X /> 关闭编辑板
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            onSubmit();
-          }}
-          className="flex flex-col gap-5"
-        >
-          <FieldSet>
-            <FieldGroup className="flex flex-col gap-4">
-              <Field>
-                <FieldLabel>正文</FieldLabel>
-                <Textarea
-                  value={form.content}
-                  disabled={isExternalSource}
-                  onChange={(event) => onChange('content', event.target.value)}
-                  placeholder="写下这条推文的正文…"
-                  rows={6}
-                />
-                <FieldDescription>
-                  正文支持 <code>&lt;Explain note=&quot;注解&quot;&gt;被注解词&lt;/Explain&gt;</code> 句级注解；译文不会保留该标签。
-                </FieldDescription>
-              </Field>
-
-              <div className="grid grid-cols-2 gap-4">
-                <Field>
-                  <FieldLabel>发布时间</FieldLabel>
-                  <Input
-                    type="datetime-local"
-                    value={form.createdAt}
-                    disabled={mode === 'edit'}
-                    onChange={(event) => onChange('createdAt', event.target.value)}
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel>语言</FieldLabel>
-                  <Select disabled={isExternalSource} value={form.lang} onValueChange={(value) => onChange('lang', value ?? 'zh-CN')}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TWEET_LANGS.map((lang) => (
-                        <SelectItem key={lang} value={lang}>
-                          {LANG_LABELS[lang] ?? lang}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field>
-                  <FieldLabel>可见性</FieldLabel>
-                  <Select
-                    value={form.visibility}
-                    onValueChange={(value) => onChange('visibility', (value ?? 'public') as TweetVisibility)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TWEET_VISIBILITIES.map((v) => (
-                        <SelectItem key={v} value={v}>
-                          {v === 'public' ? '公开' : v === 'private' ? '保护' : '隐藏'}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field>
-                  <FieldLabel>标签</FieldLabel>
-                  <Input
-                    value={form.tags}
-                    onChange={(event) => onChange('tags', event.target.value)}
-                    placeholder="例如：dev, notes, life"
-                  />
-                </Field>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    id="tweet-pinned"
-                    checked={form.pinned}
-                    onCheckedChange={(value) => onChange('pinned', value)}
-                  />
-                  <Label htmlFor="tweet-pinned">置顶</Label>
-                </div>
-                {mode === 'create' ? (
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      id="tweet-auto-translate"
-                      checked={form.autoTranslate}
-                      onCheckedChange={(value) => onChange('autoTranslate', value)}
-                    />
-                    <Label htmlFor="tweet-auto-translate">自动翻译</Label>
-                  </div>
-                ) : null}
-              </div>
-
-              {mode === 'create' ? (
-                <p className="text-sm text-muted-foreground">
-                  {form.autoTranslate
-                    ? `保存时会同步生成 ${translationTargets.join(' / ')} 版本，并和原文一起写入 JSON。`
-                    : '翻译关闭时只保存原文；以后仍可在编辑态手动生成自动译文。'}
-                </p>
-              ) : null}
-
-              {mode === 'edit' && editingTweet ? (
-                <div className="flex flex-col gap-2 rounded-md border bg-muted/20 p-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    {summary.map((item) => (
-                      <Badge
-                        key={item.locale}
-                        variant={
-                          item.state === 'fresh'
-                            ? 'default'
-                            : item.state === 'stale'
-                              ? 'secondary'
-                              : 'outline'
-                        }
-                      >
-                        {formatTranslationSummaryItem(item.locale, item.state)}
-                      </Badge>
-                    ))}
-                  </div>
-                  {hasStaleOrMissing && onRetranslate ? (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={saving || retranslating}
-                        onClick={onRetranslate}
-                      >
-                        {retranslating ? (
-                          <>
-                            <Loader2 className="animate-spin" /> 自动翻译中…
-                          </>
-                        ) : (
-                          <>
-                            <Languages /> 重新自动翻译
-                          </>
-                        )}
-                      </Button>
-                      <p className="text-xs text-muted-foreground">
-                        会按当前原文重新生成目标语言译文，并清除过期标记。
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">当前目标语言译文都是最新版本。</p>
-                  )}
-                </div>
-              ) : null}
-
-              <div className="flex flex-wrap items-center gap-3 border-t pt-4">
-                <Button type="submit" disabled={saving || retranslating}>
-                  {saving ? (
-                    <>
-                      <Loader2 className="animate-spin" />
-                      {mode === 'create' && form.autoTranslate ? '翻译并创建中…' : '保存中…'}
-                    </>
-                  ) : (
-                    <>
-                      <Save />
-                      {mode === 'edit' ? '保存修改' : '创建推文'}
-                    </>
-                  )}
-                </Button>
-                <Button type="button" variant="outline" onClick={onCancel} disabled={saving || retranslating}>
-                  取消
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  保存会直接提交到私有内容仓库，并触发公开推文页刷新。
-                </p>
-              </div>
-            </FieldGroup>
-          </FieldSet>
-        </form>
-      </CardContent>
-    </Card>
+    <form onSubmit={(event) => { event.preventDefault(); onSubmit(); }} className="grid gap-5" aria-label={mode === 'edit' ? t('tweets.editTitle', { id: editingTweet?.id ?? '' }) : t('tweets.new')}>
+      <div className="flex items-start justify-between gap-3 border-b pb-4"><div><p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">{mode === 'edit' ? t('tweets.edit') : t('tweets.compose')}</p><h2 className="mt-1 font-heading text-lg font-semibold">{mode === 'edit' && editingTweet ? t('tweets.editTitle', { id: editingTweet.id }) : t('tweets.composeTitle')}</h2><p className="mt-2 text-sm leading-6 text-muted-foreground">{isExternalSource ? t('tweets.externalHint') : mode === 'edit' ? t('tweets.localEditHint') : t('tweets.newHint')}</p></div><Button type="button" variant="ghost" className="min-h-10" disabled={saving || retranslating} onClick={onCancel}><X />{t('tweets.close')}</Button></div>
+      <FieldGroup>
+        <Field><FieldLabel htmlFor="tweet-content">{t('tweets.body')}</FieldLabel><Textarea id="tweet-content" value={form.content} disabled={isExternalSource} onChange={(event) => onChange('content', event.target.value)} placeholder={t('tweets.bodyPlaceholder')} rows={7} /><FieldDescription>{t('tweets.bodyHint')}</FieldDescription></Field>
+        <div className="grid gap-4 sm:grid-cols-2"><Field><FieldLabel htmlFor="tweet-created-at">{t('tweets.publishTime')}</FieldLabel><Input id="tweet-created-at" type="datetime-local" value={form.createdAt} disabled={mode === 'edit'} onChange={(event) => onChange('createdAt', event.target.value)} /></Field><Field><FieldLabel htmlFor="tweet-lang">{t('common.language')}</FieldLabel><Select disabled={isExternalSource} value={form.lang} onValueChange={(value) => onChange('lang', value ?? 'zh-CN')}><SelectTrigger id="tweet-lang"><SelectValue>{(value) => tweetLanguageLabel(value ?? 'zh-CN', t)}</SelectValue></SelectTrigger><SelectContent>{TWEET_LANGS.map((lang) => <SelectItem key={lang} value={lang}>{tweetLanguageLabel(lang, t)}</SelectItem>)}</SelectContent></Select></Field><Field><FieldLabel htmlFor="tweet-visibility">{t('tweets.visibility')}</FieldLabel><Select value={form.visibility} onValueChange={(value) => onChange('visibility', (value ?? 'public') as TweetVisibility)}><SelectTrigger id="tweet-visibility"><SelectValue>{(value) => visibilityLabel((value ?? 'public') as TweetVisibility, t)}</SelectValue></SelectTrigger><SelectContent>{TWEET_VISIBILITIES.map((value) => <SelectItem key={value} value={value}>{visibilityLabel(value, t)}</SelectItem>)}</SelectContent></Select></Field><Field><FieldLabel htmlFor="tweet-tags">{t('tweets.tags')}</FieldLabel><Input id="tweet-tags" value={form.tags} onChange={(event) => onChange('tags', event.target.value)} placeholder={t('tweets.tagsPlaceholder')} /></Field></div>
+        <div className="grid gap-2"><div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3"><label htmlFor="tweet-pinned" className="text-sm">{t('tweets.pinned')}</label><Switch id="tweet-pinned" checked={form.pinned} onCheckedChange={(value) => onChange('pinned', value)} /></div>{mode === 'create' ? <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3"><label htmlFor="tweet-auto-translate" className="text-sm">{t('tweets.autoTranslate', { locales: translationTargets.join(' / ') })}</label><Switch id="tweet-auto-translate" checked={form.autoTranslate} onCheckedChange={(value) => onChange('autoTranslate', value)} /></div> : null}</div>
+        {mode === 'create' ? <p className="text-sm text-muted-foreground">{form.autoTranslate ? t('tweets.autoTranslateHint') : t('tweets.noAutoTranslateHint')}</p> : null}
+        {mode === 'edit' && editingTweet ? <div className="rounded-xl border bg-muted/20 p-4"><div className="flex flex-wrap gap-1.5">{summary.map((item) => <Badge key={item.locale} variant={item.state === 'fresh' ? 'default' : item.state === 'stale' ? 'secondary' : 'outline'}>{translationSummaryLabel(item.locale, item.state, t)}</Badge>)}</div>{hasStaleOrMissing && onRetranslate ? <div className="mt-3 flex flex-wrap items-center gap-3"><Button type="button" variant="outline" className="min-h-10" disabled={saving || retranslating} onClick={onRetranslate}>{retranslating ? <><Loader2 className="animate-spin motion-reduce:animate-none" />{t('tweets.retranslating')}</> : <><Languages />{t('tweets.retranslate')}</>}</Button><p className="text-xs text-muted-foreground">{t('tweets.retranslateHint')}</p></div> : <p className="mt-2 text-xs text-muted-foreground">{t('tweets.translationLatest')}</p>}</div> : null}
+      </FieldGroup>
+      <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center"><Button type="submit" className="min-h-11" disabled={saving || retranslating || (mode === 'create' && !form.content.trim())}>{saving ? <><Loader2 className="animate-spin motion-reduce:animate-none" />{mode === 'create' && form.autoTranslate ? t('tweets.translatingCreate') : t('tweets.saving')}</> : <><Save />{mode === 'edit' ? t('tweets.save') : t('tweets.create')}</>}</Button><Button type="button" variant="outline" className="min-h-11" onClick={onCancel} disabled={saving || retranslating}>{t('common.cancel')}</Button>{mode === 'edit' && onDelete ? <Button type="button" variant="destructive" className="min-h-11 sm:ml-auto" disabled={saving || retranslating} onClick={onDelete}><Trash2 />{t('tweets.deleteOne')}</Button> : null}</div>
+    </form>
   );
+}
+
+type Translate = (key: string, values?: Record<string, string | number>) => string;
+
+function visibilityLabel(value: TweetVisibility, t: Translate) {
+  if (value === 'public') return t('tweets.public');
+  if (value === 'private') return t('tweets.private');
+  return t('tweets.hidden');
+}
+
+function translationSummaryLabel(locale: string, state: 'fresh' | 'stale' | 'missing', t: Translate) {
+  if (state === 'fresh') return `${locale} ${t('tweets.translationFresh')}`;
+  if (state === 'stale') return `${locale} ${t('tweets.translationStale')}`;
+  return `${locale} ${t('tweets.translationMissing')}`;
+}
+
+function tweetLanguageLabel(value: string, t: Translate) {
+  const keys: Record<string, string> = { 'zh-CN': 'tweets.lang.zhCN', 'zh-TW': 'tweets.lang.zhTW', en: 'tweets.lang.en', ja: 'tweets.lang.ja', other: 'tweets.lang.other' };
+  return t(keys[value] ?? 'tweets.lang.other');
 }

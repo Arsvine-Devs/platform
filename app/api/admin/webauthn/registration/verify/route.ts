@@ -6,6 +6,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { privateJson } from '@/lib/private-response';
 import { clearWebAuthnCeremonyCookie, getWebAuthnCeremonyId, hashSessionBinding, isHardwareOrientedCredential, isRegistrationResponse, verifyRegistration } from '@/lib/webauthn';
 import { consumeWebAuthnChallenge, enableOwnerWebAuthn, getOwnerAccount, recordWebAuthnEvent, saveWebAuthnCredential } from '@/lib/webauthn-store';
+import { isDevelopmentBypassEnabled, isDevelopmentBypassSession, registerDevelopmentCredential } from '@/lib/development-preview';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,15 @@ function genericFailure(reason: string) {
 }
 
 export async function POST(request: NextRequest) {
+  if (isDevelopmentBypassEnabled()) {
+    const developmentSession = await getSessionFromRequest(request);
+    if (developmentSession && isDevelopmentBypassSession(developmentSession)) {
+      if (!verifyCsrf(request, developmentSession)) return privateJson({ ok: false, error: { message: 'Invalid CSRF token.' } }, { status: 403 });
+      const body = await request.json() as { development?: boolean; label?: unknown };
+      if (body.development !== true) return genericFailure('invalid development request');
+      return privateJson({ ok: true, data: registerDevelopmentCredential(typeof body.label === 'string' ? body.label : '') });
+    }
+  }
   const limiter = await enforceRateLimit(`webauthn-registration-verify:${getClientKey(request)}`, 12, 10 * 60_000);
   if (!limiter.ok) {
     return NextResponse.json(

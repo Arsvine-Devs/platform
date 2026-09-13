@@ -1,4 +1,4 @@
-import { getWorkspace } from './workspace-context';
+import { getWorkspace, isDevelopmentWorkspace } from './workspace-context';
 
 type GitHubContentResponse = {
   sha: string;
@@ -39,6 +39,9 @@ function treeUrl() {
 }
 
 async function githubFetch(url: string, init?: RequestInit) {
+  if (isDevelopmentWorkspace()) {
+    throw new Error('Development preview cannot access GitHub.');
+  }
   const { token } = config();
   const response = await fetch(url, {
     ...init,
@@ -176,6 +179,9 @@ export async function listTweetMonthPaths() {
 }
 
 export async function triggerPublicRevalidate(slug?: string) {
+  if (isDevelopmentWorkspace()) {
+    return { revalidated: false, paths: [], error: 'Development preview: remote revalidation skipped.' };
+  }
   const { contentUrl, secret } = getWorkspace().revalidate;
   if (!contentUrl || !secret) {
     throw new Error('站点刷新配置不完整。');
@@ -203,6 +209,9 @@ export async function triggerPublicRevalidate(slug?: string) {
 }
 
 export async function triggerTweetsRevalidate() {
+  if (isDevelopmentWorkspace()) {
+    return { revalidated: false, paths: [], error: 'Development preview: remote revalidation skipped.' };
+  }
   const { tweetsUrl, secret } = getWorkspace().revalidate;
   if (!tweetsUrl) {
     return undefined;
