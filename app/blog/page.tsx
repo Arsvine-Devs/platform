@@ -15,11 +15,13 @@ export default async function BlogPage({
   }
 
   return (
-    <AdminShell csrfToken={session.csrf} email={session.email} role={session.role} developmentBypass={Boolean(session.developmentBypass)}>
-      <BlogPageClient
-        csrfToken={session.csrf}
-        initialSelection={await searchParams}
-      />
+    <AdminShell
+      csrfToken={session.csrf}
+      email={session.email}
+      role={session.role}
+      developmentBypass={Boolean(session.developmentBypass)}
+    >
+      <BlogPageClient csrfToken={session.csrf} initialSelection={await searchParams} />
     </AdminShell>
   );
 }

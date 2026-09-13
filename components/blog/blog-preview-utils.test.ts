@@ -21,7 +21,9 @@ describe('blog preview URL safety', () => {
 
 describe('blog preview content', () => {
   it('renders known MDX as safe preview text', () => {
-    const preview = buildPreviewContent('<Term note="作品集">Portfolio</Term> <Explain note="说明">phrase</Explain> <Spoiler>secret</Spoiler>');
+    const preview = buildPreviewContent(
+      '<Term note="作品集">Portfolio</Term> <Explain note="说明">phrase</Explain> <Spoiler>secret</Spoiler>',
+    );
     expect(preview).toContain('Portfolio');
     expect(preview).toContain('phrase[^1]');
     expect(preview).toContain('||secret||');

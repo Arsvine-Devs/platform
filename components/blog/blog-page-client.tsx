@@ -45,10 +45,10 @@ function getDraftKey(slug: string, locale: BlogLocale) {
 function hasMeaningfulFormContent(form: BlogFormState) {
   return Boolean(
     form.slug.trim() ||
-      form.title.trim() ||
-      form.excerpt.trim() ||
-      form.tags.trim() ||
-      form.content.trim(),
+    form.title.trim() ||
+    form.excerpt.trim() ||
+    form.tags.trim() ||
+    form.content.trim(),
   );
 }
 
@@ -80,9 +80,7 @@ function readDraftsSnapshot(): Record<string, BlogDraft> {
     }
 
     cachedDraftsRaw = raw;
-    cachedDraftsSnapshot = raw
-      ? (JSON.parse(raw) as Record<string, BlogDraft>)
-      : EMPTY_DRAFTS;
+    cachedDraftsSnapshot = raw ? (JSON.parse(raw) as Record<string, BlogDraft>) : EMPTY_DRAFTS;
     return cachedDraftsSnapshot;
   } catch {
     cachedDraftsRaw = null;
@@ -143,8 +141,13 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
 
   useEffect(() => {
     const controller = new AbortController();
-    const timer = window.setTimeout(() => { void loadIndex(controller.signal); }, 0);
-    return () => { window.clearTimeout(timer); controller.abort(); };
+    const timer = window.setTimeout(() => {
+      void loadIndex(controller.signal);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
     // The controller intentionally performs one initial load for this page instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -192,7 +195,9 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
   function getDraftCountForSlug(slug: string) {
     const normalizedSlug = slug.trim().toLowerCase();
     if (!normalizedSlug) return 0;
-    return Object.values(drafts).filter((draft) => draft.slug.trim().toLowerCase() === normalizedSlug).length;
+    return Object.values(drafts).filter(
+      (draft) => draft.slug.trim().toLowerCase() === normalizedSlug,
+    ).length;
   }
 
   const draftCount = getDraftCountForSlug(form.slug);
@@ -287,7 +292,8 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
       }
     } catch (caught) {
       if (isAdminApiError(caught) && caught.status === 404) {
-        const fallback = localDraft ?? buildEmptyVariantForm({ ...form, slug: normalizedSlug }, locale);
+        const fallback =
+          localDraft ?? buildEmptyVariantForm({ ...form, slug: normalizedSlug }, locale);
         setSelectedKey(`${normalizedSlug}:${locale}`);
         setForm(fallback);
         return;
@@ -346,7 +352,12 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
           content: form.content,
         } satisfies BlogPublishInput,
       });
-      toast.success(t('blog.publishedTo', { path: data.path || t('workspace.repository'), paths: data.revalidated?.paths.join(', ') || t('common.none') }));
+      toast.success(
+        t('blog.publishedTo', {
+          path: data.path || t('workspace.repository'),
+          paths: data.revalidated?.paths.join(', ') || t('common.none'),
+        }),
+      );
       clearDraftsForSlug(normalizedSlug, [form.locale]);
       await loadIndex();
       setSelectedKey(`${normalizedSlug}:${form.locale}`);
@@ -421,7 +432,10 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
         slugDrafts.map((draft) => draft.locale),
       );
       toast.success(
-        t('blog.publishedBatch', { count: slugDrafts.length, paths: data.revalidated?.paths.join(', ') || t('common.none') }),
+        t('blog.publishedBatch', {
+          count: slugDrafts.length,
+          paths: data.revalidated?.paths.join(', ') || t('common.none'),
+        }),
       );
       await loadIndex();
       setSelectedKey(`${normalizedSlug}:${form.locale}`);
@@ -492,7 +506,11 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
       }
 
       persistDrafts(nextDrafts);
-      toast.success(t('blog.generatedDrafts', { locales: data.variants.map((item) => item.locale).join(' / ') }));
+      toast.success(
+        t('blog.generatedDrafts', {
+          locales: data.variants.map((item) => item.locale).join(' / '),
+        }),
+      );
     } catch (error) {
       notifyError(error, t('blog.translationError'));
     } finally {
@@ -503,11 +521,16 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
   async function handleRebuild() {
     setRebuilding(true);
     try {
-      const data = await adminRequest<{ revalidated: { paths: string[] } }>('/api/admin/rebuild-index', {
-        method: 'POST',
-        csrfToken,
-      });
-      toast.success(t('blog.indexRebuilt', { paths: data.revalidated.paths.join(', ') || t('common.none') }));
+      const data = await adminRequest<{ revalidated: { paths: string[] } }>(
+        '/api/admin/rebuild-index',
+        {
+          method: 'POST',
+          csrfToken,
+        },
+      );
+      toast.success(
+        t('blog.indexRebuilt', { paths: data.revalidated.paths.join(', ') || t('common.none') }),
+      );
       await loadIndex();
     } catch (error) {
       notifyError(error, t('blog.rebuildError'));
@@ -524,16 +547,143 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
         eyebrow={form.slug ? `Blog / ${form.slug}` : `Blog / ${t('blog.new')}`}
         title={t('blog.title')}
         description={t('blog.description')}
-        actions={<div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" size="sm" className="min-h-10 lg:hidden" onClick={() => setArchiveOpen(true)}><PanelLeft />{t('blog.archive')}</Button><Button type="button" variant={panelMode === 'edit' ? 'secondary' : 'outline'} size="sm" className="min-h-10" onClick={() => setPanelMode('edit')}>{t('common.write')}</Button><Button type="button" variant={panelMode === 'preview' ? 'secondary' : 'outline'} size="sm" className="min-h-10" onClick={() => setPanelMode('preview')}>{t('common.preview')}</Button><Button type="button" variant="outline" size="sm" className="min-h-10 xl:hidden" onClick={() => setInspectorOpen(true)}><PanelRight />{t('blog.settings')}</Button></div>}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-10 lg:hidden"
+              onClick={() => setArchiveOpen(true)}
+            >
+              <PanelLeft />
+              {t('blog.archive')}
+            </Button>
+            <Button
+              type="button"
+              variant={panelMode === 'edit' ? 'secondary' : 'outline'}
+              size="sm"
+              className="min-h-10"
+              onClick={() => setPanelMode('edit')}
+            >
+              {t('common.write')}
+            </Button>
+            <Button
+              type="button"
+              variant={panelMode === 'preview' ? 'secondary' : 'outline'}
+              size="sm"
+              className="min-h-10"
+              onClick={() => setPanelMode('preview')}
+            >
+              {t('common.preview')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-10 xl:hidden"
+              onClick={() => setInspectorOpen(true)}
+            >
+              <PanelRight />
+              {t('blog.settings')}
+            </Button>
+          </div>
+        }
       />
-      {editorError ? <div className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning-foreground" role="alert">{t('blog.editorParseError', { message: editorError })}</div> : null}
+      {editorError ? (
+        <div
+          className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning-foreground"
+          role="alert"
+        >
+          {t('blog.editorParseError', { message: editorError })}
+        </div>
+      ) : null}
       <div className="grid min-h-[calc(100svh-13rem)] grid-cols-1 gap-5 lg:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_21rem]">
-        <aside className="hidden min-h-0 lg:block"><BlogArchivePanel loading={loadingIndex} items={items} selectedKey={selectedKey} onSelect={(item, locale) => void handleSelectArchiveItem(item, locale)} onCreate={resetForm} /></aside>
-        <section className="min-h-0">{panelMode === 'edit' ? <BlogWritingPanel form={form} documentKey={documentKey} onChange={updateField} onEditorError={setEditorError} /> : <BlogPreviewPanel content={form.content} />}</section>
-        <aside className="hidden min-h-0 xl:block"><BlogEditorPanel form={form} localeStates={localeStates} onChange={updateField} publishing={publishing} batchPublishing={batchPublishing} translating={translating} savingDraft={savingDraft} rebuilding={rebuilding} draftCount={draftCount} onTranslate={() => void handleTranslate()} onSaveDraft={() => void handleSaveDraft()} onPublishAllDrafts={() => void handlePublishAllDrafts()} onSelectLocale={(locale) => void handleLocaleSelect(locale)} onPublish={() => void handlePublish()} onRebuild={() => void handleRebuild()} /></aside>
+        <aside className="hidden min-h-0 lg:block">
+          <BlogArchivePanel
+            loading={loadingIndex}
+            items={items}
+            selectedKey={selectedKey}
+            onSelect={(item, locale) => void handleSelectArchiveItem(item, locale)}
+            onCreate={resetForm}
+          />
+        </aside>
+        <section className="min-h-0">
+          {panelMode === 'edit' ? (
+            <BlogWritingPanel
+              form={form}
+              documentKey={documentKey}
+              onChange={updateField}
+              onEditorError={setEditorError}
+            />
+          ) : (
+            <BlogPreviewPanel content={form.content} />
+          )}
+        </section>
+        <aside className="hidden min-h-0 xl:block">
+          <BlogEditorPanel
+            form={form}
+            localeStates={localeStates}
+            onChange={updateField}
+            publishing={publishing}
+            batchPublishing={batchPublishing}
+            translating={translating}
+            savingDraft={savingDraft}
+            rebuilding={rebuilding}
+            draftCount={draftCount}
+            onTranslate={() => void handleTranslate()}
+            onSaveDraft={() => void handleSaveDraft()}
+            onPublishAllDrafts={() => void handlePublishAllDrafts()}
+            onSelectLocale={(locale) => void handleLocaleSelect(locale)}
+            onPublish={() => void handlePublish()}
+            onRebuild={() => void handleRebuild()}
+          />
+        </aside>
       </div>
-      <DetailSheet open={archiveOpen} onOpenChange={setArchiveOpen} title={t('blog.archive')} description={t('blog.archiveSelect')}><BlogArchivePanel loading={loadingIndex} items={items} selectedKey={selectedKey} onSelect={(item, locale) => { setArchiveOpen(false); void handleSelectArchiveItem(item, locale); }} onCreate={() => { setArchiveOpen(false); resetForm(); }} /></DetailSheet>
-      <DetailSheet open={inspectorOpen} onOpenChange={setInspectorOpen} title={t('blog.settings')} description={t('blog.inspectorDescription')}><BlogEditorPanel form={form} localeStates={localeStates} onChange={updateField} publishing={publishing} batchPublishing={batchPublishing} translating={translating} savingDraft={savingDraft} rebuilding={rebuilding} draftCount={draftCount} onTranslate={() => void handleTranslate()} onSaveDraft={() => void handleSaveDraft()} onPublishAllDrafts={() => void handlePublishAllDrafts()} onSelectLocale={(locale) => void handleLocaleSelect(locale)} onPublish={() => void handlePublish()} onRebuild={() => void handleRebuild()} /></DetailSheet>
+      <DetailSheet
+        open={archiveOpen}
+        onOpenChange={setArchiveOpen}
+        title={t('blog.archive')}
+        description={t('blog.archiveSelect')}
+      >
+        <BlogArchivePanel
+          loading={loadingIndex}
+          items={items}
+          selectedKey={selectedKey}
+          onSelect={(item, locale) => {
+            setArchiveOpen(false);
+            void handleSelectArchiveItem(item, locale);
+          }}
+          onCreate={() => {
+            setArchiveOpen(false);
+            resetForm();
+          }}
+        />
+      </DetailSheet>
+      <DetailSheet
+        open={inspectorOpen}
+        onOpenChange={setInspectorOpen}
+        title={t('blog.settings')}
+        description={t('blog.inspectorDescription')}
+      >
+        <BlogEditorPanel
+          form={form}
+          localeStates={localeStates}
+          onChange={updateField}
+          publishing={publishing}
+          batchPublishing={batchPublishing}
+          translating={translating}
+          savingDraft={savingDraft}
+          rebuilding={rebuilding}
+          draftCount={draftCount}
+          onTranslate={() => void handleTranslate()}
+          onSaveDraft={() => void handleSaveDraft()}
+          onPublishAllDrafts={() => void handlePublishAllDrafts()}
+          onSelectLocale={(locale) => void handleLocaleSelect(locale)}
+          onPublish={() => void handlePublish()}
+          onRebuild={() => void handleRebuild()}
+        />
+      </DetailSheet>
     </PageFrame>
   );
 }

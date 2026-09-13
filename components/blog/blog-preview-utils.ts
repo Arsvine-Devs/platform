@@ -6,7 +6,13 @@ const KNOWN_MDX_TAG_PATTERN = /<\/?(?:Term|Explain|Spoiler|Lead|Aside|Mark|Ref)(
 export function sanitizeUrl(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
-  if (!trimmed || CONTROL_CHARACTER_PATTERN.test(trimmed) || trimmed.startsWith('//') || trimmed.includes('\\')) return undefined;
+  if (
+    !trimmed ||
+    CONTROL_CHARACTER_PATTERN.test(trimmed) ||
+    trimmed.startsWith('//') ||
+    trimmed.includes('\\')
+  )
+    return undefined;
   if (!URI_SCHEME_PATTERN.test(trimmed)) return trimmed;
   try {
     const url = new URL(trimmed);
@@ -16,7 +22,10 @@ export function sanitizeUrl(value: unknown): string | undefined {
   }
 }
 
-export function buildPreviewContent(content: string, emptyText = '*Start writing to see the site preview here.*') {
+export function buildPreviewContent(
+  content: string,
+  emptyText = '*Start writing to see the site preview here.*',
+) {
   if (!content) return emptyText;
 
   const footnotes: string[] = [];
@@ -32,7 +41,8 @@ export function buildPreviewContent(content: string, emptyText = '*Start writing
 
   transformed = transformed.replace(
     /<(Term|Spoiler|Lead|Aside|Mark|Ref)(?:\s+[^>]*)?>([\s\S]*?)<\/\1>/g,
-    (_match, tag: string, children: string) => tag === 'Spoiler' ? `||${children.trim()}||` : children.trim(),
+    (_match, tag: string, children: string) =>
+      tag === 'Spoiler' ? `||${children.trim()}||` : children.trim(),
   );
 
   return footnotes.length > 0 ? `${transformed}\n\n${footnotes.join('\n')}` : transformed;

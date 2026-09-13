@@ -1,9 +1,17 @@
 import { getWorkspaceConfig, listActiveWorkspaceConfigs, saveWorkspaceConfig } from './accounts';
 import { triggerTweetsRevalidate } from './github';
-import { getRecentImportedXExternalIds, mergeImportedTweets, removeImportedTweetsByExternalIds } from './tweets';
+import {
+  getRecentImportedXExternalIds,
+  mergeImportedTweets,
+  removeImportedTweetsByExternalIds,
+} from './tweets';
 import { fetchXPostsByIds, fetchXTimelinePage, XApiError } from './x-timeline';
 import type { ImportedTweet } from './tweets-types';
-import { resolveXTimelineSyncMethod, type WorkspaceConfig, type XTimelineConfig } from './workspace-context';
+import {
+  resolveXTimelineSyncMethod,
+  type WorkspaceConfig,
+  type XTimelineConfig,
+} from './workspace-context';
 import { withWorkspace } from './workspace-context';
 
 export type XTimelineSyncMode = 'recent' | 'backfill';
@@ -45,7 +53,9 @@ function maxPostId(left: string | undefined, right: string | undefined) {
   return left >= right ? left : right;
 }
 
-function normalizeOptions(options: XTimelineSyncOptions): Required<Pick<XTimelineSyncOptions, 'mode' | 'maxPages'>> {
+function normalizeOptions(
+  options: XTimelineSyncOptions,
+): Required<Pick<XTimelineSyncOptions, 'mode' | 'maxPages'>> {
   return {
     mode: options.mode ?? 'recent',
     maxPages: Math.min(5, Math.max(1, Math.floor(options.maxPages ?? 5))),
@@ -53,8 +63,10 @@ function normalizeOptions(options: XTimelineSyncOptions): Required<Pick<XTimelin
 }
 
 function requireXConfig(config: WorkspaceConfig): XTimelineConfig {
-  if (!config.x) throw new XTimelineSyncError(422, 'X timeline is not configured for this workspace.');
-  if (resolveXTimelineSyncMethod(config.x) !== 'api') throw new XTimelineSyncError(422, 'X timeline sync is not enabled for the selected method.');
+  if (!config.x)
+    throw new XTimelineSyncError(422, 'X timeline is not configured for this workspace.');
+  if (resolveXTimelineSyncMethod(config.x) !== 'api')
+    throw new XTimelineSyncError(422, 'X timeline sync is not enabled for the selected method.');
   if (!config.x.bearerToken) throw new XTimelineSyncError(422, 'X bearer token is not configured.');
   return config.x;
 }
@@ -64,7 +76,7 @@ export async function syncXTimelineForUser(userId: string, options: XTimelineSyn
   return syncXTimelineForWorkspace(userId, config, options);
 }
 
-export async function syncXTimelineForWorkspace(
+async function syncXTimelineForWorkspace(
   userId: string,
   config: WorkspaceConfig,
   options: XTimelineSyncOptions = {},
@@ -75,7 +87,11 @@ export async function syncXTimelineForWorkspace(
   const syncedAt = new Date().toISOString();
   const posts: ImportedTweet[] = [];
   let cursor = previousState.paginationToken;
-  const requestSinceId = cursor ? previousState.paginationSinceId : mode === 'backfill' ? undefined : previousState.sinceId;
+  const requestSinceId = cursor
+    ? previousState.paginationSinceId
+    : mode === 'backfill'
+      ? undefined
+      : previousState.sinceId;
   let newestId = previousState.sinceId;
 
   try {
@@ -99,20 +115,29 @@ export async function syncXTimelineForWorkspace(
     let removed = 0;
     const reconcileCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     try {
-      const recentExternalIds = await withWorkspace(config, () => getRecentImportedXExternalIds(reconcileCutoff));
+      const recentExternalIds = await withWorkspace(config, () =>
+        getRecentImportedXExternalIds(reconcileCutoff),
+      );
       if (recentExternalIds.length > 0) {
         const reconciled = await fetchXPostsByIds(xConfig, recentExternalIds);
         posts.push(...reconciled.posts);
         const newPostIds = new Set(posts.map((post) => post.externalId));
         const missingIds = reconciled.missingIds.filter((id) => !newPostIds.has(id));
         if (missingIds.length > 0) {
-          removed = (await withWorkspace(config, () => removeImportedTweetsByExternalIds(missingIds, syncedAt))).removed;
+          removed = (
+            await withWorkspace(config, () =>
+              removeImportedTweetsByExternalIds(missingIds, syncedAt),
+            )
+          ).removed;
         }
       }
     } catch (error) {
       // Reconciliation is best-effort. A successful incremental page must still
       // be committed when the optional lookup is rate-limited or unavailable.
-      console.warn('[x-timeline] recent reconcile skipped:', error instanceof Error ? error.message : error);
+      console.warn(
+        '[x-timeline] recent reconcile skipped:',
+        error instanceof Error ? error.message : error,
+      );
     }
 
     const merge = await withWorkspace(config, () => mergeImportedTweets(posts, syncedAt));
@@ -124,7 +149,10 @@ export async function syncXTimelineForWorkspace(
           ...previousState,
           ...(newestId ? { sinceId: newestId } : {}),
           ...(cursor
-            ? { paginationToken: cursor, ...(requestSinceId ? { paginationSinceId: requestSinceId } : {}) }
+            ? {
+                paginationToken: cursor,
+                ...(requestSinceId ? { paginationSinceId: requestSinceId } : {}),
+              }
             : { paginationToken: undefined, paginationSinceId: undefined }),
           lastSyncAt: syncedAt,
           lastSyncError: undefined,
@@ -152,11 +180,12 @@ export async function syncXTimelineForWorkspace(
       syncedAt,
     };
   } catch (error) {
-    const safeError = error instanceof XApiError || error instanceof XTimelineSyncError
-      ? error.message
-      : error instanceof Error
+    const safeError =
+      error instanceof XApiError || error instanceof XTimelineSyncError
         ? error.message
-        : 'X timeline sync failed.';
+        : error instanceof Error
+          ? error.message
+          : 'X timeline sync failed.';
     try {
       await saveWorkspaceConfig(userId, {
         ...config,
@@ -166,7 +195,11 @@ export async function syncXTimelineForWorkspace(
       console.error('[x-timeline] failed to persist sync error:', stateError);
     }
     if (error instanceof XTimelineSyncError) throw error;
-    if (error instanceof XApiError) throw new XTimelineSyncError(error.status >= 400 && error.status < 500 ? 502 : 502, safeError);
+    if (error instanceof XApiError)
+      throw new XTimelineSyncError(
+        error.status >= 400 && error.status < 500 ? 502 : 502,
+        safeError,
+      );
     throw new XTimelineSyncError(502, safeError);
   }
 }

@@ -7,7 +7,11 @@ import { triggerTweetsRevalidate } from '../../../../lib/github';
 import { withSessionWorkspace } from '../../../../lib/request-auth';
 import { privateJson } from '../../../../lib/private-response';
 import type { CreateTweetInput } from '../../../../lib/tweets-types';
-import { createDevelopmentTweet, getDevelopmentTweetsData, isDevelopmentBypassSession } from '../../../../lib/development-preview';
+import {
+  createDevelopmentTweet,
+  getDevelopmentTweetsData,
+  isDevelopmentBypassSession,
+} from '../../../../lib/development-preview';
 
 function toErrorResponse(error: unknown, fallbackMessage: string) {
   if (error instanceof StoreError) {
@@ -26,13 +30,11 @@ function toErrorResponse(error: unknown, fallbackMessage: string) {
 export async function GET(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) {
-    return NextResponse.json(
-      { ok: false, error: { message: 'Unauthorized' } },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
   }
 
-  if (isDevelopmentBypassSession(session)) return privateJson({ ok: true, data: getDevelopmentTweetsData() });
+  if (isDevelopmentBypassSession(session))
+    return privateJson({ ok: true, data: getDevelopmentTweetsData() });
 
   try {
     const data = await withSessionWorkspace(session, () => getDashboardData());
@@ -45,10 +47,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) {
-    return NextResponse.json(
-      { ok: false, error: { message: 'Unauthorized' } },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
   }
 
   if (!verifyCsrf(request, session)) {
@@ -61,9 +60,25 @@ export async function POST(request: NextRequest) {
   if (isDevelopmentBypassSession(session)) {
     const input = (await request.json()) as CreateTweetInput;
     if (!input || typeof input.content !== 'string' || !input.content.trim()) {
-      return privateJson({ ok: false, error: { message: 'Tweet content cannot be empty.' } }, { status: 400 });
+      return privateJson(
+        { ok: false, error: { message: 'Tweet content cannot be empty.' } },
+        { status: 400 },
+      );
     }
-    return NextResponse.json({ ok: true, data: { ...createDevelopmentTweet(input), revalidated: { revalidated: false, paths: [], error: 'Development preview: remote revalidation skipped.' } } }, { status: 201 });
+    return NextResponse.json(
+      {
+        ok: true,
+        data: {
+          ...createDevelopmentTweet(input),
+          revalidated: {
+            revalidated: false,
+            paths: [],
+            error: 'Development preview: remote revalidation skipped.',
+          },
+        },
+      },
+      { status: 201 },
+    );
   }
 
   const limiter = await enforceRateLimit(`tweets:${getClientKey(request)}`, 20, 60_000);

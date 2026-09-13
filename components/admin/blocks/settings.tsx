@@ -28,7 +28,9 @@ export function SettingsSection({
       <div className="flex flex-col gap-3 border-b px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6">
         <div>
           <h2 className="font-heading text-base font-semibold">{title}</h2>
-          {description ? <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p> : null}
+          {description ? (
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
+          ) : null}
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
@@ -57,16 +59,27 @@ export function SettingsSummaryRow({
   className,
 }: SettingsSummaryRowProps) {
   return (
-    <article className={cn('flex flex-col gap-4 border-b py-5 last:border-b-0 sm:flex-row sm:items-center sm:justify-between', className)}>
+    <article
+      className={cn(
+        'flex flex-col gap-4 border-b py-5 last:border-b-0 sm:flex-row sm:items-center sm:justify-between',
+        className,
+      )}
+    >
       <div className="flex min-w-0 items-start gap-3">
-        {icon ? <div className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true">{icon}</div> : null}
+        {icon ? (
+          <div className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true">
+            {icon}
+          </div>
+        ) : null}
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-medium">{label}</h3>
             {status}
           </div>
           <p className="mt-1 truncate text-sm text-foreground">{value}</p>
-          {description ? <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p> : null}
+          {description ? (
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
+          ) : null}
         </div>
       </div>
       {action ? <div className="shrink-0 self-start sm:self-center">{action}</div> : null}
@@ -122,10 +135,23 @@ export function SecretField({
       </div>
       {configured && !editing ? (
         <div className="flex min-h-10 items-center justify-between gap-3 rounded-lg border bg-muted/30 px-3 text-sm">
-          <span className={configuredDisplay ? 'text-sm text-muted-foreground' : 'font-mono tracking-[0.18em] text-muted-foreground'} aria-label={`${label}${t('common.configured')}`}>
+          <span
+            className={
+              configuredDisplay
+                ? 'text-sm text-muted-foreground'
+                : 'font-mono tracking-[0.18em] text-muted-foreground'
+            }
+            aria-label={`${label}${t('common.configured')}`}
+          >
             {configuredDisplay ?? '••••••••••••'}
           </span>
-          <Button type="button" variant="ghost" size="sm" className="min-h-11" onClick={() => setEditing(true)}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-11"
+            onClick={() => setEditing(true)}
+          >
             {t('common.replace')}
           </Button>
         </div>
@@ -143,20 +169,4 @@ export function SecretField({
       {description ? <FieldDescription>{description}</FieldDescription> : null}
     </Field>
   );
-}
-
-export function InlineStatus({
-  tone,
-  children,
-}: {
-  tone: 'success' | 'warning' | 'danger' | 'neutral';
-  children: ReactNode;
-}) {
-  const classes = {
-    success: 'text-success',
-    warning: 'text-warning-foreground dark:text-warning',
-    danger: 'text-destructive',
-    neutral: 'text-muted-foreground',
-  };
-  return <span className={cn('text-sm font-medium', classes[tone])}>{children}</span>;
 }

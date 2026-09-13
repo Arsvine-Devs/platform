@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { decryptSecret, encryptSecret } from './secrets';
 
-beforeEach(() => vi.stubEnv('WORKSPACE_SECRETS_ENCRYPTION_KEY', Buffer.alloc(32, 7).toString('base64url')));
+beforeEach(() =>
+  vi.stubEnv('WORKSPACE_SECRETS_ENCRYPTION_KEY', Buffer.alloc(32, 7).toString('base64url')),
+);
 afterEach(() => vi.unstubAllEnvs());
 
 describe('workspace secret encryption', () => {

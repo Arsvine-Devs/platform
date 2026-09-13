@@ -61,13 +61,13 @@ When stored in `.env.local`, each `$` must be escaped as `\$`, otherwise Next wi
 The migration configuration reuses the main site's TOTP algorithm and JSON shape, but should use a dedicated secret:
 
 ```json
-{"current":"JBSWY3DPEHPK3PXP","period":30,"digits":6,"window":1}
+{ "current": "JBSWY3DPEHPK3PXP", "period": 30, "digits": 6, "window": 1 }
 ```
 
 - For secret rotation, add a `previous` array:
 
 ```json
-{"current":"NEWSECRET","previous":["OLDSECRET"],"period":30,"digits":6,"window":1}
+{ "current": "NEWSECRET", "previous": ["OLDSECRET"], "period": 30, "digits": 6, "window": 1 }
 ```
 
 ## Owner WebAuthn

@@ -11,7 +11,12 @@ const ClientEditor = dynamic(() => import('./mdx-editor-client'), {
 
 function EditorLoading() {
   const { t } = useI18n();
-  return <div className="min-h-96 animate-pulse rounded-xl bg-muted/40 motion-reduce:animate-none" aria-label={t('blog.editorLoading')} />;
+  return (
+    <div
+      className="min-h-96 animate-pulse rounded-xl bg-muted/40 motion-reduce:animate-none"
+      aria-label={t('blog.editorLoading')}
+    />
+  );
 }
 
 export default function MdxEditor(props: MdxEditorClientProps) {

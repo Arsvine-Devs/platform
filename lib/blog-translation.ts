@@ -13,7 +13,7 @@ type BlogTranslationTargetLocale = Extract<BlogLocale, 'zh-TW' | 'en'>;
 type DeepSeekThinkingMode = 'enabled' | 'disabled';
 type DeepSeekReasoningEffort = 'high' | 'max';
 
-export type BlogTranslationResult = {
+type BlogTranslationResult = {
   locale: BlogTranslationTargetLocale;
   title: string;
   excerpt: string;
@@ -49,27 +49,20 @@ function buildChatCompletionsUrl(baseUrl: string) {
   return new URL('chat/completions', normalizedBase).toString();
 }
 
-function isDeepSeekTranslationConfig(config: {
-  baseUrl: string;
-  model: string;
-}) {
+function isDeepSeekTranslationConfig(config: { baseUrl: string; model: string }) {
   return (
     config.baseUrl.toLowerCase().includes('deepseek') ||
     config.model.toLowerCase().startsWith('deepseek-')
   );
 }
 
-function normalizeDeepSeekReasoningEffort(
-  value?: string,
-): DeepSeekReasoningEffort | undefined {
+function normalizeDeepSeekReasoningEffort(value?: string): DeepSeekReasoningEffort | undefined {
   if (!value) return undefined;
   if (value === 'high' || value === 'max') return value;
   if (value === 'low' || value === 'medium') return 'high';
   if (value === 'xhigh') return 'max';
 
-  throw new Error(
-    'AI_TRANSLATION_REASONING_EFFORT must be one of: low, medium, high, xhigh, max.',
-  );
+  throw new Error('AI_TRANSLATION_REASONING_EFFORT must be one of: low, medium, high, xhigh, max.');
 }
 
 function stripCodeFences(value: string) {
@@ -83,9 +76,11 @@ function stripCodeFences(value: string) {
 }
 
 function extractMessageContent(payload: unknown) {
-  const content = (payload as {
-    choices?: Array<{ message?: { content?: string } }>;
-  })?.choices?.[0]?.message?.content;
+  const content = (
+    payload as {
+      choices?: Array<{ message?: { content?: string } }>;
+    }
+  )?.choices?.[0]?.message?.content;
 
   if (!content || typeof content !== 'string') {
     throw new Error('Translation model returned an empty response.');
@@ -165,8 +160,7 @@ async function requestTranslation(params: {
     requestBody.thinking = { type: thinkingMode };
     if (thinkingMode === 'enabled') {
       requestBody.reasoning_effort =
-        normalizeDeepSeekReasoningEffort(reasoningEffort) ||
-        DEFAULT_DEEPSEEK_REASONING_EFFORT;
+        normalizeDeepSeekReasoningEffort(reasoningEffort) || DEFAULT_DEEPSEEK_REASONING_EFFORT;
     }
   } else {
     requestBody.temperature = 1.3;

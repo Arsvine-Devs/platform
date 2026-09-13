@@ -2,8 +2,24 @@
 
 import type { ReactNode } from 'react';
 
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useI18n } from '@/components/i18n/locale-provider';
 
@@ -76,7 +92,11 @@ export function ConfirmAction({
           <AlertDialogAction
             onClick={onConfirm}
             disabled={busy}
-            className={destructive ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : undefined}
+            className={
+              destructive
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                : undefined
+            }
           >
             {busy ? t('common.processing') : confirmLabel}
           </AlertDialogAction>

@@ -15,7 +15,7 @@ export type TweetDateGroup = {
   tweets: TweetItem[];
 };
 
-export function formatMonthLabel(month: string, locale = 'zh-CN') {
+function formatMonthLabel(month: string, locale = 'zh-CN') {
   const date = new Date(`${month}-01T00:00:00+08:00`);
   return new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -131,7 +131,8 @@ export function groupTweetsByGranularity(
       const nextUpdatedAt = tweet.updatedAt ?? tweet.createdAt ?? monthRecord.updatedAt;
       if (
         nextUpdatedAt &&
-        (!current.updatedAt || new Date(nextUpdatedAt).getTime() > new Date(current.updatedAt).getTime())
+        (!current.updatedAt ||
+          new Date(nextUpdatedAt).getTime() > new Date(current.updatedAt).getTime())
       ) {
         current.updatedAt = nextUpdatedAt;
       }
@@ -143,7 +144,10 @@ export function groupTweetsByGranularity(
   return [...grouped.values()].sort((left, right) => right.key.localeCompare(left.key));
 }
 
-export function filterTweets(tweets: TweetItem[], filter: 'all' | 'public' | 'private' | 'hidden' | 'pinned') {
+export function filterTweets(
+  tweets: TweetItem[],
+  filter: 'all' | 'public' | 'private' | 'hidden' | 'pinned',
+) {
   if (filter === 'all') return tweets;
   if (filter === 'pinned') return tweets.filter((tweet) => tweet.pinned);
   return tweets.filter((tweet) => (tweet.visibility ?? 'public') === filter);
@@ -154,19 +158,13 @@ export function getTranslationSummary(tweet: TweetItem) {
     const translation = tweet.translations?.[locale];
     return {
       locale,
-      state: !translation ? ('missing' as const) : translation.stale ? ('stale' as const) : ('fresh' as const),
+      state: !translation
+        ? ('missing' as const)
+        : translation.stale
+          ? ('stale' as const)
+          : ('fresh' as const),
     };
   });
-}
-
-export function pickActiveMonth(
-  months: TweetMonthRecord[],
-  preferredMonth: string | null,
-): string {
-  if (preferredMonth && months.some((month) => month.month === preferredMonth)) {
-    return preferredMonth;
-  }
-  return months[0]?.month ?? '';
 }
 
 export function pickActiveDateGroup<T extends { key: string }>(

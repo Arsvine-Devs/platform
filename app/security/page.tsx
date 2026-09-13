@@ -10,8 +10,16 @@ export default async function SecurityPage() {
   if (session.role !== 'owner') redirect('/library');
 
   return (
-    <AdminShell csrfToken={session.csrf} email={session.email} role={session.role} developmentBypass={Boolean(session.developmentBypass)}>
-      <SecurityPageClient csrfToken={session.csrf} developmentBypass={Boolean(session.developmentBypass)} />
+    <AdminShell
+      csrfToken={session.csrf}
+      email={session.email}
+      role={session.role}
+      developmentBypass={Boolean(session.developmentBypass)}
+    >
+      <SecurityPageClient
+        csrfToken={session.csrf}
+        developmentBypass={Boolean(session.developmentBypass)}
+      />
     </AdminShell>
   );
 }

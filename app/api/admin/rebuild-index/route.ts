@@ -3,15 +3,15 @@ import { getSessionFromRequest, verifyCsrf } from '../../../../lib/auth';
 import { rebuildBlogIndex } from '../../../../lib/posts';
 import { withSessionWorkspace } from '../../../../lib/request-auth';
 import type { BlogRebuildData } from '../../../../lib/admin-api/contracts';
-import { isDevelopmentBypassSession, rebuildDevelopmentBlogIndex } from '../../../../lib/development-preview';
+import {
+  isDevelopmentBypassSession,
+  rebuildDevelopmentBlogIndex,
+} from '../../../../lib/development-preview';
 
 export async function POST(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) {
-    return NextResponse.json(
-      { ok: false, error: { message: 'Unauthorized' } },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
   }
 
   if (!verifyCsrf(request, session)) {

@@ -11,7 +11,7 @@ function isTruthyEnv(value: string | undefined) {
   return normalized === '1' || normalized === 'true' || normalized === 'yes';
 }
 
-export function isProxyTrusted() {
+function isProxyTrusted() {
   return isTruthyEnv(process.env.TRUST_PROXY);
 }
 

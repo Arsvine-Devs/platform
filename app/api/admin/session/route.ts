@@ -18,10 +18,7 @@ export async function GET(request: NextRequest) {
 
   const session = await getSessionFromRequest(request);
   if (!session) {
-    return NextResponse.json(
-      { ok: false, error: { message: 'Unauthorized' } },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
   }
 
   const data: SessionData = {

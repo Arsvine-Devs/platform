@@ -1,12 +1,20 @@
 import { createHash } from 'node:crypto';
-import { generateAuthenticationOptions, generateRegistrationOptions, verifyAuthenticationResponse, verifyRegistrationResponse, type AuthenticationResponseJSON, type RegistrationResponseJSON, type WebAuthnCredential } from '@simplewebauthn/server';
+import {
+  generateAuthenticationOptions,
+  generateRegistrationOptions,
+  verifyAuthenticationResponse,
+  verifyRegistrationResponse,
+  type AuthenticationResponseJSON,
+  type RegistrationResponseJSON,
+  type WebAuthnCredential,
+} from '@simplewebauthn/server';
 import type { NextRequest, NextResponse } from 'next/server';
 
 import type { AuthenticatedSession } from './auth';
 
-export const WEBAUTHN_CEREMONY_COOKIE = 'arsvine_webauthn_ceremony';
+const WEBAUTHN_CEREMONY_COOKIE = 'arsvine_webauthn_ceremony';
 export const WEBAUTHN_CHALLENGE_TTL_MS = 5 * 60 * 1000;
-export const WEBAUTHN_AUTH_RECENCY_MS = 10 * 60 * 1000;
+const WEBAUTHN_AUTH_RECENCY_MS = 10 * 60 * 1000;
 
 export type WebAuthnConfig = {
   rpId: string;
@@ -31,13 +39,35 @@ function isBase64Url(value: unknown) {
 }
 
 export function isAuthenticationResponse(value: unknown): value is AuthenticationResponseJSON {
-  if (!isRecord(value) || !isBase64Url(value.id) || value.rawId !== value.id || value.type !== 'public-key' || !isRecord(value.response) || !isRecord(value.clientExtensionResults)) return false;
-  return isBase64Url(value.response.clientDataJSON) && isBase64Url(value.response.authenticatorData) && isBase64Url(value.response.signature);
+  if (
+    !isRecord(value) ||
+    !isBase64Url(value.id) ||
+    value.rawId !== value.id ||
+    value.type !== 'public-key' ||
+    !isRecord(value.response) ||
+    !isRecord(value.clientExtensionResults)
+  )
+    return false;
+  return (
+    isBase64Url(value.response.clientDataJSON) &&
+    isBase64Url(value.response.authenticatorData) &&
+    isBase64Url(value.response.signature)
+  );
 }
 
 export function isRegistrationResponse(value: unknown): value is RegistrationResponseJSON {
-  if (!isRecord(value) || !isBase64Url(value.id) || value.rawId !== value.id || value.type !== 'public-key' || !isRecord(value.response) || !isRecord(value.clientExtensionResults)) return false;
-  return isBase64Url(value.response.clientDataJSON) && isBase64Url(value.response.attestationObject);
+  if (
+    !isRecord(value) ||
+    !isBase64Url(value.id) ||
+    value.rawId !== value.id ||
+    value.type !== 'public-key' ||
+    !isRecord(value.response) ||
+    !isRecord(value.clientExtensionResults)
+  )
+    return false;
+  return (
+    isBase64Url(value.response.clientDataJSON) && isBase64Url(value.response.attestationObject)
+  );
 }
 
 function isProduction() {
@@ -51,7 +81,10 @@ export function getWebAuthnConfig(): WebAuthnConfig {
 
   if (!rpId) throw new Error('Missing WEBAUTHN_RP_ID');
   if (!rawOrigin) throw new Error('Missing WEBAUTHN_ORIGIN');
-  if (rpId !== 'localhost' && !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(rpId)) {
+  if (
+    rpId !== 'localhost' &&
+    !/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(rpId)
+  ) {
     throw new Error('WEBAUTHN_RP_ID must be a valid domain name');
   }
 
@@ -104,11 +137,17 @@ export function parseCredentialTransports(value: string | null | undefined) {
 
 export function serializeCredentialTransports(value: unknown) {
   if (!Array.isArray(value)) return '[]';
-  return JSON.stringify(value.filter((item): item is string => typeof item === 'string').slice(0, 8));
+  return JSON.stringify(
+    value.filter((item): item is string => typeof item === 'string').slice(0, 8),
+  );
 }
 
 export function isRecentWebAuthnSession(session: AuthenticatedSession, now = Date.now()) {
-  return session.amr === 'webauthn' && now - session.authAt >= 0 && now - session.authAt <= WEBAUTHN_AUTH_RECENCY_MS;
+  return (
+    session.amr === 'webauthn' &&
+    now - session.authAt >= 0 &&
+    now - session.authAt <= WEBAUTHN_AUTH_RECENCY_MS
+  );
 }
 
 export function isHardwareOrientedCredential(deviceType: string, backedUp: boolean) {
@@ -156,7 +195,10 @@ export async function createAuthenticationOptions(credentials: StoredWebAuthnCre
   });
 }
 
-export async function createRegistrationOptions(account: { id: string; email: string }, credentials: StoredWebAuthnCredential[]) {
+export async function createRegistrationOptions(
+  account: { id: string; email: string },
+  credentials: StoredWebAuthnCredential[],
+) {
   const config = getWebAuthnConfig();
   return generateRegistrationOptions({
     rpName: config.rpName,
@@ -179,7 +221,10 @@ export async function createRegistrationOptions(account: { id: string; email: st
   });
 }
 
-export async function verifyRegistration(response: RegistrationResponseJSON, expectedChallenge: string) {
+export async function verifyRegistration(
+  response: RegistrationResponseJSON,
+  expectedChallenge: string,
+) {
   const config = getWebAuthnConfig();
   return verifyRegistrationResponse({
     response,
@@ -191,7 +236,11 @@ export async function verifyRegistration(response: RegistrationResponseJSON, exp
   });
 }
 
-export async function verifyAuthentication(response: AuthenticationResponseJSON, credential: WebAuthnCredential, expectedChallenge: string) {
+export async function verifyAuthentication(
+  response: AuthenticationResponseJSON,
+  credential: WebAuthnCredential,
+  expectedChallenge: string,
+) {
   const config = getWebAuthnConfig();
   return verifyAuthenticationResponse({
     response,

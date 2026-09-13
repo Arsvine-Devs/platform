@@ -2,13 +2,20 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { clearAuthCookies, getSessionFromRequest, verifyCsrf } from '../../../../lib/auth';
 import { getClientKey } from '../../../../lib/client-key';
 import { enforceRateLimit } from '../../../../lib/rate-limit';
-import { isDevelopmentBypassEnabled, isDevelopmentBypassSession } from '../../../../lib/development-preview';
+import {
+  isDevelopmentBypassEnabled,
+  isDevelopmentBypassSession,
+} from '../../../../lib/development-preview';
 
 export async function POST(request: NextRequest) {
   if (isDevelopmentBypassEnabled()) {
     const developmentSession = await getSessionFromRequest(request);
     if (developmentSession && isDevelopmentBypassSession(developmentSession)) {
-      if (!verifyCsrf(request, developmentSession)) return NextResponse.json({ ok: false, error: { message: 'Invalid CSRF token.' } }, { status: 403 });
+      if (!verifyCsrf(request, developmentSession))
+        return NextResponse.json(
+          { ok: false, error: { message: 'Invalid CSRF token.' } },
+          { status: 403 },
+        );
       const response = NextResponse.json({ ok: true });
       clearAuthCookies(response);
       return response;
@@ -28,10 +35,7 @@ export async function POST(request: NextRequest) {
   // token, mirroring the rest of the admin write surface.
   const session = await getSessionFromRequest(request);
   if (!session) {
-    return NextResponse.json(
-      { ok: false, error: { message: 'Unauthorized' } },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
   }
 
   if (!verifyCsrf(request, session)) {

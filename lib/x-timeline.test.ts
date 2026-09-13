@@ -22,13 +22,15 @@ describe('X timeline provider', () => {
       ok: true,
       status: 200,
       json: async () => ({
-        data: [{
-          id: '1346889436626259968',
-          text: 'A post from X.',
-          author_id: '2244994945',
-          created_at: '2026-09-12T00:00:00.000Z',
-          lang: 'en',
-        }],
+        data: [
+          {
+            id: '1346889436626259968',
+            text: 'A post from X.',
+            author_id: '2244994945',
+            created_at: '2026-09-12T00:00:00.000Z',
+            lang: 'en',
+          },
+        ],
         includes: { users: [{ id: '2244994945', username: 'XDevelopers' }] },
         meta: { newest_id: '1346889436626259968', next_token: 'next-page' },
       }),
@@ -38,15 +40,17 @@ describe('X timeline provider', () => {
     const result = await fetchXTimelinePage(config, { sinceId: '1346889436626259000' });
 
     expect(result).toEqual({
-      posts: [{
-        externalId: '1346889436626259968',
-        createdAt: '2026-09-12T00:00:00.000Z',
-        content: 'A post from X.',
-        lang: 'en',
-        authorId: '2244994945',
-        authorUsername: 'XDevelopers',
-        canonicalUrl: 'https://x.com/XDevelopers/status/1346889436626259968',
-      }],
+      posts: [
+        {
+          externalId: '1346889436626259968',
+          createdAt: '2026-09-12T00:00:00.000Z',
+          content: 'A post from X.',
+          lang: 'en',
+          authorId: '2244994945',
+          authorUsername: 'XDevelopers',
+          canonicalUrl: 'https://x.com/XDevelopers/status/1346889436626259968',
+        },
+      ],
       nextCursor: 'next-page',
       newestId: '1346889436626259968',
       oldestId: undefined,
@@ -64,7 +68,10 @@ describe('X timeline provider', () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 402,
-      json: async () => ({ detail: 'Insufficient credits', errors: [{ type: 'credits_exhausted' }] }),
+      json: async () => ({
+        detail: 'Insufficient credits',
+        errors: [{ type: 'credits_exhausted' }],
+      }),
     });
     vi.stubGlobal('fetch', fetchMock);
 

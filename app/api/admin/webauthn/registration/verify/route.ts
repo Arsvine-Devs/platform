@@ -1,12 +1,35 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { applyAuthCookies, createSession, getSessionFromRequest, isOwner, verifyCsrf } from '@/lib/auth';
+import {
+  applyAuthCookies,
+  createSession,
+  getSessionFromRequest,
+  isOwner,
+  verifyCsrf,
+} from '@/lib/auth';
 import { getClientKey } from '@/lib/client-key';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { privateJson } from '@/lib/private-response';
-import { clearWebAuthnCeremonyCookie, getWebAuthnCeremonyId, hashSessionBinding, isHardwareOrientedCredential, isRegistrationResponse, verifyRegistration } from '@/lib/webauthn';
-import { consumeWebAuthnChallenge, enableOwnerWebAuthn, getOwnerAccount, recordWebAuthnEvent, saveWebAuthnCredential } from '@/lib/webauthn-store';
-import { isDevelopmentBypassEnabled, isDevelopmentBypassSession, registerDevelopmentCredential } from '@/lib/development-preview';
+import {
+  clearWebAuthnCeremonyCookie,
+  getWebAuthnCeremonyId,
+  hashSessionBinding,
+  isHardwareOrientedCredential,
+  isRegistrationResponse,
+  verifyRegistration,
+} from '@/lib/webauthn';
+import {
+  consumeWebAuthnChallenge,
+  enableOwnerWebAuthn,
+  getOwnerAccount,
+  recordWebAuthnEvent,
+  saveWebAuthnCredential,
+} from '@/lib/webauthn-store';
+import {
+  isDevelopmentBypassEnabled,
+  isDevelopmentBypassSession,
+  registerDevelopmentCredential,
+} from '@/lib/development-preview';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,13 +45,24 @@ export async function POST(request: NextRequest) {
   if (isDevelopmentBypassEnabled()) {
     const developmentSession = await getSessionFromRequest(request);
     if (developmentSession && isDevelopmentBypassSession(developmentSession)) {
-      if (!verifyCsrf(request, developmentSession)) return privateJson({ ok: false, error: { message: 'Invalid CSRF token.' } }, { status: 403 });
-      const body = await request.json() as { development?: boolean; label?: unknown };
+      if (!verifyCsrf(request, developmentSession))
+        return privateJson(
+          { ok: false, error: { message: 'Invalid CSRF token.' } },
+          { status: 403 },
+        );
+      const body = (await request.json()) as { development?: boolean; label?: unknown };
       if (body.development !== true) return genericFailure('invalid development request');
-      return privateJson({ ok: true, data: registerDevelopmentCredential(typeof body.label === 'string' ? body.label : '') });
+      return privateJson({
+        ok: true,
+        data: registerDevelopmentCredential(typeof body.label === 'string' ? body.label : ''),
+      });
     }
   }
-  const limiter = await enforceRateLimit(`webauthn-registration-verify:${getClientKey(request)}`, 12, 10 * 60_000);
+  const limiter = await enforceRateLimit(
+    `webauthn-registration-verify:${getClientKey(request)}`,
+    12,
+    10 * 60_000,
+  );
   if (!limiter.ok) {
     return NextResponse.json(
       { ok: false, error: { message: '请求过于频繁，请稍后再试。' } },
@@ -37,31 +71,45 @@ export async function POST(request: NextRequest) {
   }
 
   const session = await getSessionFromRequest(request);
-  if (!session || !isOwner(session)) return privateJson({ ok: false, error: { message: 'Forbidden' } }, { status: 403 });
-  if (!verifyCsrf(request, session)) return privateJson({ ok: false, error: { message: 'Invalid CSRF token.' } }, { status: 403 });
+  if (!session || !isOwner(session))
+    return privateJson({ ok: false, error: { message: 'Forbidden' } }, { status: 403 });
+  if (!verifyCsrf(request, session))
+    return privateJson({ ok: false, error: { message: 'Invalid CSRF token.' } }, { status: 403 });
 
   try {
-    const body = await request.json() as unknown;
-    if (!body || typeof body !== 'object' || Array.isArray(body)) return genericFailure('invalid request shape');
+    const body = (await request.json()) as unknown;
+    if (!body || typeof body !== 'object' || Array.isArray(body))
+      return genericFailure('invalid request shape');
     const input = body as { ceremonyId?: unknown; response?: unknown };
-    if (typeof input.ceremonyId !== 'string' || !isRegistrationResponse(input.response)) return genericFailure('invalid request shape');
+    if (typeof input.ceremonyId !== 'string' || !isRegistrationResponse(input.response))
+      return genericFailure('invalid request shape');
 
     const ceremonyCookie = getWebAuthnCeremonyId(request);
-    if (!ceremonyCookie || ceremonyCookie !== input.ceremonyId) return genericFailure('ceremony cookie mismatch');
+    if (!ceremonyCookie || ceremonyCookie !== input.ceremonyId)
+      return genericFailure('ceremony cookie mismatch');
 
     const owner = await getOwnerAccount();
     if (!owner || owner.id !== session.userId) return genericFailure('owner missing');
 
-    const challenge = await consumeWebAuthnChallenge({ id: input.ceremonyId, userId: owner.id, type: 'registration' });
+    const challenge = await consumeWebAuthnChallenge({
+      id: input.ceremonyId,
+      userId: owner.id,
+      type: 'registration',
+    });
     if (!challenge) return genericFailure('challenge missing, expired, or already consumed');
-    if (!challenge.sessionBindingHash || challenge.sessionBindingHash !== hashSessionBinding(session.csrf)) return genericFailure('session binding mismatch');
+    if (
+      !challenge.sessionBindingHash ||
+      challenge.sessionBindingHash !== hashSessionBinding(session.csrf)
+    )
+      return genericFailure('session binding mismatch');
 
     const registrationResponse = input.response;
     const verification = await verifyRegistration(registrationResponse, challenge.challenge);
     if (!verification.verified) return genericFailure('registration not verified');
 
     const info = verification.registrationInfo;
-    if (!isHardwareOrientedCredential(info.credentialDeviceType, info.credentialBackedUp)) return genericFailure('credential is multi-device or backed up');
+    if (!isHardwareOrientedCredential(info.credentialDeviceType, info.credentialBackedUp))
+      return genericFailure('credential is multi-device or backed up');
 
     const credential = await saveWebAuthnCredential({
       userId: owner.id,
@@ -88,8 +136,12 @@ export async function POST(request: NextRequest) {
     }
 
     await recordWebAuthnEvent(owner.id, 'registered_webauthn_credential');
-    if (owner.authMethod === 'password+totp') await recordWebAuthnEvent(owner.id, 'enabled_owner_webauthn');
-    const response = privateJson({ ok: true, data: { credentialId: credential.id, authMethod: 'webauthn' as const } });
+    if (owner.authMethod === 'password+totp')
+      await recordWebAuthnEvent(owner.id, 'enabled_owner_webauthn');
+    const response = privateJson({
+      ok: true,
+      data: { credentialId: credential.id, authMethod: 'webauthn' as const },
+    });
     applyAuthCookies(response, createSession(sessionOwner, 'webauthn'));
     clearWebAuthnCeremonyCookie(response);
     return response;

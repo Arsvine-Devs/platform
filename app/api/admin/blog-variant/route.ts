@@ -4,15 +4,15 @@ import { getBlogVariant } from '../../../../lib/posts';
 import { withSessionWorkspace } from '../../../../lib/request-auth';
 import { privateJson } from '../../../../lib/private-response';
 import type { BlogVariantData } from '../../../../lib/admin-api/contracts';
-import { getDevelopmentBlogVariant, isDevelopmentBypassSession } from '../../../../lib/development-preview';
+import {
+  getDevelopmentBlogVariant,
+  isDevelopmentBypassSession,
+} from '../../../../lib/development-preview';
 
 export async function GET(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) {
-    return NextResponse.json(
-      { ok: false, error: { message: 'Unauthorized' } },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
@@ -28,12 +28,18 @@ export async function GET(request: NextRequest) {
 
   if (isDevelopmentBypassSession(session)) {
     const data = getDevelopmentBlogVariant(slug, locale);
-    if (!data) return NextResponse.json({ ok: false, error: { message: 'Variant not found.' } }, { status: 404 });
+    if (!data)
+      return NextResponse.json(
+        { ok: false, error: { message: 'Variant not found.' } },
+        { status: 404 },
+      );
     return privateJson({ ok: true, data });
   }
 
   try {
-    const data: BlogVariantData | null = await withSessionWorkspace(session, () => getBlogVariant(slug, locale));
+    const data: BlogVariantData | null = await withSessionWorkspace(session, () =>
+      getBlogVariant(slug, locale),
+    );
     if (!data) {
       return NextResponse.json(
         { ok: false, error: { message: 'Variant not found.' } },

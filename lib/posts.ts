@@ -6,11 +6,7 @@ import {
   putFile,
   triggerPublicRevalidate,
 } from './github';
-import {
-  validateAccessGroup,
-  validateBlogSlug,
-  sanitizeCommitMessage,
-} from './input-validation';
+import { validateAccessGroup, validateBlogSlug, sanitizeCommitMessage } from './input-validation';
 
 import {
   BLOG_LOCALES,
@@ -123,7 +119,12 @@ async function readBlogVariant(path: string): Promise<BlogVariantDocument> {
     throw new Error(`Missing blog variant file: ${path}`);
   }
 
-  const locale = normalizeLocale(path.split('/').pop()?.replace(/\.mdx$/, '') || '');
+  const locale = normalizeLocale(
+    path
+      .split('/')
+      .pop()
+      ?.replace(/\.mdx$/, '') || '',
+  );
   const parsed = matter(file.content);
 
   return {
@@ -196,7 +197,8 @@ function toIndexItem(slug: string, docs: BlogVariantDocument[]): BlogIndexItem {
 
   const variants = docs.reduce<Partial<Record<BlogLocale, BlogIndexVariant>>>((acc, doc) => {
     acc[doc.locale] = {
-      title: typeof doc.data.title === 'string' && doc.data.title.trim() ? doc.data.title.trim() : slug,
+      title:
+        typeof doc.data.title === 'string' && doc.data.title.trim() ? doc.data.title.trim() : slug,
       excerpt:
         typeof doc.data.excerpt === 'string' && doc.data.excerpt.trim()
           ? doc.data.excerpt.trim()
@@ -207,9 +209,9 @@ function toIndexItem(slug: string, docs: BlogVariantDocument[]): BlogIndexItem {
     return acc;
   }, {});
 
-  const availableLocales = docs.map((doc) => doc.locale).sort(
-    (left, right) => BLOG_LOCALES.indexOf(left) - BLOG_LOCALES.indexOf(right),
-  );
+  const availableLocales = docs
+    .map((doc) => doc.locale)
+    .sort((left, right) => BLOG_LOCALES.indexOf(left) - BLOG_LOCALES.indexOf(right));
 
   return {
     slug,
@@ -373,10 +375,14 @@ export async function publishPostBatch(input: BlogPublishBatchInput) {
     const content = buildMarkdown({
       title:
         requested?.title ??
-        (typeof existing?.data.title === 'string' && existing.data.title.trim() ? existing.data.title : slug),
+        (typeof existing?.data.title === 'string' && existing.data.title.trim()
+          ? existing.data.title
+          : slug),
       excerpt:
         requested?.excerpt ??
-        (typeof existing?.data.excerpt === 'string' && existing.data.excerpt.trim() ? existing.data.excerpt : ''),
+        (typeof existing?.data.excerpt === 'string' && existing.data.excerpt.trim()
+          ? existing.data.excerpt
+          : ''),
       date,
       tags:
         requested?.tags ??

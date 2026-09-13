@@ -4,20 +4,10 @@ export type AdminApiFailure = {
   ok: false;
   error: { code?: string; message: string };
 };
-export type AdminApiResponse<T> =
-  | AdminApiSuccess<T>
-  | AdminApiVoidSuccess
-  | AdminApiFailure;
+export type AdminApiResponse<T> = AdminApiSuccess<T> | AdminApiVoidSuccess | AdminApiFailure;
 
 export type BlogLocale = 'zh-CN' | 'zh-TW' | 'en' | 'ja' | 'ru' | 'fr';
-export const BLOG_LOCALES: readonly BlogLocale[] = [
-  'zh-CN',
-  'zh-TW',
-  'en',
-  'ja',
-  'ru',
-  'fr',
-];
+export const BLOG_LOCALES: readonly BlogLocale[] = ['zh-CN', 'zh-TW', 'en', 'ja', 'ru', 'fr'];
 export type BlogAccessMode = 'public' | 'totp';
 
 export type BlogIndexVariant = {

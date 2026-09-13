@@ -10,10 +10,30 @@ import type { LibraryData, LibraryItem } from '@/lib/admin-api/contracts';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { EmptyState, PageFrame, PageHeader } from '@/components/admin/blocks';
 import { useI18n } from '@/components/i18n/locale-provider';
 
@@ -39,7 +59,9 @@ function Detail({ item }: { item: LibraryItem }) {
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{typeLabel(item.type, t)}</Badge>
-          <Badge variant={item.status === 'published' ? 'secondary' : 'outline'}>{statusLabel(item.status, t)}</Badge>
+          <Badge variant={item.status === 'published' ? 'secondary' : 'outline'}>
+            {statusLabel(item.status, t)}
+          </Badge>
         </div>
         <h2 className="mt-4 text-xl font-semibold leading-tight">{item.title}</h2>
       </div>
@@ -54,14 +76,19 @@ function Detail({ item }: { item: LibraryItem }) {
         </div>
       </dl>
       <Button nativeButton={false} className="mt-auto min-h-11" render={<Link href={item.href} />}>
-        <ExternalLink data-icon="inline-start" />{t('library.openEditor')}
+        <ExternalLink data-icon="inline-start" />
+        {t('library.openEditor')}
       </Button>
     </div>
   );
 }
 
 function ItemIcon({ type }: { type: LibraryItem['type'] }) {
-  return type === 'blog' ? <FileText className="size-4 text-brand" aria-hidden="true" /> : <MessageCircle className="size-4 text-brand" aria-hidden="true" />;
+  return type === 'blog' ? (
+    <FileText className="size-4 text-brand" aria-hidden="true" />
+  ) : (
+    <MessageCircle className="size-4 text-brand" aria-hidden="true" />
+  );
 }
 
 export default function LibraryPageClient() {
@@ -129,7 +156,8 @@ export default function LibraryPageClient() {
         description={t('library.description')}
         actions={
           <Button nativeButton={false} className="min-h-11" render={<Link href="/blog" />}>
-            <Plus data-icon="inline-start" />{t('library.newArticle')}
+            <Plus data-icon="inline-start" />
+            {t('library.newArticle')}
           </Button>
         }
       />
@@ -141,67 +169,202 @@ export default function LibraryPageClient() {
           <section className="min-w-0" aria-label={t('library.list')}>
             <div className="mb-4 flex flex-wrap gap-2 rounded-xl border bg-card p-4">
               <InputGroup className="min-w-56 flex-1">
-                <InputGroupAddon><Search aria-hidden="true" /></InputGroupAddon>
-                <InputGroupInput aria-label={t('library.search')} value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('library.search')} />
+                <InputGroupAddon>
+                  <Search aria-hidden="true" />
+                </InputGroupAddon>
+                <InputGroupInput
+                  aria-label={t('library.search')}
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={t('library.search')}
+                />
               </InputGroup>
-              <Select value={type} onValueChange={(value) => setType((value ?? 'all') as typeof type)}>
-                <SelectTrigger aria-label={t('library.type')} className="min-h-10 w-full sm:w-auto"><SelectValue>{(value) => value === 'blog' ? t('library.blog') : value === 'tweet' ? t('library.tweets') : t('library.allTypes')}</SelectValue></SelectTrigger>
-                <SelectContent><SelectGroup><SelectItem value="all">{t('library.allTypes')}</SelectItem><SelectItem value="blog">{t('library.blog')}</SelectItem><SelectItem value="tweet">{t('library.tweets')}</SelectItem></SelectGroup></SelectContent>
+              <Select
+                value={type}
+                onValueChange={(value) => setType((value ?? 'all') as typeof type)}
+              >
+                <SelectTrigger aria-label={t('library.type')} className="min-h-10 w-full sm:w-auto">
+                  <SelectValue>
+                    {(value) =>
+                      value === 'blog'
+                        ? t('library.blog')
+                        : value === 'tweet'
+                          ? t('library.tweets')
+                          : t('library.allTypes')
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="all">{t('library.allTypes')}</SelectItem>
+                    <SelectItem value="blog">{t('library.blog')}</SelectItem>
+                    <SelectItem value="tweet">{t('library.tweets')}</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
               </Select>
-              <Select value={status} onValueChange={(value) => setStatus((value ?? 'all') as typeof status)}>
-                <SelectTrigger aria-label={t('common.status')} className="min-h-10 w-full sm:w-auto"><SelectValue>{(value) => value === 'draft' ? t('library.draft') : value === 'published' ? t('library.published') : t('library.allStatuses')}</SelectValue></SelectTrigger>
-                <SelectContent><SelectGroup><SelectItem value="all">{t('library.allStatuses')}</SelectItem><SelectItem value="draft">{t('library.draft')}</SelectItem><SelectItem value="published">{t('library.published')}</SelectItem></SelectGroup></SelectContent>
+              <Select
+                value={status}
+                onValueChange={(value) => setStatus((value ?? 'all') as typeof status)}
+              >
+                <SelectTrigger
+                  aria-label={t('common.status')}
+                  className="min-h-10 w-full sm:w-auto"
+                >
+                  <SelectValue>
+                    {(value) =>
+                      value === 'draft'
+                        ? t('library.draft')
+                        : value === 'published'
+                          ? t('library.published')
+                          : t('library.allStatuses')
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="all">{t('library.allStatuses')}</SelectItem>
+                    <SelectItem value="draft">{t('library.draft')}</SelectItem>
+                    <SelectItem value="published">{t('library.published')}</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
               </Select>
               <Select value={language} onValueChange={(value) => setLanguage(value ?? 'all')}>
-                <SelectTrigger aria-label={t('common.language')} className="min-h-10 w-full sm:w-auto"><SelectValue>{(value) => value && value !== 'all' ? value : t('library.allLanguages')}</SelectValue></SelectTrigger>
-                <SelectContent><SelectGroup><SelectItem value="all">{t('library.allLanguages')}</SelectItem>{languages.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectGroup></SelectContent>
+                <SelectTrigger
+                  aria-label={t('common.language')}
+                  className="min-h-10 w-full sm:w-auto"
+                >
+                  <SelectValue>
+                    {(value) => (value && value !== 'all' ? value : t('library.allLanguages'))}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="all">{t('library.allLanguages')}</SelectItem>
+                    {languages.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
               </Select>
             </div>
 
             <div className="hidden overflow-hidden rounded-xl border bg-card lg:block">
               <Table>
-                <TableHeader><TableRow><TableHead>{t('library.content')}</TableHead><TableHead>{t('library.type')}</TableHead><TableHead>{t('common.language')}</TableHead><TableHead>{t('library.updated')}</TableHead><TableHead>{t('common.status')}</TableHead></TableRow></TableHeader>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('library.content')}</TableHead>
+                    <TableHead>{t('library.type')}</TableHead>
+                    <TableHead>{t('common.language')}</TableHead>
+                    <TableHead>{t('library.updated')}</TableHead>
+                    <TableHead>{t('common.status')}</TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
-                  {loading ? Array.from({ length: 5 }).map((_, index) => <TableRow key={index}><TableCell colSpan={5}><Skeleton className="h-5 w-full" /></TableCell></TableRow>) : null}
-                  {!loading && filtered.map((item) => (
-                    <TableRow key={item.id} data-state={selected?.id === item.id ? 'selected' : undefined}>
-                      <TableCell className="max-w-sm font-medium">
-                        <button type="button" className="flex min-h-11 w-full items-center gap-2 truncate text-left outline-none focus-visible:rounded-md focus-visible:ring-2" onClick={() => select(item)}>
-                          <ItemIcon type={item.type} /><span className="truncate">{item.title}</span>
-                        </button>
+                  {loading
+                    ? Array.from({ length: 5 }).map((_, index) => (
+                        <TableRow key={index}>
+                          <TableCell colSpan={5}>
+                            <Skeleton className="h-5 w-full" />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    : null}
+                  {!loading &&
+                    filtered.map((item) => (
+                      <TableRow
+                        key={item.id}
+                        data-state={selected?.id === item.id ? 'selected' : undefined}
+                      >
+                        <TableCell className="max-w-sm font-medium">
+                          <button
+                            type="button"
+                            className="flex min-h-11 w-full items-center gap-2 truncate text-left outline-none focus-visible:rounded-md focus-visible:ring-2"
+                            onClick={() => select(item)}
+                          >
+                            <ItemIcon type={item.type} />
+                            <span className="truncate">{item.title}</span>
+                          </button>
+                        </TableCell>
+                        <TableCell>{typeLabel(item.type, t)}</TableCell>
+                        <TableCell className="text-muted-foreground">{item.locale}</TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {formatDate(item.updatedAt)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={item.status === 'published' ? 'secondary' : 'outline'}>
+                            {statusLabel(item.status, t)}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  {!loading && filtered.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                        {t('library.noMatch')}
                       </TableCell>
-                      <TableCell>{typeLabel(item.type, t)}</TableCell>
-                      <TableCell className="text-muted-foreground">{item.locale}</TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{formatDate(item.updatedAt)}</TableCell>
-                      <TableCell><Badge variant={item.status === 'published' ? 'secondary' : 'outline'}>{statusLabel(item.status, t)}</Badge></TableCell>
                     </TableRow>
-                  ))}
-                  {!loading && filtered.length === 0 ? <TableRow><TableCell colSpan={5} className="h-32 text-center text-muted-foreground">{t('library.noMatch')}</TableCell></TableRow> : null}
+                  ) : null}
                 </TableBody>
               </Table>
             </div>
 
             <div className="grid gap-2 lg:hidden">
-              {loading ? Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-20 w-full rounded-xl" />) : null}
-              {!loading && filtered.map((item) => (
-                <button key={item.id} type="button" className="flex min-h-20 w-full flex-col gap-3 rounded-xl border bg-card p-4 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2" onClick={() => select(item)}>
-                  <span className="flex items-start justify-between gap-3"><span className="flex min-w-0 items-center gap-2 font-medium"><ItemIcon type={item.type} /><span className="truncate">{item.title}</span></span><Badge variant={item.status === 'published' ? 'secondary' : 'outline'}>{statusLabel(item.status, t)}</Badge></span>
-                  <span className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground"><span>{typeLabel(item.type, t)}</span><span>{item.locale}</span><span className="font-mono">{formatDate(item.updatedAt)}</span></span>
-                </button>
-              ))}
-              {!loading && filtered.length === 0 ? <EmptyState title={t('library.noMatchTitle')} className="min-h-32" /> : null}
+              {loading
+                ? Array.from({ length: 4 }).map((_, index) => (
+                    <Skeleton key={index} className="h-20 w-full rounded-xl" />
+                  ))
+                : null}
+              {!loading &&
+                filtered.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className="flex min-h-20 w-full flex-col gap-3 rounded-xl border bg-card p-4 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2"
+                    onClick={() => select(item)}
+                  >
+                    <span className="flex items-start justify-between gap-3">
+                      <span className="flex min-w-0 items-center gap-2 font-medium">
+                        <ItemIcon type={item.type} />
+                        <span className="truncate">{item.title}</span>
+                      </span>
+                      <Badge variant={item.status === 'published' ? 'secondary' : 'outline'}>
+                        {statusLabel(item.status, t)}
+                      </Badge>
+                    </span>
+                    <span className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <span>{typeLabel(item.type, t)}</span>
+                      <span>{item.locale}</span>
+                      <span className="font-mono">{formatDate(item.updatedAt)}</span>
+                    </span>
+                  </button>
+                ))}
+              {!loading && filtered.length === 0 ? (
+                <EmptyState title={t('library.noMatchTitle')} className="min-h-32" />
+              ) : null}
             </div>
           </section>
 
-          <aside className="hidden min-h-80 rounded-xl border bg-card 2xl:block" aria-label={t('library.detail')}>
-            {selected ? <Detail item={selected} /> : <p className="p-6 text-sm text-muted-foreground">{t('library.selectDetail')}</p>}
+          <aside
+            className="hidden min-h-80 rounded-xl border bg-card 2xl:block"
+            aria-label={t('library.detail')}
+          >
+            {selected ? (
+              <Detail item={selected} />
+            ) : (
+              <p className="p-6 text-sm text-muted-foreground">{t('library.selectDetail')}</p>
+            )}
           </aside>
         </div>
       )}
 
       <Sheet open={mobileDetailOpen} onOpenChange={setMobileDetailOpen}>
         <SheetContent side="bottom" className="max-h-[88svh] overflow-auto">
-          <SheetHeader><SheetTitle>{t('library.detail')}</SheetTitle><SheetDescription>{t('library.checkThenOpen')}</SheetDescription></SheetHeader>
+          <SheetHeader>
+            <SheetTitle>{t('library.detail')}</SheetTitle>
+            <SheetDescription>{t('library.checkThenOpen')}</SheetDescription>
+          </SheetHeader>
           {selected ? <Detail item={selected} /> : null}
         </SheetContent>
       </Sheet>

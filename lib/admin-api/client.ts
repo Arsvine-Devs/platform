@@ -11,10 +11,7 @@ export class AdminApiError extends Error {
   readonly code?: string;
   readonly retryAfterMs?: number;
 
-  constructor(
-    message: string,
-    options: { status: number; code?: string; retryAfterMs?: number },
-  ) {
+  constructor(message: string, options: { status: number; code?: string; retryAfterMs?: number }) {
     super(message);
     this.name = 'AdminApiError';
     this.status = options.status;

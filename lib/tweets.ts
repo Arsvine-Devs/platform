@@ -23,11 +23,7 @@ import {
   listTweetMonthPaths,
   putFile,
 } from './github';
-import {
-  InputValidationError,
-  sanitizeCommitMessage,
-  validateTweetId,
-} from './input-validation';
+import { InputValidationError, sanitizeCommitMessage, validateTweetId } from './input-validation';
 
 const SHANGHAI_TIMEZONE = 'Asia/Shanghai';
 const INDEX_PATH = 'tweets/index.json';
@@ -47,7 +43,10 @@ function toStoreError(error: unknown) {
   if (error instanceof StoreError) return error;
   if (error instanceof GitHubError) {
     if (error.status === 409 || error.status === 422) {
-      return new StoreError(409, 'Content repository changed while saving. Please reload and retry.');
+      return new StoreError(
+        409,
+        'Content repository changed while saving. Please reload and retry.',
+      );
     }
     if (error.status === 404) {
       return new StoreError(404, 'Content repository file not found.');
@@ -98,8 +97,7 @@ function normalizeCreatedAtInput(rawValue?: string) {
   }
 
   const trimmed = rawValue.trim();
-  const localMatch =
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(trimmed);
+  const localMatch = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(trimmed);
   if (localMatch) {
     const [, year, month, day, hour, minute, second = '00'] = localMatch;
     return `${year}-${month}-${day}T${hour}:${minute}:${second}+08:00`;
@@ -218,8 +216,9 @@ async function loadMonthRecords(): Promise<TweetMonthRecord[]> {
     const monthPathsFromIndex = [...indexMetaMap.values()]
       .map((item) => item.path)
       .filter((path) => MONTH_FILE_PATTERN.test(path));
-    const monthPaths = [...new Set([...monthPathsFromTree, ...monthPathsFromIndex])]
-      .sort((a, b) => b.localeCompare(a));
+    const monthPaths = [...new Set([...monthPathsFromTree, ...monthPathsFromIndex])].sort((a, b) =>
+      b.localeCompare(a),
+    );
 
     const months = await Promise.all(
       monthPaths.map(async (filePath) => {
@@ -308,12 +307,13 @@ function buildTweet(
 ) {
   const createdAt = normalizeCreatedAtInput(input.createdAt);
   const dayKey = dayFromDate(createdAt);
-  const sequence = siblingTweets
-    .map((tweet) => {
-      const match = new RegExp(`^${dayKey}-(\\d{3})$`).exec(tweet.id);
-      return match ? Number(match[1]) : 0;
-    })
-    .reduce((maxValue, currentValue) => Math.max(maxValue, currentValue), 0) + 1;
+  const sequence =
+    siblingTweets
+      .map((tweet) => {
+        const match = new RegExp(`^${dayKey}-(\\d{3})$`).exec(tweet.id);
+        return match ? Number(match[1]) : 0;
+      })
+      .reduce((maxValue, currentValue) => Math.max(maxValue, currentValue), 0) + 1;
 
   const id = `${dayKey}-${String(sequence).padStart(3, '0')}`;
 
@@ -345,7 +345,7 @@ function getRepoSummary(): RepoSummary {
   };
 }
 
-export function getRepoPaths() {
+function getRepoPaths() {
   const repo = getContentRepoInfo();
   return {
     tweetsDirPath: `github://${repo.owner}/${repo.repo}@${repo.branch}/tweets`,
@@ -371,15 +371,18 @@ function sourceKey(origin?: TweetOrigin) {
 function sameOrigin(left: TweetOrigin | undefined, right: TweetOrigin) {
   return Boolean(
     left &&
-      left.provider === right.provider &&
-      left.externalId === right.externalId &&
-      left.canonicalUrl === right.canonicalUrl &&
-      left.authorId === right.authorId &&
-      left.authorUsername === right.authorUsername,
+    left.provider === right.provider &&
+    left.externalId === right.externalId &&
+    left.canonicalUrl === right.canonicalUrl &&
+    left.authorId === right.authorId &&
+    left.authorUsername === right.authorUsername,
   );
 }
 
-export async function mergeImportedTweets(posts: ImportedTweet[], syncAt = toShanghaiIso(new Date())) {
+export async function mergeImportedTweets(
+  posts: ImportedTweet[],
+  syncAt = toShanghaiIso(new Date()),
+) {
   if (posts.length === 0) return { created: 0, updated: 0, changed: false, months: [] as string[] };
 
   const records = await loadMonthRecords();
@@ -428,9 +431,10 @@ export async function mergeImportedTweets(posts: ImportedTweet[], syncAt = toSha
         lang: post.lang,
         updatedAt: syncAt,
         origin,
-        translations: contentChanged || existing.lang !== post.lang
-          ? markTweetTranslationsStale(existing.translations)
-          : existing.translations,
+        translations:
+          contentChanged || existing.lang !== post.lang
+            ? markTweetTranslationsStale(existing.translations)
+            : existing.translations,
       };
 
       if (existingLocation.record.month === targetMonth) {
@@ -461,7 +465,10 @@ export async function mergeImportedTweets(posts: ImportedTweet[], syncAt = toSha
         targetRecord.count = targetRecord.tweets.length;
         targetRecord.updatedAt = syncAt;
         changedMonths.add(targetRecord.month);
-        existingByExternalId.set(post.externalId, { record: targetRecord, index: targetRecord.tweets.length - 1 });
+        existingByExternalId.set(post.externalId, {
+          record: targetRecord,
+          index: targetRecord.tweets.length - 1,
+        });
       }
       updated += 1;
       continue;
@@ -496,29 +503,47 @@ export async function mergeImportedTweets(posts: ImportedTweet[], syncAt = toSha
     targetRecord.tweets.push(tweet);
     targetRecord.count = targetRecord.tweets.length;
     targetRecord.updatedAt = syncAt;
-    existingByExternalId.set(post.externalId, { record: targetRecord, index: targetRecord.tweets.length - 1 });
+    existingByExternalId.set(post.externalId, {
+      record: targetRecord,
+      index: targetRecord.tweets.length - 1,
+    });
     changedMonths.add(targetRecord.month);
     created += 1;
   }
 
   if (created > 0 || updated > 0) {
-    await saveMonthRecords(records.filter((record) => record.tweets.length > 0), 'chore: sync X timeline');
+    await saveMonthRecords(
+      records.filter((record) => record.tweets.length > 0),
+      'chore: sync X timeline',
+    );
   }
 
-  return { created, updated, changed: created > 0 || updated > 0, months: [...changedMonths].sort() };
+  return {
+    created,
+    updated,
+    changed: created > 0 || updated > 0,
+    months: [...changedMonths].sort(),
+  };
 }
 
 export async function getRecentImportedXExternalIds(cutoff: string, limit = 100) {
   const records = await loadMonthRecords();
   return records
     .flatMap((record) => record.tweets)
-    .filter((tweet) => tweet.origin?.provider === 'x' && new Date(tweet.createdAt).getTime() >= new Date(cutoff).getTime())
+    .filter(
+      (tweet) =>
+        tweet.origin?.provider === 'x' &&
+        new Date(tweet.createdAt).getTime() >= new Date(cutoff).getTime(),
+    )
     .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())
     .map((tweet) => tweet.origin!.externalId)
     .slice(0, limit);
 }
 
-export async function removeImportedTweetsByExternalIds(externalIds: string[], syncAt = toShanghaiIso(new Date())) {
+export async function removeImportedTweetsByExternalIds(
+  externalIds: string[],
+  syncAt = toShanghaiIso(new Date()),
+) {
   const ids = new Set(externalIds);
   if (ids.size === 0) return { removed: 0, changed: false };
   const records = await loadMonthRecords();
@@ -552,15 +577,13 @@ export async function createTweet(input: CreateTweetInput) {
     createdAt: normalizeCreatedAtInput(input.createdAt),
   };
   const targetMonth = monthFromDate(draft.createdAt);
-  const targetRecord =
-    records.find((record) => record.month === targetMonth) ??
-    {
-      month: targetMonth,
-      path: `tweets/${targetMonth}.json`,
-      count: 0,
-      updatedAt: draft.createdAt,
-      tweets: [],
-    };
+  const targetRecord = records.find((record) => record.month === targetMonth) ?? {
+    month: targetMonth,
+    path: `tweets/${targetMonth}.json`,
+    count: 0,
+    updatedAt: draft.createdAt,
+    tweets: [],
+  };
 
   const translations = input.autoTranslate
     ? await buildTweetTranslations({
@@ -589,8 +612,7 @@ export async function updateTweet(tweetId: string, input: UpdateTweetInput) {
   const existingTweet = record.tweets[tweetIndex];
   const nextContent =
     input.content === undefined ? existingTweet.content : assertContent(input.content);
-  const nextLang =
-    input.lang === undefined ? existingTweet.lang : assertLang(input.lang);
+  const nextLang = input.lang === undefined ? existingTweet.lang : assertLang(input.lang);
   const contentChanged = nextContent !== existingTweet.content;
   const langChanged = nextLang !== existingTweet.lang;
   if (existingTweet.origin?.provider === 'x' && (contentChanged || langChanged)) {

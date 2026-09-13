@@ -5,15 +5,15 @@ import { enforceRateLimit } from '../../../../lib/rate-limit';
 import { publishPost } from '../../../../lib/posts';
 import { withSessionWorkspace } from '../../../../lib/request-auth';
 import type { BlogPublishInput, BlogPublishResponse } from '../../../../lib/admin-api/contracts';
-import { isDevelopmentBypassSession, publishDevelopmentPost } from '../../../../lib/development-preview';
+import {
+  isDevelopmentBypassSession,
+  publishDevelopmentPost,
+} from '../../../../lib/development-preview';
 
 export async function POST(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) {
-    return NextResponse.json(
-      { ok: false, error: { message: 'Unauthorized' } },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
   }
 
   if (!verifyCsrf(request, session)) {

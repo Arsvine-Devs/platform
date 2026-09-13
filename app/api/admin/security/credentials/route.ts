@@ -7,7 +7,11 @@ import { privateJson } from '@/lib/private-response';
 import { parseCredentialTransports } from '@/lib/webauthn';
 import { getOwnerAccount, listActiveWebAuthnCredentials } from '@/lib/webauthn-store';
 import type { SecurityData } from '@/lib/admin-api/contracts';
-import { getDevelopmentSecurity, isDevelopmentBypassEnabled, isDevelopmentBypassSession } from '@/lib/development-preview';
+import {
+  getDevelopmentSecurity,
+  isDevelopmentBypassEnabled,
+  isDevelopmentBypassSession,
+} from '@/lib/development-preview';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,9 +19,14 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   if (isDevelopmentBypassEnabled()) {
     const developmentSession = await getSessionFromRequest(request);
-    if (isDevelopmentBypassSession(developmentSession)) return privateJson({ ok: true, data: getDevelopmentSecurity() });
+    if (isDevelopmentBypassSession(developmentSession))
+      return privateJson({ ok: true, data: getDevelopmentSecurity() });
   }
-  const limiter = await enforceRateLimit(`webauthn-credentials:${getClientKey(request)}`, 60, 60_000);
+  const limiter = await enforceRateLimit(
+    `webauthn-credentials:${getClientKey(request)}`,
+    60,
+    60_000,
+  );
   if (!limiter.ok) {
     return NextResponse.json(
       { ok: false, error: { message: '请求过于频繁，请稍后再试。' } },
@@ -26,10 +35,12 @@ export async function GET(request: NextRequest) {
   }
 
   const session = await getSessionFromRequest(request);
-  if (!session || !isOwner(session)) return privateJson({ ok: false, error: { message: 'Forbidden' } }, { status: 403 });
+  if (!session || !isOwner(session))
+    return privateJson({ ok: false, error: { message: 'Forbidden' } }, { status: 403 });
   try {
     const owner = await getOwnerAccount();
-    if (!owner || owner.id !== session.userId) return privateJson({ ok: false, error: { message: 'Forbidden' } }, { status: 403 });
+    if (!owner || owner.id !== session.userId)
+      return privateJson({ ok: false, error: { message: 'Forbidden' } }, { status: 403 });
 
     const credentials = await listActiveWebAuthnCredentials(owner.id);
     const data: SecurityData = {
@@ -51,7 +62,10 @@ export async function GET(request: NextRequest) {
       data,
     });
   } catch (error) {
-    console.error('[admin/security/credentials] failed:', error instanceof Error ? error.message : error);
+    console.error(
+      '[admin/security/credentials] failed:',
+      error instanceof Error ? error.message : error,
+    );
     return privateJson({ ok: false, error: { message: '无法读取安全设置。' } }, { status: 500 });
   }
 }

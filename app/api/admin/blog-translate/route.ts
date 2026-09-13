@@ -5,16 +5,19 @@ import { buildBlogTranslations } from '../../../../lib/blog-translation';
 import { getClientKey } from '../../../../lib/client-key';
 import { enforceRateLimit } from '../../../../lib/rate-limit';
 import { withSessionWorkspace } from '../../../../lib/request-auth';
-import type { BlogTranslateInput, BlogTranslateResponse } from '../../../../lib/admin-api/contracts';
-import { isDevelopmentBypassSession, translateDevelopmentBlog } from '../../../../lib/development-preview';
+import type {
+  BlogTranslateInput,
+  BlogTranslateResponse,
+} from '../../../../lib/admin-api/contracts';
+import {
+  isDevelopmentBypassSession,
+  translateDevelopmentBlog,
+} from '../../../../lib/development-preview';
 
 export async function POST(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) {
-    return NextResponse.json(
-      { ok: false, error: { message: 'Unauthorized' } },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
   }
 
   if (!verifyCsrf(request, session)) {

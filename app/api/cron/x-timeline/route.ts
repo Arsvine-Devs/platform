@@ -20,21 +20,26 @@ export async function GET(request: NextRequest) {
   const failed = results.filter((item) => item.error);
   const changed = results.filter((item) => item.result?.changed).length;
 
-  return NextResponse.json({
-    ok: failed.length === 0,
-    processed: results.length,
-    changed,
-    failed: failed.length,
-    results: results.map((item) => ({
-      userId: item.userId,
-      ...(item.error ? { error: item.error } : {
-        fetched: item.result?.fetched ?? 0,
-        created: item.result?.created ?? 0,
-        updated: item.result?.updated ?? 0,
-        removed: item.result?.removed ?? 0,
-        hasMore: item.result?.hasMore ?? false,
-        revalidated: item.result?.revalidated?.revalidated ?? null,
-      }),
-    })),
-  }, { status: failed.length === 0 ? 200 : 207 });
+  return NextResponse.json(
+    {
+      ok: failed.length === 0,
+      processed: results.length,
+      changed,
+      failed: failed.length,
+      results: results.map((item) => ({
+        userId: item.userId,
+        ...(item.error
+          ? { error: item.error }
+          : {
+              fetched: item.result?.fetched ?? 0,
+              created: item.result?.created ?? 0,
+              updated: item.result?.updated ?? 0,
+              removed: item.result?.removed ?? 0,
+              hasMore: item.result?.hasMore ?? false,
+              revalidated: item.result?.revalidated?.revalidated ?? null,
+            }),
+      })),
+    },
+    { status: failed.length === 0 ? 200 : 207 },
+  );
 }

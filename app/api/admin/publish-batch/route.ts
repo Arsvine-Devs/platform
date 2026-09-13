@@ -5,16 +5,19 @@ import { getClientKey } from '../../../../lib/client-key';
 import { enforceRateLimit } from '../../../../lib/rate-limit';
 import { publishPostBatch } from '../../../../lib/posts';
 import { withSessionWorkspace } from '../../../../lib/request-auth';
-import type { BlogPublishBatchInput, BlogPublishResponse } from '../../../../lib/admin-api/contracts';
-import { isDevelopmentBypassSession, publishDevelopmentBatch } from '../../../../lib/development-preview';
+import type {
+  BlogPublishBatchInput,
+  BlogPublishResponse,
+} from '../../../../lib/admin-api/contracts';
+import {
+  isDevelopmentBypassSession,
+  publishDevelopmentBatch,
+} from '../../../../lib/development-preview';
 
 export async function POST(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) {
-    return NextResponse.json(
-      { ok: false, error: { message: 'Unauthorized' } },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
   }
 
   if (!verifyCsrf(request, session)) {
@@ -41,7 +44,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as BlogPublishBatchInput;
 
-    const data: BlogPublishResponse = await withSessionWorkspace(session, () => publishPostBatch(body));
+    const data: BlogPublishResponse = await withSessionWorkspace(session, () =>
+      publishPostBatch(body),
+    );
     return NextResponse.json({ ok: true, data });
   } catch (error) {
     return NextResponse.json(

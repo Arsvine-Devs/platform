@@ -1,0 +1,5 @@
+pnpm-lock.yaml
+patches/
+public/
+drizzle/**/*.sql
+output/

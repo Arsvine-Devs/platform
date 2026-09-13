@@ -73,7 +73,10 @@ function EditorToolbar() {
     <DiffSourceToggleWrapper>
       <ConditionalContents
         options={[
-          { when: (editor) => editor?.editorType === 'codeblock', contents: () => <ChangeCodeMirrorLanguage /> },
+          {
+            when: (editor) => editor?.editorType === 'codeblock',
+            contents: () => <ChangeCodeMirrorLanguage />,
+          },
           {
             fallback: () => (
               <>
@@ -110,9 +113,16 @@ export default function MdxEditorClient({
   autoFocus = false,
 }: MdxEditorClientProps) {
   const { t } = useI18n();
-  const translate = (key: string, defaultValue: string, interpolations?: Record<string, unknown>) => {
+  const translate = (
+    key: string,
+    defaultValue: string,
+    interpolations?: Record<string, unknown>,
+  ) => {
     const translatedKey = `mdx.${key}`;
-    const translated = t(translatedKey, interpolations as Record<string, string | number> | undefined);
+    const translated = t(
+      translatedKey,
+      interpolations as Record<string, string | number> | undefined,
+    );
     return translated === translatedKey ? defaultValue : translated;
   };
 
