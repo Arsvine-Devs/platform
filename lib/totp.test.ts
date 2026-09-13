@@ -28,18 +28,44 @@ describe('verifyTotp', () => {
   it('accepts the current-step code', () => {
     const period = 30;
     const code = computeCodeForStep(FIXED_SECRET, BigInt(Math.floor(mockedNow / 1000 / period)), 6);
-    expect(verifyTotp({ token: code, secretBase32: FIXED_SECRET, period, digits: 6, window: 0, nowMs: mockedNow })).toBe(true);
+    expect(
+      verifyTotp({
+        token: code,
+        secretBase32: FIXED_SECRET,
+        period,
+        digits: 6,
+        window: 0,
+        nowMs: mockedNow,
+      }),
+    ).toBe(true);
   });
 
   it('rejects a token outside the allowed window', () => {
     const period = 30;
-    const code = computeCodeForStep(FIXED_SECRET, BigInt(Math.floor(mockedNow / 1000 / period)) + BigInt(4), 6);
-    expect(verifyTotp({ token: code, secretBase32: FIXED_SECRET, period, digits: 6, window: 1, nowMs: mockedNow })).toBe(false);
+    const code = computeCodeForStep(
+      FIXED_SECRET,
+      BigInt(Math.floor(mockedNow / 1000 / period)) + BigInt(4),
+      6,
+    );
+    expect(
+      verifyTotp({
+        token: code,
+        secretBase32: FIXED_SECRET,
+        period,
+        digits: 6,
+        window: 1,
+        nowMs: mockedNow,
+      }),
+    ).toBe(false);
   });
 
   it('rejects malformed tokens', () => {
-    expect(verifyTotp({ token: '12345', secretBase32: FIXED_SECRET, nowMs: mockedNow })).toBe(false);
-    expect(verifyTotp({ token: 'abcdef', secretBase32: FIXED_SECRET, nowMs: mockedNow })).toBe(false);
+    expect(verifyTotp({ token: '12345', secretBase32: FIXED_SECRET, nowMs: mockedNow })).toBe(
+      false,
+    );
+    expect(verifyTotp({ token: 'abcdef', secretBase32: FIXED_SECRET, nowMs: mockedNow })).toBe(
+      false,
+    );
   });
 });
 
@@ -65,7 +91,13 @@ describe('admin TOTP config', () => {
   it('accepts previous secrets during rotation', () => {
     const previousSecret = 'KRSXG5BAONSWG4TFOQ';
     const code = computeCodeForStep(previousSecret, BigInt(Math.floor(mockedNow / 1000 / 30)), 6);
-    setAdminTotp({ current: FIXED_SECRET, previous: [previousSecret], period: 30, digits: 6, window: 1 });
+    setAdminTotp({
+      current: FIXED_SECRET,
+      previous: [previousSecret],
+      period: 30,
+      digits: 6,
+      window: 1,
+    });
     expect(verifyAdminTotpToken(code)).toBe(true);
   });
 

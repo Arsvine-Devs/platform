@@ -1,8 +1,21 @@
 'use client';
 
 import { useEffect, useSyncExternalStore, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { PanelLeft, PanelRight } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { adminRequest, isAdminApiError } from '@/lib/admin-api/client';
+import type {
+  BlogIndexData,
+  BlogPublishBatchInput,
+  BlogPublishInput,
+  BlogPublishResponse,
+  BlogTranslateResponse,
+  BlogVariantData,
+} from '@/lib/admin-api/contracts';
+import { DetailSheet, PageFrame, PageHeader } from '@/components/admin/blocks';
+import { useI18n } from '@/components/i18n/locale-provider';
 import { Button } from '@/components/ui/button';
 import BlogArchivePanel, { type BlogIndexItem } from './blog-archive-panel';
 import BlogEditorPanel, { INITIAL_BLOG_FORM, type BlogFormState } from './blog-editor-panel';
@@ -12,30 +25,8 @@ import { BLOG_LOCALES, type BlogLocale } from './blog-locale-labels';
 
 type BlogPageClientProps = {
   csrfToken: string;
+  initialSelection?: { slug?: string; locale?: string };
 };
-
-type PublishResponse = {
-  path: string;
-  revalidated?: { paths: string[] };
-};
-
-type BatchPublishResponse = {
-  paths: string[];
-  revalidated?: { paths: string[] };
-};
-
-type BlogTranslateResponse = {
-  variants: Array<{
-    locale: Extract<BlogLocale, 'zh-TW' | 'en'>;
-    title: string;
-    excerpt: string;
-    tags: string[];
-    content: string;
-    originLocale: string;
-  }>;
-};
-
-type AdminResponse<T> = { ok: true; data: T } | { ok: false; error: { message: string } };
 
 type BlogDraft = BlogFormState & {
   savedAt: number;
@@ -47,10 +38,6 @@ const EMPTY_DRAFTS: Record<string, BlogDraft> = {};
 let cachedDraftsRaw: string | null | undefined;
 let cachedDraftsSnapshot: Record<string, BlogDraft> = EMPTY_DRAFTS;
 
-function unwrapError(json: AdminResponse<unknown>, fallback: string) {
-  return json.ok ? fallback : json.error.message;
-}
-
 function getDraftKey(slug: string, locale: BlogLocale) {
   return `${slug.trim().toLowerCase()}:${locale}`;
 }
@@ -58,10 +45,10 @@ function getDraftKey(slug: string, locale: BlogLocale) {
 function hasMeaningfulFormContent(form: BlogFormState) {
   return Boolean(
     form.slug.trim() ||
-      form.title.trim() ||
-      form.excerpt.trim() ||
-      form.tags.trim() ||
-      form.content.trim(),
+    form.title.trim() ||
+    form.excerpt.trim() ||
+    form.tags.trim() ||
+    form.content.trim(),
   );
 }
 
@@ -77,6 +64,10 @@ function buildEmptyVariantForm(source: BlogFormState, locale: BlogLocale): BlogF
   };
 }
 
+function optionalBlogLocale(value: string) {
+  return BLOG_LOCALES.includes(value as BlogLocale) ? (value as BlogLocale) : undefined;
+}
+
 function readDraftsSnapshot(): Record<string, BlogDraft> {
   if (typeof window === 'undefined') {
     return EMPTY_DRAFTS;
@@ -89,9 +80,7 @@ function readDraftsSnapshot(): Record<string, BlogDraft> {
     }
 
     cachedDraftsRaw = raw;
-    cachedDraftsSnapshot = raw
-      ? (JSON.parse(raw) as Record<string, BlogDraft>)
-      : EMPTY_DRAFTS;
+    cachedDraftsSnapshot = raw ? (JSON.parse(raw) as Record<string, BlogDraft>) : EMPTY_DRAFTS;
     return cachedDraftsSnapshot;
   } catch {
     cachedDraftsRaw = null;
@@ -120,7 +109,9 @@ function subscribeDrafts(onStoreChange: () => void) {
   };
 }
 
-export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
+export default function BlogPageClient({ csrfToken, initialSelection }: BlogPageClientProps) {
+  const router = useRouter();
+  const { t } = useI18n();
   const [form, setForm] = useState<BlogFormState>(INITIAL_BLOG_FORM);
   const [items, setItems] = useState<BlogIndexItem[]>([]);
   const [panelMode, setPanelMode] = useState<'edit' | 'preview'>('edit');
@@ -136,11 +127,29 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
   const [translating, setTranslating] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [editorError, setEditorError] = useState<string | null>(null);
+
+  function notifyError(error: unknown, fallback: string) {
+    if (isAdminApiError(error) && error.status === 401) {
+      router.push('/login');
+      return;
+    }
+    toast.error(error instanceof Error ? error.message : fallback);
+  }
 
   useEffect(() => {
     const controller = new AbortController();
-    void loadIndex(controller.signal);
-    return () => controller.abort();
+    const timer = window.setTimeout(() => {
+      void loadIndex(controller.signal);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+    // The controller intentionally performs one initial load for this page instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function persistDrafts(nextDrafts: Record<string, BlogDraft>) {
@@ -154,15 +163,21 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
   async function loadIndex(signal?: AbortSignal) {
     setLoadingIndex(true);
     try {
-      const response = await fetch('/api/admin/blog-index', { cache: 'no-store', signal });
-      const json = (await response.json()) as AdminResponse<{ posts: BlogIndexItem[] }>;
-      if (!response.ok || !json.ok) {
-        throw new Error(unwrapError(json, 'Failed to load blog index.'));
+      const data = await adminRequest<BlogIndexData>('/api/admin/blog-index', { signal });
+      setItems(data.posts);
+      if (initialSelection?.slug) {
+        const locale = BLOG_LOCALES.includes(initialSelection.locale as BlogLocale)
+          ? (initialSelection.locale as BlogLocale)
+          : 'zh-CN';
+        void loadVariant(initialSelection.slug, locale);
       }
-      setItems(json.data.posts);
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return;
-      toast.error(error instanceof Error ? error.message : 'Failed to load blog index.');
+      if (isAdminApiError(error) && error.status === 401) {
+        router.push('/login');
+        return;
+      }
+      toast.error(error instanceof Error ? error.message : t('blog.loadError'));
     } finally {
       setLoadingIndex(false);
     }
@@ -180,7 +195,9 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
   function getDraftCountForSlug(slug: string) {
     const normalizedSlug = slug.trim().toLowerCase();
     if (!normalizedSlug) return 0;
-    return Object.values(drafts).filter((draft) => draft.slug.trim().toLowerCase() === normalizedSlug).length;
+    return Object.values(drafts).filter(
+      (draft) => draft.slug.trim().toLowerCase() === normalizedSlug,
+    ).length;
   }
 
   const draftCount = getDraftCountForSlug(form.slug);
@@ -200,7 +217,7 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
     const normalizedSlug = currentForm.slug.trim().toLowerCase();
     if (!normalizedSlug) {
       if (!options?.silent) {
-        toast.error('请先填写 slug，再暂存草稿。');
+        toast.error(t('blog.slugRequiredDraft'));
       }
       return false;
     }
@@ -228,7 +245,7 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
     persistDrafts(nextDrafts);
 
     if (!options?.silent) {
-      toast.success(`已暂存 ${normalizedSlug}/${currentForm.locale} 草稿。`);
+      toast.success(t('blog.savedDraft', { slug: normalizedSlug, locale: currentForm.locale }));
     }
     return true;
   }
@@ -252,34 +269,9 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
     const localDraft = drafts[draftKey];
 
     try {
-      const response = await fetch(
+      const data = await adminRequest<BlogVariantData>(
         `/api/admin/blog-variant?slug=${encodeURIComponent(normalizedSlug)}&locale=${encodeURIComponent(locale)}`,
-        { cache: 'no-store' },
       );
-      if (response.status === 404) {
-        const fallback = localDraft ?? buildEmptyVariantForm({ ...form, slug: normalizedSlug }, locale);
-        setSelectedKey(`${normalizedSlug}:${locale}`);
-        setForm(fallback);
-        return;
-      }
-      const json = (await response.json()) as AdminResponse<{
-        slug: string;
-        locale: BlogLocale;
-        title: string;
-        excerpt: string;
-        date: string;
-        tags: string[];
-        pinned: boolean;
-        accessMode: 'public' | 'totp';
-        accessGroup: string;
-        originLocale: string;
-        content: string;
-      }>;
-      if (!response.ok || !json.ok) {
-        throw new Error(unwrapError(json, 'Failed to load variant.'));
-      }
-      const data = json.data;
-      setSelectedKey(`${data.slug}:${data.locale}`);
       const remoteForm: BlogFormState = {
         slug: data.slug,
         locale: data.locale,
@@ -293,12 +285,24 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
         originLocale: data.originLocale,
         content: data.content,
       };
+      setSelectedKey(`${data.slug}:${data.locale}`);
       setForm(localDraft ?? remoteForm);
       if (localDraft) {
-        toast.success(`已加载本地草稿：${normalizedSlug}/${locale}`);
+        toast.success(t('blog.loadDraft', { slug: normalizedSlug, locale }));
       }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to load variant.');
+    } catch (caught) {
+      if (isAdminApiError(caught) && caught.status === 404) {
+        const fallback =
+          localDraft ?? buildEmptyVariantForm({ ...form, slug: normalizedSlug }, locale);
+        setSelectedKey(`${normalizedSlug}:${locale}`);
+        setForm(fallback);
+        return;
+      }
+      if (isAdminApiError(caught) && caught.status === 401) {
+        router.push('/login');
+        return;
+      }
+      toast.error(caught instanceof Error ? caught.message : t('blog.variantLoadError'));
     }
   }
 
@@ -328,13 +332,10 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
     setPublishing(true);
     try {
       const normalizedSlug = form.slug.trim().toLowerCase();
-      const response = await fetch('/api/admin/publish', {
+      const data = await adminRequest<BlogPublishResponse>('/api/admin/publish', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-        },
-        body: JSON.stringify({
+        csrfToken,
+        body: {
           slug: normalizedSlug,
           locale: form.locale,
           title: form.title,
@@ -347,22 +348,21 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
           pinned: form.pinned,
           accessMode: form.accessMode,
           accessGroup: form.accessGroup,
-          originLocale: form.originLocale || undefined,
+          originLocale: optionalBlogLocale(form.originLocale),
           content: form.content,
-        }),
+        } satisfies BlogPublishInput,
       });
-      const json = (await response.json()) as AdminResponse<PublishResponse>;
-      if (!response.ok || !json.ok) {
-        throw new Error(unwrapError(json, 'Publish failed.'));
-      }
       toast.success(
-        `已发布到 ${json.data.path}，刷新路径：${json.data.revalidated?.paths.join(', ') || '无'}`,
+        t('blog.publishedTo', {
+          path: data.path || t('workspace.repository'),
+          paths: data.revalidated?.paths.join(', ') || t('common.none'),
+        }),
       );
       clearDraftsForSlug(normalizedSlug, [form.locale]);
       await loadIndex();
       setSelectedKey(`${normalizedSlug}:${form.locale}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Publish failed.');
+      notifyError(error, 'Publish failed.');
     } finally {
       setPublishing(false);
     }
@@ -380,7 +380,7 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
   async function handlePublishAllDrafts() {
     const normalizedSlug = form.slug.trim().toLowerCase();
     if (!normalizedSlug) {
-      toast.error('请先填写 slug。');
+      toast.error(t('blog.slugRequired'));
       return;
     }
 
@@ -399,19 +399,16 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
       .sort((left, right) => left.savedAt - right.savedAt);
 
     if (slugDrafts.length === 0) {
-      toast.error('当前文章没有可发布的草稿。');
+      toast.error(t('blog.noDrafts'));
       return;
     }
 
     setBatchPublishing(true);
     try {
-      const response = await fetch('/api/admin/publish-batch', {
+      const data = await adminRequest<BlogPublishResponse>('/api/admin/publish-batch', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-        },
-        body: JSON.stringify({
+        csrfToken,
+        body: {
           slug: normalizedSlug,
           date: form.date,
           pinned: form.pinned,
@@ -426,25 +423,24 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
               .map((tag) => tag.trim())
               .filter(Boolean),
             content: draft.content,
-            originLocale: draft.originLocale || undefined,
+            originLocale: optionalBlogLocale(draft.originLocale),
           })),
-        }),
+        } satisfies BlogPublishBatchInput,
       });
-      const json = (await response.json()) as AdminResponse<BatchPublishResponse>;
-      if (!response.ok || !json.ok) {
-        throw new Error(unwrapError(json, 'Batch publish failed.'));
-      }
       clearDraftsForSlug(
         normalizedSlug,
         slugDrafts.map((draft) => draft.locale),
       );
       toast.success(
-        `已批量发布 ${slugDrafts.length} 个语言变体，刷新路径：${json.data.revalidated?.paths.join(', ') || '无'}`,
+        t('blog.publishedBatch', {
+          count: slugDrafts.length,
+          paths: data.revalidated?.paths.join(', ') || t('common.none'),
+        }),
       );
       await loadIndex();
       setSelectedKey(`${normalizedSlug}:${form.locale}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Batch publish failed.');
+      notifyError(error, t('blog.batchPublishError'));
     } finally {
       setBatchPublishing(false);
     }
@@ -452,15 +448,15 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
 
   async function handleTranslate() {
     if (form.locale !== 'zh-CN') {
-      toast.error('博客自动翻译当前只支持从 zh-CN 生成。');
+      toast.error(t('blog.translationSourceError'));
       return;
     }
     if (!form.slug.trim()) {
-      toast.error('请先填写 slug。');
+      toast.error(t('blog.slugRequired'));
       return;
     }
     if (!form.title.trim() || !form.excerpt.trim() || !form.content.trim()) {
-      toast.error('请先完善当前 zh-CN 的标题、摘要和正文。');
+      toast.error(t('blog.translationFieldsRequired'));
       return;
     }
 
@@ -469,13 +465,10 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
 
     setTranslating(true);
     try {
-      const response = await fetch('/api/admin/blog-translate', {
+      const data = await adminRequest<BlogTranslateResponse>('/api/admin/blog-translate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-        },
-        body: JSON.stringify({
+        csrfToken,
+        body: {
           sourceLocale: 'zh-CN',
           title: form.title,
           excerpt: form.excerpt,
@@ -485,12 +478,8 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
             .filter(Boolean),
           content: form.content,
           targetLocales: ['zh-TW', 'en'],
-        }),
+        },
       });
-      const json = (await response.json()) as AdminResponse<BlogTranslateResponse>;
-      if (!response.ok || !json.ok) {
-        throw new Error(unwrapError(json, 'Blog translation failed.'));
-      }
 
       const nextDrafts = { ...drafts };
       nextDrafts[getDraftKey(normalizedSlug, form.locale)] = {
@@ -499,7 +488,7 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
         savedAt: Date.now(),
       };
 
-      for (const variant of json.data.variants) {
+      for (const variant of data.variants) {
         nextDrafts[getDraftKey(normalizedSlug, variant.locale)] = {
           slug: normalizedSlug,
           locale: variant.locale,
@@ -517,9 +506,13 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
       }
 
       persistDrafts(nextDrafts);
-      toast.success(`已生成 ${json.data.variants.map((item) => item.locale).join(' / ')} 草稿。`);
+      toast.success(
+        t('blog.generatedDrafts', {
+          locales: data.variants.map((item) => item.locale).join(' / '),
+        }),
+      );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Blog translation failed.');
+      notifyError(error, t('blog.translationError'));
     } finally {
       setTranslating(false);
     }
@@ -528,37 +521,151 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
   async function handleRebuild() {
     setRebuilding(true);
     try {
-      const response = await fetch('/api/admin/rebuild-index', {
-        method: 'POST',
-        headers: { 'x-csrf-token': csrfToken },
-      });
-      const json = (await response.json()) as AdminResponse<{ revalidated: { paths: string[] } }>;
-      if (!response.ok || !json.ok) {
-        throw new Error(unwrapError(json, 'Rebuild failed.'));
-      }
-      toast.success(`索引已重建，刷新路径：${json.data.revalidated.paths.join(', ')}`);
+      const data = await adminRequest<{ revalidated: { paths: string[] } }>(
+        '/api/admin/rebuild-index',
+        {
+          method: 'POST',
+          csrfToken,
+        },
+      );
+      toast.success(
+        t('blog.indexRebuilt', { paths: data.revalidated.paths.join(', ') || t('common.none') }),
+      );
       await loadIndex();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Rebuild failed.');
+      notifyError(error, t('blog.rebuildError'));
     } finally {
       setRebuilding(false);
     }
   }
 
+  const documentKey = selectedKey || `new:${form.locale}`;
+
   return (
-    <div className="min-h-[calc(100svh-3.5rem)] p-5 lg:p-8">
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b pb-4"><div><p className="text-sm text-muted-foreground">Blog / {form.slug || '新文章'}</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">专注编辑</h1></div><div className="flex items-center gap-2"><Button type="button" size="sm" variant={panelMode === 'edit' ? 'secondary' : 'outline'} onClick={() => setPanelMode('edit')}>写作</Button><Button type="button" size="sm" variant={panelMode === 'preview' ? 'secondary' : 'outline'} onClick={() => setPanelMode('preview')}>预览</Button></div></div>
-      <div className="grid min-h-[calc(100svh-11rem)] grid-cols-1 gap-5 xl:grid-cols-[16rem_20rem_minmax(0,1fr)]">
-      <aside className="min-h-0 xl:border-r xl:pr-5">
+    <PageFrame size="full" className="gap-5 px-4 py-5 sm:px-6 lg:px-8">
+      <PageHeader
+        eyebrow={form.slug ? `Blog / ${form.slug}` : `Blog / ${t('blog.new')}`}
+        title={t('blog.title')}
+        description={t('blog.description')}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-10 lg:hidden"
+              onClick={() => setArchiveOpen(true)}
+            >
+              <PanelLeft />
+              {t('blog.archive')}
+            </Button>
+            <Button
+              type="button"
+              variant={panelMode === 'edit' ? 'secondary' : 'outline'}
+              size="sm"
+              className="min-h-10"
+              onClick={() => setPanelMode('edit')}
+            >
+              {t('common.write')}
+            </Button>
+            <Button
+              type="button"
+              variant={panelMode === 'preview' ? 'secondary' : 'outline'}
+              size="sm"
+              className="min-h-10"
+              onClick={() => setPanelMode('preview')}
+            >
+              {t('common.preview')}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-10 xl:hidden"
+              onClick={() => setInspectorOpen(true)}
+            >
+              <PanelRight />
+              {t('blog.settings')}
+            </Button>
+          </div>
+        }
+      />
+      {editorError ? (
+        <div
+          className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning-foreground"
+          role="alert"
+        >
+          {t('blog.editorParseError', { message: editorError })}
+        </div>
+      ) : null}
+      <div className="grid min-h-[calc(100svh-13rem)] grid-cols-1 gap-5 lg:grid-cols-[14rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_21rem]">
+        <aside className="hidden min-h-0 lg:block">
+          <BlogArchivePanel
+            loading={loadingIndex}
+            items={items}
+            selectedKey={selectedKey}
+            onSelect={(item, locale) => void handleSelectArchiveItem(item, locale)}
+            onCreate={resetForm}
+          />
+        </aside>
+        <section className="min-h-0">
+          {panelMode === 'edit' ? (
+            <BlogWritingPanel
+              form={form}
+              documentKey={documentKey}
+              onChange={updateField}
+              onEditorError={setEditorError}
+            />
+          ) : (
+            <BlogPreviewPanel content={form.content} />
+          )}
+        </section>
+        <aside className="hidden min-h-0 xl:block">
+          <BlogEditorPanel
+            form={form}
+            localeStates={localeStates}
+            onChange={updateField}
+            publishing={publishing}
+            batchPublishing={batchPublishing}
+            translating={translating}
+            savingDraft={savingDraft}
+            rebuilding={rebuilding}
+            draftCount={draftCount}
+            onTranslate={() => void handleTranslate()}
+            onSaveDraft={() => void handleSaveDraft()}
+            onPublishAllDrafts={() => void handlePublishAllDrafts()}
+            onSelectLocale={(locale) => void handleLocaleSelect(locale)}
+            onPublish={() => void handlePublish()}
+            onRebuild={() => void handleRebuild()}
+          />
+        </aside>
+      </div>
+      <DetailSheet
+        open={archiveOpen}
+        onOpenChange={setArchiveOpen}
+        title={t('blog.archive')}
+        description={t('blog.archiveSelect')}
+      >
         <BlogArchivePanel
           loading={loadingIndex}
           items={items}
           selectedKey={selectedKey}
-          onSelect={(item, locale) => void handleSelectArchiveItem(item, locale)}
-          onCreate={resetForm}
+          onSelect={(item, locale) => {
+            setArchiveOpen(false);
+            void handleSelectArchiveItem(item, locale);
+          }}
+          onCreate={() => {
+            setArchiveOpen(false);
+            resetForm();
+          }}
         />
-      </aside>
-      <section className="min-h-0">
+      </DetailSheet>
+      <DetailSheet
+        open={inspectorOpen}
+        onOpenChange={setInspectorOpen}
+        title={t('blog.settings')}
+        description={t('blog.inspectorDescription')}
+      >
         <BlogEditorPanel
           form={form}
           localeStates={localeStates}
@@ -576,17 +683,7 @@ export default function BlogPageClient({ csrfToken }: BlogPageClientProps) {
           onPublish={() => void handlePublish()}
           onRebuild={() => void handleRebuild()}
         />
-      </section>
-      <section className="min-h-0">
-        <div className="h-full min-h-[42rem]">
-          {panelMode === 'edit' ? (
-            <BlogWritingPanel form={form} onChange={updateField} />
-          ) : (
-            <BlogPreviewPanel content={form.content} />
-          )}
-        </div>
-      </section>
-      </div>
-    </div>
+      </DetailSheet>
+    </PageFrame>
   );
 }

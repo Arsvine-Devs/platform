@@ -1,19 +1,23 @@
 'use client';
 
 import { CheckCircle2, FilePenLine, Languages, Loader2, PlusCircle } from 'lucide-react';
+
+import { BLOG_LOCALES, getLocaleLabel, type BlogLocale } from './blog-locale-labels';
+import type { BlogAccessMode } from '@/lib/admin-api/contracts';
+import { AsyncAction } from '@/components/admin/blocks';
+import { useI18n } from '@/components/i18n/locale-provider';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Field, FieldGroup, FieldLabel, FieldDescription, FieldSet } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
-
-import { BLOG_LOCALES, localeLabels, type BlogLocale } from './blog-locale-labels';
-
-type AccessMode = 'public' | 'totp';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export type BlogFormState = {
   slug: string;
@@ -23,7 +27,7 @@ export type BlogFormState = {
   date: string;
   tags: string;
   pinned: boolean;
-  accessMode: AccessMode;
+  accessMode: BlogAccessMode;
   accessGroup: string;
   originLocale: string;
   content: string;
@@ -31,11 +35,7 @@ export type BlogFormState = {
 
 type BlogEditorPanelProps = {
   form: BlogFormState;
-  localeStates: Array<{
-    locale: BlogLocale;
-    hasDraft: boolean;
-    isPublished: boolean;
-  }>;
+  localeStates: Array<{ locale: BlogLocale; hasDraft: boolean; isPublished: boolean }>;
   onChange: <K extends keyof BlogFormState>(key: K, value: BlogFormState[K]) => void;
   publishing: boolean;
   batchPublishing: boolean;
@@ -82,247 +82,254 @@ export default function BlogEditorPanel({
   onPublish,
   onRebuild,
 }: BlogEditorPanelProps) {
+  const { locale: uiLocale, t } = useI18n();
   return (
-    <Card className="flex h-full flex-col overflow-hidden">
-      <CardHeader className="flex shrink-0 flex-col items-start gap-3">
-        <CardTitle className="whitespace-nowrap">发布面板</CardTitle>
-        <div className="flex w-full flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" disabled={savingDraft} onClick={onSaveDraft}>
-            {savingDraft ? (
-              <>
-                <Loader2 className="animate-spin" /> 暂存中…
-              </>
-            ) : (
-              '暂存草稿'
-            )}
-          </Button>
-          <Button type="button" variant="outline" size="sm" disabled={rebuilding} onClick={onRebuild}>
-            {rebuilding ? (
-              <>
-                <Loader2 className="animate-spin" /> 重建中…
-              </>
-            ) : (
-              '重建索引'
-            )}
-          </Button>
-          <Button
+    <aside className="grid content-start gap-4" aria-label={t('blog.settings')}>
+      <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <h2 className="font-heading text-base font-semibold">{t('blog.settings')}</h2>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {t('blog.settingsDescription')}
+            </p>
+          </div>
+          {form.pinned ? (
+            <span className="text-xs font-medium text-brand">{t('blog.pinned')}</span>
+          ) : null}
+        </div>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="blog-slug">Slug</FieldLabel>
+            <Input
+              id="blog-slug"
+              value={form.slug}
+              onChange={(event) => onChange('slug', event.target.value)}
+              placeholder="my-article"
+            />
+            <FieldDescription>{t('blog.slugHint')}</FieldDescription>
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="blog-date">{t('common.updated')}</FieldLabel>
+              <Input
+                id="blog-date"
+                type="date"
+                value={form.date}
+                onChange={(event) => onChange('date', event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="blog-access">{t('blog.accessMode')}</FieldLabel>
+              <Select
+                value={form.accessMode}
+                onValueChange={(value) =>
+                  onChange('accessMode', (value ?? 'public') as BlogAccessMode)
+                }
+              >
+                <SelectTrigger id="blog-access">
+                  <SelectValue>
+                    {(value) => (value === 'totp' ? t('blog.accessTotp') : t('blog.accessPublic'))}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">{t('blog.accessPublic')}</SelectItem>
+                  <SelectItem value="totp">{t('blog.accessTotp')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+          {form.accessMode === 'totp' ? (
+            <Field>
+              <FieldLabel htmlFor="blog-access-group">{t('blog.accessGroup')}</FieldLabel>
+              <Input
+                id="blog-access-group"
+                value={form.accessGroup}
+                onChange={(event) => onChange('accessGroup', event.target.value)}
+                placeholder="friends-a"
+              />
+              <FieldDescription>{t('blog.accessGroupHint')}</FieldDescription>
+            </Field>
+          ) : null}
+          <div className="flex min-h-11 items-center gap-3 rounded-xl border px-3">
+            <Checkbox
+              id="blog-pinned"
+              checked={form.pinned}
+              onCheckedChange={(checked) => onChange('pinned', checked === true)}
+            />
+            <Label htmlFor="blog-pinned">{t('blog.pinInList')}</Label>
+          </div>
+        </FieldGroup>
+      </section>
+
+      <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+        <div className="mb-5">
+          <h2 className="font-heading text-base font-semibold">{t('blog.variants')}</h2>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {t('blog.variantsDescription')}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {localeStates.map((state) => {
+            const active = state.locale === form.locale;
+            const statusLabel = state.isPublished
+              ? t('library.published')
+              : state.hasDraft
+                ? t('library.draft')
+                : t('blog.emptyVariant');
+            const StatusIcon = state.isPublished
+              ? CheckCircle2
+              : state.hasDraft
+                ? FilePenLine
+                : PlusCircle;
+            return (
+              <Button
+                key={state.locale}
+                type="button"
+                size="sm"
+                variant={active ? 'default' : 'outline'}
+                className="min-h-10 justify-start gap-2"
+                onClick={() => onSelectLocale(state.locale)}
+              >
+                <span>{getLocaleLabel(state.locale, uiLocale)}</span>
+                <span className="inline-flex items-center gap-1 text-[11px] opacity-80">
+                  <StatusIcon className="size-3.5" aria-hidden="true" />
+                  {statusLabel}
+                </span>
+              </Button>
+            );
+          })}
+        </div>
+        <FieldGroup className="mt-5">
+          <Field>
+            <FieldLabel htmlFor="blog-locale">{t('blog.currentLocale')}</FieldLabel>
+            <Select
+              value={form.locale}
+              onValueChange={(value) => onSelectLocale((value ?? 'zh-CN') as BlogLocale)}
+            >
+              <SelectTrigger id="blog-locale">
+                <SelectValue>
+                  {(value) =>
+                    value
+                      ? `${value} · ${getLocaleLabel(value as BlogLocale, uiLocale)}`
+                      : t('blog.currentLocale')
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {BLOG_LOCALES.map((locale) => (
+                  <SelectItem key={locale} value={locale}>
+                    {locale} · {getLocaleLabel(locale, uiLocale)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="blog-origin">{t('blog.origin')}</FieldLabel>
+            <Select
+              value={form.originLocale}
+              onValueChange={(value) => onChange('originLocale', value ?? '')}
+            >
+              <SelectTrigger id="blog-origin">
+                <SelectValue placeholder={t('blog.originCurrent')}>
+                  {(value) =>
+                    value
+                      ? `${value} · ${getLocaleLabel(value as BlogLocale, uiLocale)}`
+                      : t('blog.originCurrent')
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">{t('blog.originCurrent')}</SelectItem>
+                {BLOG_LOCALES.filter((locale) => locale !== form.locale).map((locale) => (
+                  <SelectItem key={locale} value={locale}>
+                    {locale} · {getLocaleLabel(locale, uiLocale)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </FieldGroup>
+        {form.locale === 'zh-CN' ? (
+          <div className="mt-5 rounded-xl bg-muted/40 p-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="min-h-10"
+              disabled={translating}
+              onClick={onTranslate}
+            >
+              {translating ? (
+                <>
+                  <Loader2 className="animate-spin motion-reduce:animate-none" />
+                  {t('blog.translating')}
+                </>
+              ) : (
+                <>
+                  <Languages />
+                  {t('blog.translate')}
+                </>
+              )}
+            </Button>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {t('blog.translateHint')}
+            </p>
+          </div>
+        ) : null}
+        <p className="mt-4 text-xs leading-5 text-muted-foreground">
+          {t('blog.draftCount', { count: draftCount })}
+        </p>
+      </section>
+
+      <section className="rounded-2xl border bg-card p-5 shadow-sm sm:p-6">
+        <h2 className="font-heading text-base font-semibold">{t('blog.publishActions')}</h2>
+        <div className="mt-4 grid gap-2">
+          <AsyncAction
+            type="button"
+            className="min-h-11 w-full"
+            busy={publishing}
+            busyLabel={t('blog.publishing')}
+            onClick={onPublish}
+          >
+            {t('blog.publishVariant')}
+          </AsyncAction>
+          <AsyncAction
             type="button"
             variant="outline"
-            size="sm"
-            disabled={batchPublishing || draftCount === 0}
+            className="min-h-11 w-full"
+            busy={batchPublishing}
+            busyLabel={t('blog.batchPublishing')}
+            disabled={draftCount === 0}
             onClick={onPublishAllDrafts}
           >
-            {batchPublishing ? (
-              <>
-                <Loader2 className="animate-spin" /> 批量发布中…
-              </>
-            ) : (
-              `发布当前文章（${draftCount}）`
-            )}
-          </Button>
-          <Button type="button" size="sm" disabled={publishing} onClick={onPublish}>
-            {publishing ? (
-              <>
-                <Loader2 className="animate-spin" /> 发布中…
-              </>
-            ) : (
-              '发布变体'
-            )}
-          </Button>
+            {t('blog.publishArticle', { count: draftCount })}
+          </AsyncAction>
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <AsyncAction
+              type="button"
+              variant="outline"
+              className="min-h-10"
+              busy={savingDraft}
+              busyLabel={t('blog.savingDraft')}
+              onClick={onSaveDraft}
+            >
+              {t('blog.saveDraft')}
+            </AsyncAction>
+            <AsyncAction
+              type="button"
+              variant="ghost"
+              className="min-h-10"
+              busy={rebuilding}
+              busyLabel={t('blog.rebuilding')}
+              onClick={onRebuild}
+            >
+              {t('blog.rebuild')}
+            </AsyncAction>
+          </div>
         </div>
-      </CardHeader>
-      <CardContent className="min-h-0 flex-1">
-        <ScrollArea className="h-full pr-3">
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              onPublish();
-            }}
-            className="flex flex-col gap-6 pb-4"
-          >
-            <Tabs defaultValue="shared">
-              <TabsList>
-                <TabsTrigger value="shared">共享字段</TabsTrigger>
-                <TabsTrigger value="variant">当前语言变体</TabsTrigger>
-              </TabsList>
-              <TabsContent value="shared" className="mt-4">
-                <FieldSet>
-                  <FieldGroup className="grid grid-cols-2 gap-4">
-                    <Field>
-                      <FieldLabel>Slug</FieldLabel>
-                      <Input
-                        value={form.slug}
-                        onChange={(event) => onChange('slug', event.target.value)}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>日期</FieldLabel>
-                      <Input
-                        type="date"
-                        value={form.date}
-                        onChange={(event) => onChange('date', event.target.value)}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>访问模式</FieldLabel>
-                      <Select
-                        value={form.accessMode}
-                        onValueChange={(value) => onChange('accessMode', (value ?? 'public') as AccessMode)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="public">public</SelectItem>
-                          <SelectItem value="totp">totp</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field>
-                      <FieldLabel className="opacity-0">置顶</FieldLabel>
-                      <div className="flex h-8 items-center gap-2">
-                        <Checkbox
-                          id="blog-pinned"
-                          checked={form.pinned}
-                          onCheckedChange={(checked) => onChange('pinned', checked === true)}
-                        />
-                        <Label htmlFor="blog-pinned">置顶</Label>
-                      </div>
-                    </Field>
-                    {form.accessMode === 'totp' ? (
-                      <Field className="col-span-2">
-                        <FieldLabel>访问组</FieldLabel>
-                        <Input
-                          value={form.accessGroup}
-                          onChange={(event) => onChange('accessGroup', event.target.value)}
-                          placeholder="friends-a"
-                        />
-                      </Field>
-                    ) : null}
-                  </FieldGroup>
-                </FieldSet>
-              </TabsContent>
-              <TabsContent value="variant" className="mt-4">
-                <FieldSet>
-                  <FieldGroup className="grid grid-cols-2 gap-4">
-                    <Field className="col-span-2">
-                      <FieldLabel>语言变体</FieldLabel>
-                      <div className="flex flex-wrap gap-2">
-                        {localeStates.map((state) => {
-                          const active = state.locale === form.locale;
-                          const statusLabel = state.isPublished
-                            ? '已发布'
-                            : state.hasDraft
-                              ? '草稿'
-                              : '空白';
-                          const StatusIcon = state.isPublished
-                            ? CheckCircle2
-                            : state.hasDraft
-                              ? FilePenLine
-                              : PlusCircle;
-
-                          return (
-                            <Button
-                              key={state.locale}
-                              type="button"
-                              size="sm"
-                              variant={active ? 'default' : 'outline'}
-                              onClick={() => onSelectLocale(state.locale)}
-                              className="justify-start gap-2"
-                            >
-                              <span>{localeLabels[state.locale]}</span>
-                              <span className="inline-flex items-center gap-1 text-[11px] opacity-80">
-                                <StatusIcon className="size-3.5" />
-                                {statusLabel}
-                              </span>
-                            </Button>
-                          );
-                        })}
-                      </div>
-                      <FieldDescription>
-                        可直接切换到任意语言开始编辑；未发布的语言会先作为本地草稿存在。
-                      </FieldDescription>
-                    </Field>
-                    <Field className="col-span-2">
-                      <FieldLabel>当前语言</FieldLabel>
-                      <Select
-                        value={form.locale}
-                        onValueChange={(value) => onSelectLocale((value ?? 'zh-CN') as BlogLocale)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {BLOG_LOCALES.map((locale) => (
-                            <SelectItem key={locale} value={locale}>
-                              {locale} · {localeLabels[locale]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field className="col-span-2">
-                      <FieldLabel>原文来源</FieldLabel>
-                      <Select
-                        value={form.originLocale}
-                        onValueChange={(value) => onChange('originLocale', value ?? '')}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="当前语言即原文" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="">当前语言即原文</SelectItem>
-                          {BLOG_LOCALES.filter((locale) => locale !== form.locale).map((locale) => (
-                            <SelectItem key={locale} value={locale}>
-                              {locale} · {localeLabels[locale]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    {form.locale === 'zh-CN' ? (
-                      <Field className="col-span-2">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={translating}
-                            onClick={onTranslate}
-                          >
-                            {translating ? (
-                              <>
-                                <Loader2 className="animate-spin" /> 自动翻译中…
-                              </>
-                            ) : (
-                              <>
-                                <Languages /> 生成 zh-TW / en 草稿
-                              </>
-                            )}
-                          </Button>
-                          <FieldDescription>
-                            以当前 `zh-CN` 为母本，按既有 MDX 翻译指南生成 `zh-TW` 与 `en` 草稿，不会立即发布。
-                          </FieldDescription>
-                        </div>
-                      </Field>
-                    ) : null}
-                    <Field className="col-span-2">
-                      <FieldDescription>
-                        当前文章已暂存 {draftCount} 个语言草稿。单独“发布变体”只发当前语言；“发布当前文章”会把该 slug 的全部草稿一次性发布。
-                      </FieldDescription>
-                    </Field>
-                    <Field className="col-span-2">
-                      <FieldDescription>
-                        标题、摘要、标签与 Markdown 正文已移到右侧“写作 / 预览”区域。
-                      </FieldDescription>
-                    </Field>
-                  </FieldGroup>
-                </FieldSet>
-              </TabsContent>
-            </Tabs>
-          </form>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+        <p className="mt-4 text-xs leading-5 text-muted-foreground">{t('blog.publishHint')}</p>
+      </section>
+    </aside>
   );
 }

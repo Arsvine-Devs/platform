@@ -1,0 +1,19 @@
+{
+  "path": [
+    "../app",
+    "../components",
+    "../hooks",
+    "../lib",
+    "../proxy.ts",
+    "../next.config.ts",
+    "../scripts"
+  ],
+  "pattern": "**/*.{ts,tsx,js,mjs}",
+  "ignore": ["**/*.test.ts", "**/*.test.tsx", "**/*.spec.ts", "**/*.spec.tsx"],
+  "minTokens": 80,
+  "minLines": 10,
+  "mode": "weak",
+  "reporters": ["console"],
+  "noColors": true,
+  "noTips": true
+}

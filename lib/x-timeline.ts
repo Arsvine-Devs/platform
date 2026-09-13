@@ -52,7 +52,8 @@ function asString(value: unknown) {
 }
 
 function validateId(value: string, label: string) {
-  if (!X_ID_RE.test(value)) throw new XApiError(502, 'invalid_response', `X returned an invalid ${label}.`);
+  if (!X_ID_RE.test(value))
+    throw new XApiError(502, 'invalid_response', `X returned an invalid ${label}.`);
   return value;
 }
 
@@ -81,7 +82,9 @@ function getApiErrorCode(payload: unknown) {
   if (!isRecord(payload)) return 'request_failed';
   const errors = Array.isArray(payload.errors) ? payload.errors : [];
   const first = errors.find(isRecord);
-  return first ? asString(first.type) || asString(first.title) || 'request_failed' : 'request_failed';
+  return first
+    ? asString(first.type) || asString(first.title) || 'request_failed'
+    : 'request_failed';
 }
 
 async function xFetch(path: string, params: URLSearchParams, token: string): Promise<XResponse> {
@@ -95,7 +98,11 @@ async function xFetch(path: string, params: URLSearchParams, token: string): Pro
       signal: AbortSignal.timeout(8_000),
     });
   } catch (error) {
-    throw new XApiError(502, 'network_error', error instanceof Error ? error.message : 'X request failed.');
+    throw new XApiError(
+      502,
+      'network_error',
+      error instanceof Error ? error.message : 'X request failed.',
+    );
   }
 
   let payload: unknown = null;
@@ -113,7 +120,8 @@ async function xFetch(path: string, params: URLSearchParams, token: string): Pro
     );
   }
 
-  if (!isRecord(payload)) throw new XApiError(502, 'invalid_response', 'X returned an invalid response.');
+  if (!isRecord(payload))
+    throw new XApiError(502, 'invalid_response', 'X returned an invalid response.');
   return payload as XResponse;
 }
 
@@ -153,7 +161,8 @@ function normalizePosts(payload: XResponse, config: XTimelineConfig): ImportedTw
     const authorId = validateId(asString(post.author_id), 'author id');
     const content = asString(post.text).trim();
     const createdAt = asString(post.created_at);
-    if (!content || !createdAt) throw new XApiError(502, 'invalid_response', 'X returned a Post without text or created_at.');
+    if (!content || !createdAt)
+      throw new XApiError(502, 'invalid_response', 'X returned a Post without text or created_at.');
     if (authorId !== config.targetUserId) {
       throw new XApiError(502, 'unexpected_author', 'X returned a Post from an unexpected author.');
     }
@@ -179,7 +188,8 @@ export async function fetchXTimelinePage(
   config: XTimelineConfig,
   options: XTimelinePageOptions = {},
 ): Promise<XTimelinePage> {
-  if (!config.bearerToken) throw new XApiError(422, 'missing_token', 'X bearer token is not configured.');
+  if (!config.bearerToken)
+    throw new XApiError(422, 'missing_token', 'X bearer token is not configured.');
   validateId(config.targetUserId, 'target user id');
   const payload = await xFetch(
     `/users/${encodeURIComponent(config.targetUserId)}/tweets`,
@@ -197,7 +207,8 @@ export async function fetchXTimelinePage(
 export async function fetchXPostsByIds(config: XTimelineConfig, ids: string[]) {
   const validIds = [...new Set(ids)].map((id) => validateId(id, 'post id'));
   if (validIds.length === 0) return { posts: [], missingIds: [] as string[] };
-  if (validIds.length > 100) throw new XApiError(422, 'too_many_ids', 'X lookup supports at most 100 post ids per request.');
+  if (validIds.length > 100)
+    throw new XApiError(422, 'too_many_ids', 'X lookup supports at most 100 post ids per request.');
   const params = new URLSearchParams({
     ids: validIds.join(','),
     'tweet.fields': 'author_id,created_at,lang,text',

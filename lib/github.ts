@@ -1,4 +1,4 @@
-import { getWorkspace } from './workspace-context';
+import { getWorkspace, isDevelopmentWorkspace } from './workspace-context';
 
 type GitHubContentResponse = {
   sha: string;
@@ -39,6 +39,9 @@ function treeUrl() {
 }
 
 async function githubFetch(url: string, init?: RequestInit) {
+  if (isDevelopmentWorkspace()) {
+    throw new Error('Development preview cannot access GitHub.');
+  }
   const { token } = config();
   const response = await fetch(url, {
     ...init,
@@ -68,7 +71,10 @@ export async function verifyRepositoryConnection() {
   const { owner, repo } = config();
   const response = await githubFetch(`https://api.github.com/repos/${owner}/${repo}`);
   if (!response.ok) {
-    throw new GitHubError(`Failed to read repository: ${response.status} ${response.statusText}`, response.status);
+    throw new GitHubError(
+      `Failed to read repository: ${response.status} ${response.statusText}`,
+      response.status,
+    );
   }
   return { owner, repo };
 }
@@ -77,7 +83,10 @@ export async function getFile(path: string) {
   const response = await githubFetch(contentUrl(path));
   if (response.status === 404) return null;
   if (!response.ok) {
-    throw new GitHubError(`Failed to fetch ${path}: ${response.status} ${response.statusText}`, response.status);
+    throw new GitHubError(
+      `Failed to fetch ${path}: ${response.status} ${response.statusText}`,
+      response.status,
+    );
   }
 
   const json = (await response.json()) as GitHubContentResponse;
@@ -122,11 +131,7 @@ export async function putFile(params: {
   return response.json();
 }
 
-export async function deleteFile(params: {
-  path: string;
-  message: string;
-  sha: string;
-}) {
+export async function deleteFile(params: { path: string; message: string; sha: string }) {
   const response = await githubFetch(contentUrl(params.path), {
     method: 'DELETE',
     headers: {
@@ -154,7 +159,10 @@ export async function deleteFile(params: {
 async function listTreePaths() {
   const response = await githubFetch(treeUrl());
   if (!response.ok) {
-    throw new GitHubError(`Failed to read repo tree: ${response.status} ${response.statusText}`, response.status);
+    throw new GitHubError(
+      `Failed to read repo tree: ${response.status} ${response.statusText}`,
+      response.status,
+    );
   }
 
   const json = (await response.json()) as GitHubTreeResponse;
@@ -176,6 +184,13 @@ export async function listTweetMonthPaths() {
 }
 
 export async function triggerPublicRevalidate(slug?: string) {
+  if (isDevelopmentWorkspace()) {
+    return {
+      revalidated: false,
+      paths: [],
+      error: 'Development preview: remote revalidation skipped.',
+    };
+  }
   const { contentUrl, secret } = getWorkspace().revalidate;
   if (!contentUrl || !secret) {
     throw new Error('站点刷新配置不完整。');
@@ -203,6 +218,13 @@ export async function triggerPublicRevalidate(slug?: string) {
 }
 
 export async function triggerTweetsRevalidate() {
+  if (isDevelopmentWorkspace()) {
+    return {
+      revalidated: false,
+      paths: [],
+      error: 'Development preview: remote revalidation skipped.',
+    };
+  }
   const { tweetsUrl, secret } = getWorkspace().revalidate;
   if (!tweetsUrl) {
     return undefined;

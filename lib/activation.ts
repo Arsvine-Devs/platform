@@ -9,7 +9,9 @@ function secret() {
 }
 
 function sign(value: Omit<Activation, 'sig'>) {
-  return createHmac('sha256', secret()).update(`${value.invitationId}:${value.userId}:${value.exp}`).digest('base64url');
+  return createHmac('sha256', secret())
+    .update(`${value.invitationId}:${value.userId}:${value.exp}`)
+    .digest('base64url');
 }
 
 export function createActivationToken(invitationId: string, userId: string) {
@@ -22,7 +24,14 @@ export function readActivationToken(value?: string) {
     const parsed = JSON.parse(Buffer.from(value ?? '', 'base64url').toString('utf8')) as Activation;
     const expected = Buffer.from(sign(parsed));
     const actual = Buffer.from(parsed.sig);
-    if (parsed.exp <= Date.now() || expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
+    if (
+      parsed.exp <= Date.now() ||
+      expected.length !== actual.length ||
+      !timingSafeEqual(expected, actual)
+    )
+      return null;
     return parsed;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }

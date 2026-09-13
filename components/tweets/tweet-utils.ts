@@ -1,6 +1,5 @@
 import {
   getTranslationTargetLocales,
-  type SiteTweetLocale,
   type TweetItem,
   type TweetMonthRecord,
 } from '../../lib/tweets-types';
@@ -16,19 +15,19 @@ export type TweetDateGroup = {
   tweets: TweetItem[];
 };
 
-export function formatMonthLabel(month: string) {
+function formatMonthLabel(month: string, locale = 'zh-CN') {
   const date = new Date(`${month}-01T00:00:00+08:00`);
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: 'long',
     timeZone: 'Asia/Shanghai',
   }).format(date);
 }
 
-export function formatDateGroupLabel(key: string, granularity: DateGranularity) {
+export function formatDateGroupLabel(key: string, granularity: DateGranularity, locale = 'zh-CN') {
   if (granularity === 'year') {
     const date = new Date(`${key}-01-01T00:00:00+08:00`);
-    return new Intl.DateTimeFormat('zh-CN', {
+    return new Intl.DateTimeFormat(locale, {
       year: 'numeric',
       timeZone: 'Asia/Shanghai',
     }).format(date);
@@ -36,7 +35,7 @@ export function formatDateGroupLabel(key: string, granularity: DateGranularity) 
 
   if (granularity === 'day') {
     const date = new Date(`${key}T00:00:00+08:00`);
-    return new Intl.DateTimeFormat('zh-CN', {
+    return new Intl.DateTimeFormat(locale, {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -44,14 +43,14 @@ export function formatDateGroupLabel(key: string, granularity: DateGranularity) 
     }).format(date);
   }
 
-  return formatMonthLabel(key);
+  return formatMonthLabel(key, locale);
 }
 
-export function formatTimestamp(value?: string) {
+export function formatTimestamp(value?: string, locale = 'zh-CN') {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(locale, {
     timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: '2-digit',
@@ -105,6 +104,7 @@ function dateGroupKeyFromCreatedAt(value: string, granularity: DateGranularity) 
 export function groupTweetsByGranularity(
   months: TweetMonthRecord[],
   granularity: DateGranularity,
+  locale = 'zh-CN',
 ): TweetDateGroup[] {
   const grouped = new Map<string, TweetDateGroup>();
 
@@ -115,7 +115,7 @@ export function groupTweetsByGranularity(
 
       const current = grouped.get(key) ?? {
         key,
-        label: formatDateGroupLabel(key, granularity),
+        label: formatDateGroupLabel(key, granularity, locale),
         count: 0,
         updatedAt: monthRecord.updatedAt,
         months: [],
@@ -131,7 +131,8 @@ export function groupTweetsByGranularity(
       const nextUpdatedAt = tweet.updatedAt ?? tweet.createdAt ?? monthRecord.updatedAt;
       if (
         nextUpdatedAt &&
-        (!current.updatedAt || new Date(nextUpdatedAt).getTime() > new Date(current.updatedAt).getTime())
+        (!current.updatedAt ||
+          new Date(nextUpdatedAt).getTime() > new Date(current.updatedAt).getTime())
       ) {
         current.updatedAt = nextUpdatedAt;
       }
@@ -143,7 +144,10 @@ export function groupTweetsByGranularity(
   return [...grouped.values()].sort((left, right) => right.key.localeCompare(left.key));
 }
 
-export function filterTweets(tweets: TweetItem[], filter: 'all' | 'public' | 'private' | 'hidden' | 'pinned') {
+export function filterTweets(
+  tweets: TweetItem[],
+  filter: 'all' | 'public' | 'private' | 'hidden' | 'pinned',
+) {
   if (filter === 'all') return tweets;
   if (filter === 'pinned') return tweets.filter((tweet) => tweet.pinned);
   return tweets.filter((tweet) => (tweet.visibility ?? 'public') === filter);
@@ -154,28 +158,13 @@ export function getTranslationSummary(tweet: TweetItem) {
     const translation = tweet.translations?.[locale];
     return {
       locale,
-      state: !translation ? ('missing' as const) : translation.stale ? ('stale' as const) : ('fresh' as const),
+      state: !translation
+        ? ('missing' as const)
+        : translation.stale
+          ? ('stale' as const)
+          : ('fresh' as const),
     };
   });
-}
-
-export function formatTranslationSummaryItem(
-  locale: SiteTweetLocale,
-  state: 'fresh' | 'stale' | 'missing',
-) {
-  if (state === 'fresh') return `${locale} 已生成`;
-  if (state === 'stale') return `${locale} 已过期`;
-  return `${locale} 未生成`;
-}
-
-export function pickActiveMonth(
-  months: TweetMonthRecord[],
-  preferredMonth: string | null,
-): string {
-  if (preferredMonth && months.some((month) => month.month === preferredMonth)) {
-    return preferredMonth;
-  }
-  return months[0]?.month ?? '';
 }
 
 export function pickActiveDateGroup<T extends { key: string }>(

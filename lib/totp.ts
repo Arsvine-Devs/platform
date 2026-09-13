@@ -109,14 +109,7 @@ export function verifyTotp(opts: {
   window?: number;
   nowMs?: number;
 }) {
-  const {
-    token,
-    secretBase32,
-    period = 30,
-    digits = 6,
-    window = 1,
-    nowMs = Date.now(),
-  } = opts;
+  const { token, secretBase32, period = 30, digits = 6, window = 1, nowMs = Date.now() } = opts;
 
   if (!/^\d+$/.test(token) || token.length !== digits) return false;
 

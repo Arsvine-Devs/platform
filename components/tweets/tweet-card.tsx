@@ -1,16 +1,15 @@
 'use client';
 
-import { ChevronDown, ChevronUp, Globe, Shield, EyeOff, Pin, Hash } from 'lucide-react';
 import { useState } from 'react';
+import { ChevronDown, ChevronUp, EyeOff, Globe, Hash, Pin, Shield, Trash2 } from 'lucide-react';
 
+import type { TweetItem, TweetVisibility } from '@/lib/tweets-types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { useI18n } from '@/components/i18n/locale-provider';
 
-import { VISIBILITY_LABELS } from './filter-labels';
 import { formatTimestamp } from './tweet-utils';
 import { SITE_TWEET_LOCALES } from '../../lib/tweets-types';
-import type { TweetItem, TweetVisibility } from '../../lib/tweets-types';
 
 type TweetCardProps = {
   tweet: TweetItem;
@@ -19,110 +18,131 @@ type TweetCardProps = {
 };
 
 export default function TweetCard({ tweet, onEdit, onDelete }: TweetCardProps) {
+  const { locale, t } = useI18n();
   const [translationsOpen, setTranslationsOpen] = useState(false);
   const hasTranslations = Boolean(tweet.translations && Object.keys(tweet.translations).length > 0);
   const visibility: TweetVisibility = (tweet.visibility ?? 'public') as TweetVisibility;
+  const isExternalSource = tweet.origin?.provider === 'x';
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-col">
-            <span className="font-mono text-sm font-medium">{tweet.id}</span>
-            <span className="text-xs text-muted-foreground">
-              创建于 <time dateTime={tweet.createdAt}>{formatTimestamp(tweet.createdAt)}</time> · 更新于{' '}
-              {tweet.updatedAt ? (
-                <time dateTime={tweet.updatedAt}>{formatTimestamp(tweet.updatedAt)}</time>
-              ) : (
-                '—'
-              )}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge variant="outline">{tweet.lang ?? 'zh-CN'}</Badge>
-            <Badge variant={visibilityBadgeVariant(visibility)}>
-              {visibilityIcon(visibility)}
-              {VISIBILITY_LABELS[visibility]}
+    <article
+      id={`tweet-${tweet.id}`}
+      tabIndex={-1}
+      className="rounded-2xl border bg-card p-4 outline-none transition-colors focus-visible:ring-2 sm:p-5"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="font-mono text-sm font-medium">{tweet.id}</span>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t('tweets.createdAt')}{' '}
+            <time dateTime={tweet.createdAt}>{formatTimestamp(tweet.createdAt, locale)}</time> ·{' '}
+            {t('tweets.updatedAt')}{' '}
+            {tweet.updatedAt ? (
+              <time dateTime={tweet.updatedAt}>{formatTimestamp(tweet.updatedAt, locale)}</time>
+            ) : (
+              '—'
+            )}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <Badge variant="outline">{tweet.lang ?? 'zh-CN'}</Badge>
+          <Badge variant={visibilityBadgeVariant(visibility)}>
+            {visibilityIcon(visibility)}
+            {visibilityLabel(visibility, t)}
+          </Badge>
+          {tweet.pinned ? (
+            <Badge variant="default">
+              <Pin />
+              {t('tweets.pinned')}
             </Badge>
-            {tweet.pinned ? (
-              <Badge variant="default">
-                <Pin /> 置顶
-              </Badge>
-            ) : null}
-          </div>
+          ) : null}
         </div>
-
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">{tweet.content}</p>
-
-        {tweet.tags && tweet.tags.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
-            {tweet.tags.map((tag) => (
-              <span key={tag} className="inline-flex items-center gap-1">
-                <Hash className="size-3" /> {tag}
-              </span>
-            ))}
-          </div>
-        ) : null}
-
-        {hasTranslations ? (
-          <div className="flex flex-col gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="w-fit"
-              aria-expanded={translationsOpen}
-              onClick={() => setTranslationsOpen((value) => !value)}
+      </div>
+      <p className="mt-4 whitespace-pre-wrap text-sm leading-7">{tweet.content}</p>
+      {tweet.tags && tweet.tags.length > 0 ? (
+        <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
+          {tweet.tags.map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-1"
             >
-              {translationsOpen ? <ChevronUp /> : <ChevronDown />}
-              {translationsOpen ? '收起译文' : '查看译文'}
-            </Button>
-            {translationsOpen ? (
-              <div className="flex flex-col gap-2">
-                {SITE_TWEET_LOCALES.map((locale) => {
-                  const translation = tweet.translations?.[locale];
-                  if (!translation) return null;
-                  return (
-                    <div
-                      key={locale}
-                      className="rounded-md border bg-muted/30 p-3 text-sm"
-                    >
-                      <div className="mb-1 flex items-center justify-between">
-                        <span className="font-medium">{locale}</span>
-                        {translation.stale ? (
-                          <Badge variant="secondary">已过期</Badge>
-                        ) : null}
-                      </div>
-                      <p className="whitespace-pre-wrap leading-relaxed">{translation.content}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="flex flex-wrap gap-2 border-t pt-3">
-          <Button type="button" variant="outline" size="sm" onClick={onEdit}>
-            编辑
-          </Button>
-          <Button type="button" variant="destructive" size="sm" onClick={onDelete}>
-            删除
-          </Button>
+              <Hash className="size-3" />
+              {tag}
+            </span>
+          ))}
         </div>
-      </CardContent>
-    </Card>
+      ) : null}
+      {isExternalSource ? (
+        <p className="mt-4 text-xs text-muted-foreground">{t('tweets.externalSource')}</p>
+      ) : null}
+      {hasTranslations ? (
+        <div className="mt-4 border-t pt-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="min-h-10"
+            aria-expanded={translationsOpen}
+            onClick={() => setTranslationsOpen((value) => !value)}
+          >
+            {translationsOpen ? <ChevronUp /> : <ChevronDown />}
+            {translationsOpen ? t('tweets.collapseTranslations') : t('tweets.translations')}
+          </Button>
+          {translationsOpen ? (
+            <div className="mt-3 grid gap-2">
+              {SITE_TWEET_LOCALES.map((translationLocale) => {
+                const translation = tweet.translations?.[translationLocale];
+                if (!translation) return null;
+                return (
+                  <div
+                    key={translationLocale}
+                    className="rounded-xl border bg-muted/30 p-3 text-sm"
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="font-medium">{translationLocale}</span>
+                      {translation.stale ? (
+                        <Badge variant="secondary">{t('tweets.translationStale')}</Badge>
+                      ) : (
+                        <span className="text-xs text-success">{t('tweets.translationFresh')}</span>
+                      )}
+                    </div>
+                    <p className="whitespace-pre-wrap leading-7">{translation.content}</p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
+        <Button type="button" variant="outline" className="min-h-10" onClick={onEdit}>
+          {t('common.edit')}
+        </Button>
+        <Button type="button" variant="destructive" className="min-h-10" onClick={onDelete}>
+          <Trash2 />
+          {t('common.delete')}
+        </Button>
+      </div>
+    </article>
   );
 }
 
-function visibilityIcon(v: TweetVisibility) {
-  if (v === 'public') return <Globe />;
-  if (v === 'private') return <Shield />;
-  return <EyeOff />;
+type Translate = (key: string, values?: Record<string, string | number>) => string;
+
+function visibilityLabel(value: TweetVisibility, t: Translate) {
+  if (value === 'public') return t('tweets.public');
+  if (value === 'private') return t('tweets.private');
+  return t('tweets.hidden');
 }
 
-function visibilityBadgeVariant(v: TweetVisibility): 'default' | 'secondary' | 'destructive' {
-  if (v === 'public') return 'default';
-  if (v === 'private') return 'secondary';
+function visibilityIcon(value: TweetVisibility) {
+  if (value === 'public') return <Globe aria-hidden="true" />;
+  if (value === 'private') return <Shield aria-hidden="true" />;
+  return <EyeOff aria-hidden="true" />;
+}
+
+function visibilityBadgeVariant(value: TweetVisibility): 'default' | 'secondary' | 'destructive' {
+  if (value === 'public') return 'default';
+  if (value === 'private') return 'secondary';
   return 'destructive';
 }

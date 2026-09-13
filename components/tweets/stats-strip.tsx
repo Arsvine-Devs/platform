@@ -1,7 +1,7 @@
 'use client';
 
-import { Archive, Globe, Shield, EyeOff, Pin } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Archive, EyeOff, Globe, Pin, Shield } from 'lucide-react';
+import { useI18n } from '@/components/i18n/locale-provider';
 
 type StatsStripProps = {
   total: number;
@@ -18,34 +18,25 @@ export default function StatsStrip({
   hiddenCount,
   pinnedCount,
 }: StatsStripProps) {
+  const { t } = useI18n();
+  const items = [
+    { icon: <Archive />, label: t('tweets.all'), value: total },
+    { icon: <Globe />, label: t('tweets.public'), value: publicCount },
+    { icon: <Shield />, label: t('tweets.private'), value: privateCount },
+    { icon: <EyeOff />, label: t('tweets.hidden'), value: hiddenCount },
+    { icon: <Pin />, label: t('tweets.pinned'), value: pinnedCount },
+  ];
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-      <StatCard icon={<Archive />} label="Archive" value={total} />
-      <StatCard icon={<Globe />} label="Public" value={publicCount} />
-      <StatCard icon={<Shield />} label="Private" value={privateCount} />
-      <StatCard icon={<EyeOff />} label="Hidden" value={hiddenCount} />
-      <StatCard icon={<Pin />} label="Pinned" value={pinnedCount} />
-    </div>
-  );
-}
-
-function StatCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-}) {
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-1 p-4">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          {icon} {label}
+    <section className="grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label={t('tweets.stats')}>
+      {items.map((item) => (
+        <div key={item.label} className="rounded-xl border bg-card p-3 shadow-sm">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            {item.icon}
+            {item.label}
+          </div>
+          <strong className="mt-1 block text-xl tabular-nums">{item.value}</strong>
         </div>
-        <strong className="text-2xl">{value}</strong>
-      </CardContent>
-    </Card>
+      ))}
+    </section>
   );
 }

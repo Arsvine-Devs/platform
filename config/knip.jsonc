@@ -1,0 +1,19 @@
+{
+  "$schema": "../node_modules/knip/schema.json",
+  // Next route files and local operational scripts are application entry points.
+  "entry": ["app/**/*.{ts,tsx}", "scripts/**/*.{mjs,js}", "**/*.test.{ts,tsx}"],
+  "project": [
+    "app/**/*.{ts,tsx}",
+    "components/**/*.{ts,tsx}",
+    "hooks/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx}",
+    "app/**/*.css",
+    "scripts/**/*.{mjs,js}",
+    "*.{js,mjs,mts,ts}",
+  ],
+  // UI primitives and API contracts intentionally expose reusable public surfaces.
+  "ignoreIssues": {
+    "components/ui/*.tsx": ["exports"],
+    "lib/admin-api/contracts.ts": ["exports", "types"],
+  },
+}

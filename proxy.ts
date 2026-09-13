@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 const SESSION_COOKIE = 'arsvine_admin_session';
+const DEVELOPMENT_SESSION_COOKIE = 'arsvine_admin_dev_session';
 
 // Admin API endpoints that legitimately accept unauthenticated requests.
 // Everything else under /api/admin/* must carry the session cookie at the
@@ -9,6 +10,7 @@ const PUBLIC_ADMIN_API_PATHS = new Set<string>([
   '/api/admin/login',
   '/api/admin/webauthn/authentication/options',
   '/api/admin/webauthn/authentication/verify',
+  '/api/admin/dev-login',
 ]);
 
 function isAdminApi(pathname: string) {
@@ -23,12 +25,12 @@ export function proxy(request: NextRequest) {
   // source of truth (they validate the HMAC signature); this just stops new
   // routes from being silently exposed if the author forgets the boilerplate.
   if (isAdminApi(pathname) && !PUBLIC_ADMIN_API_PATHS.has(pathname)) {
-    const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+    const hasSession = Boolean(
+      request.cookies.get(SESSION_COOKIE)?.value ||
+      request.cookies.get(DEVELOPMENT_SESSION_COOKIE)?.value,
+    );
     if (!hasSession) {
-      return NextResponse.json(
-        { ok: false, error: { message: 'Unauthorized' } },
-        { status: 401 },
-      );
+      return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
     }
   }
 

@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getWorkspaceConfigMock, getWorkspaceSummaryMock, saveWorkspaceConfigMock } = vi.hoisted(() => ({
-  getWorkspaceConfigMock: vi.fn(),
-  getWorkspaceSummaryMock: vi.fn(),
-  saveWorkspaceConfigMock: vi.fn(),
-}));
+const { getWorkspaceConfigMock, getWorkspaceSummaryMock, saveWorkspaceConfigMock } = vi.hoisted(
+  () => ({
+    getWorkspaceConfigMock: vi.fn(),
+    getWorkspaceSummaryMock: vi.fn(),
+    saveWorkspaceConfigMock: vi.fn(),
+  }),
+);
 
 vi.mock('../../../../lib/accounts', () => ({
   getWorkspaceConfig: getWorkspaceConfigMock,
@@ -37,40 +39,50 @@ beforeEach(() => {
 
 describe('workspace X configuration', () => {
   it('saves target identity without requiring an API token', async () => {
-    const response = await PUT(request({
-      github,
-      x: {
-        syncMethod: 'none',
-        targetUserId: '2244994945',
-        targetUsername: 'XDevelopers',
-        bearerToken: '',
-      },
-    }));
+    const response = await PUT(
+      request({
+        github,
+        x: {
+          syncMethod: 'none',
+          targetUserId: '2244994945',
+          targetUsername: 'XDevelopers',
+          bearerToken: '',
+        },
+      }),
+    );
 
     expect(response.status).toBe(200);
-    expect(saveWorkspaceConfigMock).toHaveBeenCalledWith('user-1', expect.objectContaining({
-      x: expect.objectContaining({
-        syncMethod: 'none',
-        targetUserId: '2244994945',
-        targetUsername: 'XDevelopers',
-        bearerToken: '',
+    expect(saveWorkspaceConfigMock).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        x: expect.objectContaining({
+          syncMethod: 'none',
+          targetUserId: '2244994945',
+          targetUsername: 'XDevelopers',
+          bearerToken: '',
+        }),
       }),
-    }));
+    );
   });
 
   it('requires a token only when the API method is selected', async () => {
-    const response = await PUT(request({
-      github,
-      x: {
-        syncMethod: 'api',
-        targetUserId: '2244994945',
-        targetUsername: 'XDevelopers',
-        bearerToken: '',
-      },
-    }));
+    const response = await PUT(
+      request({
+        github,
+        x: {
+          syncMethod: 'api',
+          targetUserId: '2244994945',
+          targetUsername: 'XDevelopers',
+          bearerToken: '',
+        },
+      }),
+    );
 
     expect(response.status).toBe(422);
-    expect(await response.json()).toEqual({ ok: false, error: { message: 'Please configure an X bearer token.' } });
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { message: 'Please configure an X bearer token.' },
+    });
     expect(saveWorkspaceConfigMock).not.toHaveBeenCalled();
   });
 });

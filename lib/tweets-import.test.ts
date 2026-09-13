@@ -15,9 +15,16 @@ const { files, getFileMock, listTweetMonthPathsMock, putFileMock } = vi.hoisted(
 
 vi.mock('./github', () => ({
   deleteFile: vi.fn(),
-  getContentRepoInfo: vi.fn(() => ({ owner: 'owner', repo: 'repo', branch: 'main', url: 'https://github.com/owner/repo' })),
+  getContentRepoInfo: vi.fn(() => ({
+    owner: 'owner',
+    repo: 'repo',
+    branch: 'main',
+    url: 'https://github.com/owner/repo',
+  })),
   getFile: getFileMock,
-  GitHubError: class GitHubError extends Error { status = 409; },
+  GitHubError: class GitHubError extends Error {
+    status = 409;
+  },
   listTweetMonthPaths: listTweetMonthPathsMock,
   putFile: putFileMock,
 }));
@@ -50,7 +57,9 @@ describe('X tweet import merge', () => {
       changed: true,
     });
 
-    const firstMonth = JSON.parse(files.get('tweets/2026-09.json')!.content) as Array<Record<string, unknown>>;
+    const firstMonth = JSON.parse(files.get('tweets/2026-09.json')!.content) as Array<
+      Record<string, unknown>
+    >;
     expect(firstMonth[0]).toMatchObject({
       id: '20260912-001',
       content: 'First version',
@@ -60,7 +69,9 @@ describe('X tweet import merge', () => {
     await expect(
       mergeImportedTweets([{ ...post, content: 'Edited version' }], '2026-09-12T09:00:00.000Z'),
     ).resolves.toMatchObject({ created: 0, updated: 1, changed: true });
-    const updatedMonth = JSON.parse(files.get('tweets/2026-09.json')!.content) as Array<Record<string, unknown>>;
+    const updatedMonth = JSON.parse(files.get('tweets/2026-09.json')!.content) as Array<
+      Record<string, unknown>
+    >;
     expect(updatedMonth[0]).toMatchObject({ id: '20260912-001', content: 'Edited version' });
   });
 });

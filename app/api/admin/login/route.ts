@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { applyAuthCookies, createSession } from '../../../../lib/auth';
 import {
-  applyAuthCookies,
-  createSession,
-} from '../../../../lib/auth';
-import { ensureOwnerBootstrap, getAccountByEmail, verifyPasswordHash } from '../../../../lib/accounts';
+  ensureOwnerBootstrap,
+  getAccountByEmail,
+  verifyPasswordHash,
+} from '../../../../lib/accounts';
 import { decryptSecret } from '../../../../lib/secrets';
 import { verifyTotp, type TotpSecretConfig } from '../../../../lib/totp';
 import { getClientKey } from '../../../../lib/client-key';
@@ -14,9 +15,7 @@ const GENERIC_SERVER_ERROR = '登录失败，请稍后重试。';
 
 function isConfigurationError(error: unknown) {
   if (!(error instanceof Error)) return false;
-  return (
-    error.message.startsWith('Missing ') || error.message.includes('ENCRYPTION_KEY')
-  );
+  return error.message.startsWith('Missing ') || error.message.includes('ENCRYPTION_KEY');
 }
 
 // All credential failures collapse to a single generic 401 — never reveal
@@ -25,10 +24,7 @@ function isConfigurationError(error: unknown) {
 // can still diagnose problems.
 function genericFailure(reason: string) {
   console.warn(`[admin/login] auth failure: ${reason}`);
-  return NextResponse.json(
-    { ok: false, error: { message: GENERIC_LOGIN_ERROR } },
-    { status: 401 },
-  );
+  return NextResponse.json({ ok: false, error: { message: GENERIC_LOGIN_ERROR } }, { status: 401 });
 }
 
 function verifyAccountTotp(token: string, config: TotpSecretConfig) {
@@ -50,7 +46,10 @@ export async function POST(request: NextRequest) {
     if (!perIpLimiter.ok) {
       return NextResponse.json(
         { ok: false, error: { message: '登录尝试过多，请稍后再试。' } },
-        { status: 429, headers: { 'Retry-After': String(Math.ceil(perIpLimiter.retryAfterMs / 1000)) } },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil(perIpLimiter.retryAfterMs / 1000)) },
+        },
       );
     }
 
@@ -63,12 +62,19 @@ export async function POST(request: NextRequest) {
     if (!globalLimiter.ok) {
       return NextResponse.json(
         { ok: false, error: { message: '登录尝试过多，请稍后再试。' } },
-        { status: 429, headers: { 'Retry-After': String(Math.ceil(globalLimiter.retryAfterMs / 1000)) } },
+        {
+          status: 429,
+          headers: { 'Retry-After': String(Math.ceil(globalLimiter.retryAfterMs / 1000)) },
+        },
       );
     }
 
     await ensureOwnerBootstrap();
-    const body = (await request.json()) as { email?: string; password?: string; totpToken?: string };
+    const body = (await request.json()) as {
+      email?: string;
+      password?: string;
+      totpToken?: string;
+    };
     const email = typeof body.email === 'string' ? body.email : '';
     const password = typeof body.password === 'string' ? body.password : '';
     const totpToken = typeof body.totpToken === 'string' ? body.totpToken.trim() : '';

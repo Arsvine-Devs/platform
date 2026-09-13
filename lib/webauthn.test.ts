@@ -55,7 +55,10 @@ describe('WebAuthn configuration', () => {
 
 describe('WebAuthn options', () => {
   it('creates security-key registration options with resident keys and UV', async () => {
-    const options = await createRegistrationOptions({ id: OWNER_ID, email: 'owner@example.com' }, []);
+    const options = await createRegistrationOptions(
+      { id: OWNER_ID, email: 'owner@example.com' },
+      [],
+    );
     expect(options.rp).toEqual({ name: 'ARSVINE Admin', id: 'ctrl.arsvine.com' });
     expect(options.attestation).toBe('direct');
     expect(options.hints).toEqual(['security-key']);
@@ -69,16 +72,20 @@ describe('WebAuthn options', () => {
   });
 
   it('creates authentication options only for stored credentials', async () => {
-    const options = await createAuthenticationOptions([{
-      id: 'credential-record-id',
-      credentialId: 'credential-id',
-      publicKey: 'public-key',
-      counter: 0,
-      transports: ['usb'],
-    }]);
+    const options = await createAuthenticationOptions([
+      {
+        id: 'credential-record-id',
+        credentialId: 'credential-id',
+        publicKey: 'public-key',
+        counter: 0,
+        transports: ['usb'],
+      },
+    ]);
     expect(options.rpId).toBe('ctrl.arsvine.com');
     expect(options.userVerification).toBe('required');
-    expect(options.allowCredentials).toEqual([{ id: 'credential-id', type: 'public-key', transports: ['usb'] }]);
+    expect(options.allowCredentials).toEqual([
+      { id: 'credential-id', type: 'public-key', transports: ['usb'] },
+    ]);
   });
 });
 
@@ -93,8 +100,12 @@ describe('WebAuthn policy helpers', () => {
     const now = 1_000_000;
     const session = { amr: 'webauthn' as const, authAt: now - 60_000 } as never;
     expect(isRecentWebAuthnSession(session, now)).toBe(true);
-    expect(isRecentWebAuthnSession({ amr: 'webauthn', authAt: now - 11 * 60_000 } as never, now)).toBe(false);
-    expect(isRecentWebAuthnSession({ amr: 'password+totp', authAt: now } as never, now)).toBe(false);
+    expect(
+      isRecentWebAuthnSession({ amr: 'webauthn', authAt: now - 11 * 60_000 } as never, now),
+    ).toBe(false);
+    expect(isRecentWebAuthnSession({ amr: 'password+totp', authAt: now } as never, now)).toBe(
+      false,
+    );
   });
 
   it('validates labels and the JSON response envelope', () => {
@@ -115,12 +126,14 @@ describe('WebAuthn policy helpers', () => {
     };
     expect(isAuthenticationResponse(authentication)).toBe(true);
     expect(isAuthenticationResponse({ ...authentication, rawId: 'other' })).toBe(false);
-    expect(isRegistrationResponse({
-      id: 'credential-id',
-      rawId: 'credential-id',
-      type: 'public-key',
-      response: { clientDataJSON: 'client-data', attestationObject: 'attestation-object' },
-      clientExtensionResults: {},
-    })).toBe(true);
+    expect(
+      isRegistrationResponse({
+        id: 'credential-id',
+        rawId: 'credential-id',
+        type: 'public-key',
+        response: { clientDataJSON: 'client-data', attestationObject: 'attestation-object' },
+        clientExtensionResults: {},
+      }),
+    ).toBe(true);
   });
 });

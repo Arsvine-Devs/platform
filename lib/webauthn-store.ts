@@ -3,7 +3,11 @@ import type { WebAuthnCredential } from '@simplewebauthn/server';
 
 import { getDb } from './db';
 import { accountEvents, users, webauthnChallenges, webauthnCredentials } from './db/schema';
-import { parseCredentialTransports, serializeCredentialTransports, type StoredWebAuthnCredential } from './webauthn';
+import {
+  parseCredentialTransports,
+  serializeCredentialTransports,
+  type StoredWebAuthnCredential,
+} from './webauthn';
 
 export type WebAuthnChallengeType = 'authentication' | 'registration';
 
@@ -28,11 +32,13 @@ export async function getActiveWebAuthnCredential(userId: string, credentialId: 
   const [credential] = await getDb()
     .select()
     .from(webauthnCredentials)
-    .where(and(
-      eq(webauthnCredentials.userId, userId),
-      eq(webauthnCredentials.credentialId, credentialId),
-      isNull(webauthnCredentials.revokedAt),
-    ))
+    .where(
+      and(
+        eq(webauthnCredentials.userId, userId),
+        eq(webauthnCredentials.credentialId, credentialId),
+        isNull(webauthnCredentials.revokedAt),
+      ),
+    )
     .limit(1);
   return credential ?? null;
 }
@@ -49,16 +55,19 @@ export async function createWebAuthnChallenge(input: {
 }) {
   const db = getDb();
   await db.delete(webauthnChallenges).where(lt(webauthnChallenges.expiresAt, new Date()));
-  const [challenge] = await db.insert(webauthnChallenges).values({
-    userId: input.userId,
-    type: input.type,
-    challenge: input.challenge,
-    rpId: input.rpId,
-    origin: input.origin,
-    expiresAt: input.expiresAt,
-    label: input.label,
-    sessionBindingHash: input.sessionBindingHash,
-  }).returning();
+  const [challenge] = await db
+    .insert(webauthnChallenges)
+    .values({
+      userId: input.userId,
+      type: input.type,
+      challenge: input.challenge,
+      rpId: input.rpId,
+      origin: input.origin,
+      expiresAt: input.expiresAt,
+      label: input.label,
+      sessionBindingHash: input.sessionBindingHash,
+    })
+    .returning();
   return challenge;
 }
 
@@ -70,13 +79,15 @@ export async function consumeWebAuthnChallenge(input: {
   const [challenge] = await getDb()
     .update(webauthnChallenges)
     .set({ consumedAt: new Date() })
-    .where(and(
-      eq(webauthnChallenges.id, input.id),
-      eq(webauthnChallenges.userId, input.userId),
-      eq(webauthnChallenges.type, input.type),
-      isNull(webauthnChallenges.consumedAt),
-      gt(webauthnChallenges.expiresAt, new Date()),
-    ))
+    .where(
+      and(
+        eq(webauthnChallenges.id, input.id),
+        eq(webauthnChallenges.userId, input.userId),
+        eq(webauthnChallenges.type, input.type),
+        isNull(webauthnChallenges.consumedAt),
+        gt(webauthnChallenges.expiresAt, new Date()),
+      ),
+    )
     .returning();
   return challenge ?? null;
 }
@@ -93,18 +104,21 @@ export async function saveWebAuthnCredential(input: {
   deviceType: string;
   backedUp: boolean;
 }) {
-  const [credential] = await getDb().insert(webauthnCredentials).values({
-    userId: input.userId,
-    credentialId: input.credentialId,
-    publicKey: input.publicKey,
-    counter: input.counter,
-    label: input.label,
-    aaguid: input.aaguid,
-    attestationFormat: input.attestationFormat,
-    transports: serializeCredentialTransports(input.transports),
-    deviceType: input.deviceType,
-    backedUp: input.backedUp,
-  }).returning();
+  const [credential] = await getDb()
+    .insert(webauthnCredentials)
+    .values({
+      userId: input.userId,
+      credentialId: input.credentialId,
+      publicKey: input.publicKey,
+      counter: input.counter,
+      label: input.label,
+      aaguid: input.aaguid,
+      attestationFormat: input.attestationFormat,
+      transports: serializeCredentialTransports(input.transports),
+      deviceType: input.deviceType,
+      backedUp: input.backedUp,
+    })
+    .returning();
   return credential;
 }
 
@@ -153,11 +167,13 @@ export async function updateWebAuthnCredentialAfterAuthentication(input: {
       backedUp: input.backedUp,
       lastUsedAt: new Date(),
     })
-    .where(and(
-      eq(webauthnCredentials.userId, input.userId),
-      eq(webauthnCredentials.credentialId, input.credentialId),
-      isNull(webauthnCredentials.revokedAt),
-    ))
+    .where(
+      and(
+        eq(webauthnCredentials.userId, input.userId),
+        eq(webauthnCredentials.credentialId, input.credentialId),
+        isNull(webauthnCredentials.revokedAt),
+      ),
+    )
     .returning();
   return credential ?? null;
 }
@@ -170,19 +186,25 @@ export async function enableOwnerWebAuthn(userId: string, expectedSessionVersion
       sessionVersion: sql`${users.sessionVersion} + 1`,
       updatedAt: new Date(),
     })
-    .where(and(
-      eq(users.id, userId),
-      eq(users.role, 'owner'),
-      eq(users.status, 'active'),
-      eq(users.authMethod, 'password+totp'),
-      eq(users.sessionVersion, expectedSessionVersion),
-    ))
+    .where(
+      and(
+        eq(users.id, userId),
+        eq(users.role, 'owner'),
+        eq(users.status, 'active'),
+        eq(users.authMethod, 'password+totp'),
+        eq(users.sessionVersion, expectedSessionVersion),
+      ),
+    )
     .returning();
   return owner ?? null;
 }
 
 export async function revokeWebAuthnCredential(userId: string, credentialRecordId: string) {
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(credentialRecordId)) {
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      credentialRecordId,
+    )
+  ) {
     throw new Error('安全密钥不存在或已撤销。');
   }
 
@@ -227,9 +249,14 @@ export async function revokeWebAuthnCredential(userId: string, credentialRecordI
   }
 
   try {
-    await getDb().insert(accountEvents).values({ actorId: userId, targetId: userId, type: 'revoked_webauthn_credential' });
+    await getDb()
+      .insert(accountEvents)
+      .values({ actorId: userId, targetId: userId, type: 'revoked_webauthn_credential' });
   } catch (error) {
-    console.error('[webauthn] failed to record credential revocation:', error instanceof Error ? error.message : error);
+    console.error(
+      '[webauthn] failed to record credential revocation:',
+      error instanceof Error ? error.message : error,
+    );
   }
   return { id: credentialRecordId };
 }
@@ -238,6 +265,9 @@ export async function recordWebAuthnEvent(userId: string, type: string) {
   try {
     await getDb().insert(accountEvents).values({ actorId: userId, targetId: userId, type });
   } catch (error) {
-    console.error(`[webauthn] failed to record ${type}:`, error instanceof Error ? error.message : error);
+    console.error(
+      `[webauthn] failed to record ${type}:`,
+      error instanceof Error ? error.message : error,
+    );
   }
 }

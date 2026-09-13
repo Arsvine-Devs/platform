@@ -4,14 +4,16 @@ import { getClientKey } from '../../../../lib/client-key';
 import { enforceRateLimit } from '../../../../lib/rate-limit';
 import { publishPost } from '../../../../lib/posts';
 import { withSessionWorkspace } from '../../../../lib/request-auth';
+import type { BlogPublishInput, BlogPublishResponse } from '../../../../lib/admin-api/contracts';
+import {
+  isDevelopmentBypassSession,
+  publishDevelopmentPost,
+} from '../../../../lib/development-preview';
 
 export async function POST(request: NextRequest) {
   const session = await getSessionFromRequest(request);
   if (!session) {
-    return NextResponse.json(
-      { ok: false, error: { message: 'Unauthorized' } },
-      { status: 401 },
-    );
+    return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
   }
 
   if (!verifyCsrf(request, session)) {
@@ -19,6 +21,12 @@ export async function POST(request: NextRequest) {
       { ok: false, error: { message: 'Invalid CSRF token.' } },
       { status: 403 },
     );
+  }
+
+  if (isDevelopmentBypassSession(session)) {
+    const body = (await request.json()) as BlogPublishInput;
+    const data: BlogPublishResponse = publishDevelopmentPost(body);
+    return NextResponse.json({ ok: true, data });
   }
 
   const limiter = await enforceRateLimit(`publish:${getClientKey(request)}`, 10, 60_000);
@@ -30,21 +38,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = (await request.json()) as {
-      slug: string;
-      locale: 'zh-CN' | 'zh-TW' | 'en' | 'ja' | 'ru' | 'fr';
-      title: string;
-      excerpt: string;
-      date: string;
-      tags: string[];
-      pinned: boolean;
-      content: string;
-      accessMode: 'public' | 'totp';
-      accessGroup?: string;
-      originLocale?: 'zh-CN' | 'zh-TW' | 'en' | 'ja' | 'ru' | 'fr';
-    };
+    const body = (await request.json()) as BlogPublishInput;
 
-    const data = await withSessionWorkspace(session, () => publishPost(body));
+    const data: BlogPublishResponse = await withSessionWorkspace(session, () => publishPost(body));
     return NextResponse.json({ ok: true, data });
   } catch (error) {
     return NextResponse.json(
