@@ -1,4 +1,5 @@
 import { getWorkspace, isDevelopmentWorkspace } from './workspace-context';
+import { getProviderBaseUrl } from './provider-endpoints';
 
 type GitHubContentResponse = {
   sha: string;
@@ -30,12 +31,12 @@ function config() {
 
 function contentUrl(path: string) {
   const { owner, repo, branch } = config();
-  return `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(branch)}`;
+  return `${getProviderBaseUrl('GITHUB_API_BASE_URL')}/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(branch)}`;
 }
 
 function treeUrl() {
   const { owner, repo, branch } = config();
-  return `https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
+  return `${getProviderBaseUrl('GITHUB_API_BASE_URL')}/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`;
 }
 
 async function githubFetch(url: string, init?: RequestInit) {
@@ -63,13 +64,15 @@ export function getContentRepoInfo() {
     owner,
     repo,
     branch,
-    url: `https://github.com/${owner}/${repo}`,
+    url: `${getProviderBaseUrl('GITHUB_WEB_BASE_URL')}/${owner}/${repo}`,
   };
 }
 
 export async function verifyRepositoryConnection() {
   const { owner, repo } = config();
-  const response = await githubFetch(`https://api.github.com/repos/${owner}/${repo}`);
+  const response = await githubFetch(
+    `${getProviderBaseUrl('GITHUB_API_BASE_URL')}/repos/${owner}/${repo}`,
+  );
   if (!response.ok) {
     throw new GitHubError(
       `Failed to read repository: ${response.status} ${response.statusText}`,

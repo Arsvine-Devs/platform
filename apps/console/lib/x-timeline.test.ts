@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchXTimelinePage, XApiError } from './x-timeline';
 import type { XTimelineConfig } from './workspace-context';
 
@@ -14,6 +14,12 @@ const config: XTimelineConfig = {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+});
+
+beforeEach(() => {
+  vi.stubEnv('X_API_BASE_URL', 'https://api.x.com/2');
+  vi.stubEnv('X_WEB_BASE_URL', 'https://x.com');
 });
 
 describe('X timeline provider', () => {

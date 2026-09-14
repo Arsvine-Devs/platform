@@ -1,7 +1,6 @@
 import type { ImportedTweet } from './tweets-types';
 import type { XTimelineConfig } from './workspace-context';
-
-const X_API_BASE_URL = 'https://api.x.com/2';
+import { getProviderBaseUrl } from './provider-endpoints';
 const X_ID_RE = /^\d{1,19}$/;
 
 type XPost = {
@@ -90,7 +89,7 @@ function getApiErrorCode(payload: unknown) {
 async function xFetch(path: string, params: URLSearchParams, token: string): Promise<XResponse> {
   let response: Response;
   try {
-    response = await fetch(`${X_API_BASE_URL}${path}?${params.toString()}`, {
+    response = await fetch(`${getProviderBaseUrl('X_API_BASE_URL')}${path}?${params.toString()}`, {
       headers: {
         Accept: 'application/json',
         Authorization: `Bearer ${token}`,
@@ -174,7 +173,7 @@ function normalizePosts(payload: XResponse, config: XTimelineConfig): ImportedTw
       lang: normalizeLanguage(post.lang),
       authorId,
       authorUsername,
-      canonicalUrl: `https://x.com/${encodeURIComponent(authorUsername)}/status/${externalId}`,
+      canonicalUrl: `${getProviderBaseUrl('X_WEB_BASE_URL')}/${encodeURIComponent(authorUsername)}/status/${externalId}`,
     } satisfies ImportedTweet;
   });
 }

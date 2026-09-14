@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next';
 
 const isProduction = process.env.NODE_ENV === 'production';
+const analyticsScriptOrigin = process.env.NEXT_PUBLIC_ANALYTICS_SCRIPT_ORIGIN?.trim();
+const analyticsConnectOrigin = process.env.NEXT_PUBLIC_ANALYTICS_CONNECT_ORIGIN?.trim();
 
 // Admin console only — no third-party iframes, no inline analytics. The CSP
 // keeps `'unsafe-inline'` for styles because Next.js injects critical CSS
@@ -10,13 +12,17 @@ const isProduction = process.env.NODE_ENV === 'production';
 // calls go through same-origin routes; no direct browser → GitHub call.
 const cspDirectives = [
   "default-src 'self'",
-  isProduction
-    ? "script-src 'self' 'unsafe-inline' https://va.vercel-scripts.com"
-    : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com",
+  [
+    'script-src',
+    "'self'",
+    "'unsafe-inline'",
+    ...(isProduction ? [] : ["'unsafe-eval'"]),
+    ...(analyticsScriptOrigin ? [analyticsScriptOrigin] : []),
+  ].join(' '),
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self' https://vitals.vercel-insights.com",
+  ['connect-src', "'self'", ...(analyticsConnectOrigin ? [analyticsConnectOrigin] : [])].join(' '),
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

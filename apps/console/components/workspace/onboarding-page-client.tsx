@@ -59,6 +59,7 @@ export default function OnboardingPageClient({
 }) {
   const router = useRouter();
   const { t } = useI18n();
+  const githubTokenUrl = process.env.NEXT_PUBLIC_GITHUB_TOKEN_URL?.trim();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<Form>(EMPTY);
   const [summary, setSummary] = useState<WorkspaceSummary | null>(null);
@@ -242,22 +243,16 @@ export default function OnboardingPageClient({
               <footer className="flex flex-col-reverse gap-3 border-t bg-muted/20 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
                 {developmentBypass ? (
                   <span className="text-xs text-muted-foreground">{t('auth.devOnly')}</span>
-                ) : (
+                ) : githubTokenUrl ? (
                   <Button
                     nativeButton={false}
                     variant="link"
-                    render={
-                      <a
-                        href="https://github.com/settings/personal-access-tokens/new"
-                        target="_blank"
-                        rel="noreferrer"
-                      />
-                    }
+                    render={<a href={githubTokenUrl} target="_blank" rel="noreferrer" />}
                   >
                     <ExternalLink data-icon="inline-start" />
                     {t('onboarding.createToken')}
                   </Button>
-                )}
+                ) : null}
                 <Button
                   className="min-h-11"
                   disabled={busy || !form.owner || !form.repo || (!form.token && !githubReady)}

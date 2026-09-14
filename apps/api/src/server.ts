@@ -13,11 +13,13 @@ const errorSchema = Type.Object({
 
 export function buildApiServer() {
   const app = Fastify({ logger: false });
+  const displayName = process.env.API_DISPLAY_NAME?.trim() || "Control API";
+  const publicUrl = process.env.API_PUBLIC_URL?.trim();
 
   app.register(swagger, {
     openapi: {
-      info: { title: "Arsvine Control API", version: "0.1.0" },
-      servers: [{ url: "https://api.arsvine.com" }],
+      info: { title: displayName, version: "0.1.0" },
+      ...(publicUrl ? { servers: [{ url: publicUrl }] } : {}),
     },
   });
 

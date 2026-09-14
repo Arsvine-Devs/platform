@@ -11,11 +11,14 @@ const currentPointerKey =
 
 export function buildContentServer() {
   const app = Fastify({ logger: false });
+  const displayName =
+    process.env.CONTENT_DISPLAY_NAME?.trim() || "Published Content";
+  const publicUrl = process.env.CONTENT_PUBLIC_URL?.trim();
 
   app.register(swagger, {
     openapi: {
-      info: { title: "Arsvine Published Content", version: "0.1.0" },
-      servers: [{ url: "https://content.arsvine.com" }],
+      info: { title: displayName, version: "0.1.0" },
+      ...(publicUrl ? { servers: [{ url: publicUrl }] } : {}),
     },
   });
 

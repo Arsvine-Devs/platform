@@ -8,8 +8,7 @@ export default function AdminAnalytics() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      const hostname = window.location.hostname;
-      setEnabled(hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '[::1]');
+      setEnabled(process.env.NEXT_PUBLIC_ANALYTICS_ENABLED === '1');
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
