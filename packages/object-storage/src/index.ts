@@ -11,6 +11,7 @@ export type ObjectStorageConfig = {
   accessKeyId: string;
   secretAccessKey: string;
   bucket: string;
+  forcePathStyle?: boolean;
 };
 
 export function readObjectStorageConfig(env: NodeJS.ProcessEnv = process.env) {
@@ -20,6 +21,7 @@ export function readObjectStorageConfig(env: NodeJS.ProcessEnv = process.env) {
     accessKeyId: env.S3_ACCESS_KEY_ID?.trim(),
     secretAccessKey: env.S3_SECRET_ACCESS_KEY?.trim(),
     bucket: env.S3_PRIVATE_BUCKET?.trim(),
+    forcePathStyle: env.S3_FORCE_PATH_STYLE?.trim().toLowerCase() !== "false",
   };
   if (Object.values(values).some((value) => !value)) return null;
   return values as ObjectStorageConfig;
@@ -29,7 +31,7 @@ export function createObjectStorage(config: ObjectStorageConfig) {
   const clientConfig: S3ClientConfig = {
     endpoint: config.endpoint,
     region: config.region,
-    forcePathStyle: true,
+    forcePathStyle: config.forcePathStyle ?? true,
     credentials: {
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey,
