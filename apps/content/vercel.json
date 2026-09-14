@@ -2,5 +2,6 @@
   "version": 2,
   "buildCommand": "pnpm --filter @arsvine/content... build",
   "installCommand": "pnpm install --frozen-lockfile",
+  "outputDirectory": "dist",
   "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
 }
