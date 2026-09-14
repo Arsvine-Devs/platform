@@ -1,4 +1,4 @@
-import { Redis } from '@upstash/redis';
+import { createClient } from 'redis';
 import { isDevelopmentBypassEnabled } from './development-preview';
 
 type Bucket = {
@@ -13,17 +13,40 @@ type LimiterDecision = {
 };
 
 const buckets = new Map<string, Bucket>();
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL?.trim();
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+const REDIS_URL = process.env.REDIS_URL?.trim();
 
-let redisClient: Redis | null = null;
+type RedisClient = ReturnType<typeof createClient>;
+
+let redisClient: RedisClient | null = null;
+let redisConnection: Promise<RedisClient> | null = null;
 
 function getRedis() {
-  if (!REDIS_URL || !REDIS_TOKEN) return null;
+  if (!REDIS_URL) return null;
   if (!redisClient) {
-    redisClient = new Redis({ url: REDIS_URL, token: REDIS_TOKEN });
+    redisClient = createClient({ url: REDIS_URL });
+    redisClient.on('error', (error) => {
+      console.error('[rate-limit] redis client error', error);
+    });
   }
   return redisClient;
+}
+
+async function getConnectedRedis() {
+  const redis = getRedis();
+  if (!redis) return null;
+  if (!redis.isOpen) {
+    if (!redisConnection) {
+      redisConnection = redis
+        .connect()
+        .then(() => redis)
+        .catch((error) => {
+          redisConnection = null;
+          throw error;
+        });
+    }
+    await redisConnection;
+  }
+  return redis;
 }
 
 function localEnforceRateLimit(key: string, limit: number, windowMs: number): LimiterDecision {
@@ -53,7 +76,7 @@ function localEnforceRateLimit(key: string, limit: number, windowMs: number): Li
 }
 
 async function redisEnforceRateLimit(
-  redis: Redis,
+  redis: RedisClient,
   key: string,
   limit: number,
   windowMs: number,
@@ -65,7 +88,7 @@ async function redisEnforceRateLimit(
   if (count === 1) {
     await redis.expire(key, windowSeconds);
   } else {
-    const pttl = await redis.pttl(key);
+    const pttl = Number(await redis.pTTL(key));
     if (pttl < 0) {
       await redis.expire(key, windowSeconds);
     } else {
@@ -86,14 +109,14 @@ async function redisEnforceRateLimit(
 }
 
 export function isRateLimitPersistent() {
-  return Boolean(REDIS_URL && REDIS_TOKEN);
+  return Boolean(REDIS_URL);
 }
 
 export async function enforceRateLimit(key: string, limit: number, windowMs: number) {
   if (isDevelopmentBypassEnabled()) {
     return { ok: true, remaining: limit, retryAfterMs: 0 };
   }
-  const redis = getRedis();
+  const redis = await getConnectedRedis();
   if (!redis) {
     return localEnforceRateLimit(key, limit, windowMs);
   }

@@ -1,0 +1,91 @@
+name: arsvine-platform
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: arsvine_core
+      POSTGRES_USER: arsvine
+      POSTGRES_PASSWORD: arsvine-local
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arsvine -d arsvine_core"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    ports:
+      - "16379:6379"
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: quay.io/minio/minio:latest
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: arsvine-local
+      MINIO_ROOT_PASSWORD: arsvine-local-secret
+    ports:
+      - "19000:9000"
+      - "19001:9001"
+    volumes:
+      - minio-data:/data
+
+  console:
+    build:
+      context: ../..
+      dockerfile: infra/docker/console.Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      SESSION_SECRET: compose-local-session-secret
+      DATABASE_URL: postgresql://arsvine:arsvine-local@postgres:5432/arsvine_core
+      TRUST_PROXY: "1"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    expose:
+      - "3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - "-e"
+        - >-
+          fetch('http://127.0.0.1:3000/health/live')
+          .then((response) => process.exit(response.ok ? 0 : 1))
+          .catch(() => process.exit(1))
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "18080:80"
+    volumes:
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      console:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  valkey-data:
+  minio-data:

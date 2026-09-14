@@ -1,11 +1,12 @@
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from './schema';
 
 function createDb() {
   const url = process.env.DATABASE_URL?.trim();
   if (!url) throw new Error('Missing DATABASE_URL');
-  return drizzle(neon(url), { schema });
+  const pool = new Pool({ connectionString: url });
+  return drizzle(pool, { schema });
 }
 
 let db: ReturnType<typeof createDb> | null = null;

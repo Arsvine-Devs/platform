@@ -4,6 +4,7 @@ out/
 coverage/
 output/playwright/
 .playwright-cli/
+**/dist/
 *.tsbuildinfo
 next-env.d.ts
 

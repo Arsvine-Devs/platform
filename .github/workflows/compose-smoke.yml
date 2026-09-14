@@ -1,0 +1,36 @@
+name: Compose smoke
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/compose-smoke.yml"
+      - "apps/console/**"
+      - "infra/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+jobs:
+  compose-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Compose configuration
+        run: docker compose -f infra/compose/compose.yaml config --quiet
+
+      - name: Start reference stack
+        run: docker compose -f infra/compose/compose.yaml up -d --build
+
+      - name: Check Console through Caddy
+        run: curl --fail --retry 30 --retry-delay 2 http://127.0.0.1:18080/health/live
+
+      - name: Show service status
+        if: always()
+        run: docker compose -f infra/compose/compose.yaml ps
+
+      - name: Stop reference stack
+        if: always()
+        run: docker compose -f infra/compose/compose.yaml down -v --remove-orphans

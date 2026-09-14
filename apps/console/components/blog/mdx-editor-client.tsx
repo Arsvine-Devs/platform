@@ -27,6 +27,7 @@ import {
   thematicBreakPlugin,
   toolbarPlugin,
   UndoRedo,
+  type EditorInFocus,
   type JsxComponentDescriptor,
 } from '@mdxeditor/editor';
 
@@ -74,7 +75,7 @@ function EditorToolbar() {
       <ConditionalContents
         options={[
           {
-            when: (editor) => editor?.editorType === 'codeblock',
+            when: (editor: EditorInFocus | null) => editor?.editorType === 'codeblock',
             contents: () => <ChangeCodeMirrorLanguage />,
           },
           {
@@ -134,8 +135,8 @@ export default function MdxEditorClient({
       contentEditableClassName="max-w-none text-sm leading-7 outline-none"
       placeholder={placeholder}
       autoFocus={autoFocus}
-      onChange={(value) => onChange(value)}
-      onError={({ error }) => onError?.(error)}
+      onChange={(value: string) => onChange(value)}
+      onError={({ error }: { error: string }) => onError?.(error)}
       plugins={[
         headingsPlugin(),
         listsPlugin(),

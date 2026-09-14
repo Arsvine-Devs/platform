@@ -31,7 +31,7 @@ describe('rate limiting local fallback', () => {
     now.mockRestore();
   });
 
-  it('reports local mode when Upstash is not configured', () => {
+  it('reports local mode when Redis is not configured', () => {
     expect(isRateLimitPersistent()).toBe(false);
   });
 });
