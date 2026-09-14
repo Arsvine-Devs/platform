@@ -376,6 +376,9 @@ importers:
 
   apps/content:
     dependencies:
+      '@arsvine/authz':
+        specifier: workspace:*
+        version: link:../../packages/authz
       '@arsvine/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
