@@ -8,6 +8,7 @@ import { log } from "@arsvine/observability";
 import {
   findPublishedPost,
   getVariantKey,
+  readPublishedTweetMonth,
   readPublishedRelease,
   type ContentStorage,
 } from "./release.js";
@@ -149,6 +150,77 @@ export function buildContentServer(options: ContentServerOptions = {}) {
           releaseId: release.pointer.releaseId,
           publishedAt: release.pointer.publishedAt,
           variant,
+        };
+      } catch {
+        return notReady(reply);
+      }
+    },
+  );
+
+  app.get("/v1/tweets", async (_request, reply) => {
+    const storage =
+      options.storage ??
+      (() => {
+        const config = readObjectStorageConfig();
+        return config ? createObjectStorage(config) : null;
+      })();
+    if (!storage) return notReady(reply);
+    try {
+      const release = await readPublishedRelease(storage, currentPointerKey);
+      reply.header("X-Arsvine-Content-Release", release.pointer.releaseId);
+      return {
+        releaseId: release.pointer.releaseId,
+        publishedAt: release.pointer.publishedAt,
+        months: release.tweetIndex,
+      };
+    } catch {
+      return notReady(reply);
+    }
+  });
+
+  app.get("/v1/tweets/months", async (_request, reply) => {
+    const storage =
+      options.storage ??
+      (() => {
+        const config = readObjectStorageConfig();
+        return config ? createObjectStorage(config) : null;
+      })();
+    if (!storage) return notReady(reply);
+    try {
+      const release = await readPublishedRelease(storage, currentPointerKey);
+      reply.header("X-Arsvine-Content-Release", release.pointer.releaseId);
+      return {
+        releaseId: release.pointer.releaseId,
+        publishedAt: release.pointer.publishedAt,
+        months: release.tweetIndex,
+      };
+    } catch {
+      return notReady(reply);
+    }
+  });
+
+  app.get<{ Params: { month: string } }>(
+    "/v1/tweets/months/:month",
+    async (request, reply) => {
+      const storage =
+        options.storage ??
+        (() => {
+          const config = readObjectStorageConfig();
+          return config ? createObjectStorage(config) : null;
+        })();
+      if (!storage) return notReady(reply);
+      try {
+        const release = await readPublishedRelease(storage, currentPointerKey);
+        const month = await readPublishedTweetMonth(storage, release, request.params.month);
+        if (!month) return reply.code(404).send({ error: { code: "NOT_FOUND" } });
+        reply.header("X-Arsvine-Content-Release", release.pointer.releaseId);
+        return {
+          releaseId: release.pointer.releaseId,
+          publishedAt: release.pointer.publishedAt,
+          month: month.entry.month,
+          tweets: month.tweets.filter(
+            (tweet) => tweet.visibility === undefined || tweet.visibility === "public",
+          ),
         };
       } catch {
         return notReady(reply);

@@ -36,6 +36,14 @@ export type ReleaseManifest = {
   publishedAt?: string;
   posts?: { index: string };
   postsIndex?: string;
+  tweets?: { index: string };
+};
+
+export type ReleaseTweetIndexEntry = {
+  month: string;
+  path: string;
+  count?: number;
+  updatedAt?: string;
 };
 
 export class ReleaseFormatError extends Error {
@@ -109,6 +117,9 @@ function readManifest(
       ? { publishedAt: value.publishedAt }
       : {}),
     ...(typeof postsIndex === "string" ? { posts: { index: postsIndex } } : {}),
+    ...(isRecord(value.tweets) && typeof value.tweets.index === "string"
+      ? { tweets: { index: requireObjectKey(value.tweets.index, "tweets index") } }
+      : {}),
   };
 }
 
@@ -144,7 +155,43 @@ export async function readPublishedRelease(
         ),
       )
     : [];
-  return { pointer, manifest, posts };
+  const tweetIndex = manifest.tweets
+    ? readTweetIndex(
+        readJson(await storage.getText(manifest.tweets.index), manifest.tweets.index),
+      )
+    : [];
+  return { pointer, manifest, posts, tweetIndex };
+}
+
+function readTweetIndex(value: unknown): ReleaseTweetIndexEntry[] {
+  if (!Array.isArray(value)) {
+    throw new ReleaseFormatError("Published tweet index is invalid");
+  }
+  return value.filter(isRecord).map((entry) => {
+    if (typeof entry.month !== "string" || typeof entry.path !== "string") {
+      throw new ReleaseFormatError("Published tweet index entry is invalid");
+    }
+    return {
+      month: entry.month,
+      path: requireObjectKey(entry.path, "tweet month"),
+      ...(typeof entry.count === "number" ? { count: entry.count } : {}),
+      ...(typeof entry.updatedAt === "string" ? { updatedAt: entry.updatedAt } : {}),
+    };
+  });
+}
+
+export async function readPublishedTweetMonth(
+  storage: ContentStorage,
+  release: Awaited<ReturnType<typeof readPublishedRelease>>,
+  month: string,
+) {
+  const entry = release.tweetIndex.find((candidate) => candidate.month === month);
+  if (!entry) return null;
+  const value = readJson(await storage.getText(entry.path), entry.path);
+  if (!Array.isArray(value)) {
+    throw new ReleaseFormatError("Published tweet month is invalid");
+  }
+  return { entry, tweets: value.filter(isRecord) };
 }
 
 export function findPublishedPost(posts: readonly ReleasePost[], slug: string) {
