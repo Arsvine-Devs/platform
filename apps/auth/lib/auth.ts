@@ -1,4 +1,3 @@
-import { kyselyAdapter } from "@better-auth/kysely-adapter";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { passkey } from "@better-auth/passkey";
 import { betterAuth } from "better-auth";
@@ -8,10 +7,7 @@ import {
   jwt,
   twoFactor,
 } from "better-auth/plugins";
-import { Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
-
-type AuthDatabase = Record<string, never>;
 
 function readList(name: string): string[] | undefined {
   const values = process.env[name]
@@ -24,9 +20,6 @@ function readList(name: string): string[] | undefined {
 
 const databaseUrl = process.env.AUTH_DATABASE_URL?.trim();
 const pool = databaseUrl ? new Pool({ connectionString: databaseUrl }) : null;
-const kysely = pool
-  ? new Kysely<AuthDatabase>({ dialect: new PostgresDialect({ pool }) })
-  : null;
 const authBaseUrl = process.env.BETTER_AUTH_URL?.trim();
 const authIssuer = process.env.BETTER_AUTH_ISSUER?.trim();
 const authDisplayName = process.env.AUTH_DISPLAY_NAME?.trim();
@@ -56,7 +49,7 @@ const editorRole = accessControl.newRole({
   jobs: ["read"],
 });
 
-if (!kysely) {
+if (!pool) {
   // The service can still build and expose liveness locally without credentials.
   // Auth requests remain unavailable until AUTH_DATABASE_URL and BETTER_AUTH_SECRET exist.
   console.warn("[auth] AUTH_DATABASE_URL is not configured");
@@ -133,9 +126,7 @@ const authPlugins = [
 ];
 
 export const auth = betterAuth({
-  database: kysely
-    ? kyselyAdapter(kysely, { type: "postgres", transaction: true })
-    : undefined,
+  database: pool ?? undefined,
   baseURL: authBaseUrl,
   secret: process.env.BETTER_AUTH_SECRET ?? "development-only-auth-secret",
   emailAndPassword: { enabled: true },

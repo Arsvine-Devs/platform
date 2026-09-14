@@ -9,11 +9,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@better-auth/kysely-adapter": "1.7.4",
     "@better-auth/oauth-provider": "1.7.4",
     "@better-auth/passkey": "1.7.4",
     "better-auth": "1.7.4",
-    "kysely": "^0.29.5",
     "next": "16.3.4",
     "pg": "^8.16.3",
     "react": "19.3.0",
