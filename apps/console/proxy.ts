@@ -13,12 +13,38 @@ const PUBLIC_ADMIN_API_PATHS = new Set<string>([
   '/api/admin/dev-login',
 ]);
 
+const OIDC_CONTROL_API_PATHS = new Set<string>(['/api/admin/session', '/api/admin/logout']);
+const RETIRED_PAGE_PATHS = new Set<string>([
+  '/library',
+  '/blog',
+  '/tweets',
+  '/workspace',
+  '/members',
+  '/security',
+  '/onboarding',
+]);
+
 function isAdminApi(pathname: string) {
   return pathname === '/api/admin' || pathname.startsWith('/api/admin/');
 }
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (process.env.NODE_ENV === 'production' && RETIRED_PAGE_PATHS.has(pathname)) {
+    return NextResponse.redirect(new URL('/control', request.url));
+  }
+
+  if (
+    process.env.NODE_ENV === 'production' &&
+    isAdminApi(pathname) &&
+    !OIDC_CONTROL_API_PATHS.has(pathname)
+  ) {
+    return NextResponse.json(
+      { ok: false, error: { code: 'LEGACY_ADMIN_API_RETIRED', message: 'Use the Control API.' } },
+      { status: 410 },
+    );
+  }
 
   // Defense-in-depth: short-circuit obviously unauthenticated calls to the
   // admin API before they reach a route handler. Per-route checks remain the
