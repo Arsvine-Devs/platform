@@ -6,5 +6,16 @@ export const dynamic = "force-dynamic";
 
 const handler = toNextJsHandler(auth);
 
-export const GET = handler.GET;
-export const POST = handler.POST;
+function toInternalRequest(request: Request) {
+  const url = new URL(request.url);
+  url.pathname = `/api/auth${url.pathname}`;
+  return new Request(url, request);
+}
+
+export function GET(request: Request) {
+  return handler.GET(toInternalRequest(request));
+}
+
+export function POST(request: Request) {
+  return handler.POST(toInternalRequest(request));
+}
