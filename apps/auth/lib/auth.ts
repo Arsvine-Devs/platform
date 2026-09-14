@@ -146,6 +146,7 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET ?? "development-only-auth-secret",
   emailAndPassword: {
     enabled: true,
+    disableSignUp: true,
     password: { hash: (password) => hashPassword(password), verify: verifyAuthPassword },
   },
   trustedOrigins,
