@@ -1,6 +1,6 @@
 "use client";
 
-import { passkeyClient } from "@better-auth/passkey/client";
+import { browserSupportsWebAuthn, startAuthentication } from "@simplewebauthn/browser";
 import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
 import { FormEvent, useMemo, useState } from "react";
@@ -22,7 +22,6 @@ export default function SignInPage() {
     () =>
       createAuthClient({
         plugins: [
-          passkeyClient(),
           twoFactorClient({ onTwoFactorRedirect: () => setTwoFactorRequired(true) }),
         ],
       }),
@@ -33,8 +32,36 @@ export default function SignInPage() {
     setKeyBusy(true);
     setError(null);
     try {
-      const result = await authClient.signIn.passkey();
-      if (result.error) throw new Error(result.error.message ?? "Passkey sign-in failed.");
+      if (!browserSupportsWebAuthn()) throw new Error("This browser does not support passkeys.");
+      const optionsResponse = await fetch("/api/auth/passkey/generate-authenticate-options");
+      const optionsBody = await optionsResponse.json().catch(() => null) as {
+        challenge?: string;
+        allowCredentials?: unknown[];
+        rpId?: string;
+        userVerification?: string;
+      } | null;
+      if (!optionsResponse.ok || !optionsBody?.challenge) {
+        throw new Error("Passkey sign-in failed.");
+      }
+      const authentication = await startAuthentication({
+        optionsJSON: optionsBody as Parameters<typeof startAuthentication>[0]['optionsJSON'],
+      });
+      const { clientExtensionResults: _clientExtensionResults, ...response } = authentication;
+      const verifyResponse = await fetch("/api/auth/passkey/verify-authentication", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          response,
+          ...(oauthQuery ? { oauth_query: oauthQuery } : {}),
+        }),
+      });
+      const verifyBody = await verifyResponse.json().catch(() => null) as {
+        error?: { message?: string };
+        message?: string;
+      } | null;
+      if (!verifyResponse.ok) {
+        throw new Error(verifyBody?.error?.message ?? verifyBody?.message ?? "Passkey sign-in failed.");
+      }
       window.location.assign(oauthQuery ? `/consent?${oauthQuery}` : "/");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Passkey sign-in failed.");
@@ -48,9 +75,23 @@ export default function SignInPage() {
     setBusy(true);
     setError(null);
     try {
-      const result = await authClient.signIn.email({ email, password });
-      if (result.error) throw new Error(result.error.message ?? "Sign-in failed.");
-      const signInData = result.data as typeof result.data & { twoFactorRedirect?: boolean };
+      const response = await fetch("/api/auth/sign-in/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          ...(oauthQuery ? { oauth_query: oauthQuery } : {}),
+        }),
+      });
+      const signInData = await response.json().catch(() => null) as {
+        error?: { message?: string };
+        message?: string;
+        twoFactorRedirect?: boolean;
+      } | null;
+      if (!response.ok) {
+        throw new Error(signInData?.error?.message ?? signInData?.message ?? "Sign-in failed.");
+      }
       if (signInData?.twoFactorRedirect) {
         setTwoFactorRequired(true);
         setBusy(false);
