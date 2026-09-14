@@ -23,7 +23,17 @@ export function readObjectStorageConfig(env: NodeJS.ProcessEnv = process.env) {
     bucket: env.S3_PRIVATE_BUCKET?.trim(),
     forcePathStyle: env.S3_FORCE_PATH_STYLE?.trim().toLowerCase() !== "false",
   };
-  if (Object.values(values).some((value) => !value)) return null;
+  if (
+    [
+      values.endpoint,
+      values.region,
+      values.accessKeyId,
+      values.secretAccessKey,
+      values.bucket,
+    ].some((value) => !value)
+  ) {
+    return null;
+  }
   return values as ObjectStorageConfig;
 }
 
