@@ -116,6 +116,7 @@ const authPlugins = [
         oauthProvider({
           loginPage: "/sign-in",
           consentPage: "/consent",
+          customUserInfoClaims: ({ user }) => ({ role: user.role }),
           scopes: [
             "openid",
             "profile",
