@@ -23,6 +23,12 @@ export const dynamic = 'force-dynamic';
 const GENERIC_ERROR = '安全密钥登录暂不可用，请稍后重试。';
 
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return privateJson(
+      { ok: false, error: { code: 'LEGACY_LOGIN_DISABLED', message: 'Use Auth OIDC sign-in.' } },
+      { status: 410 },
+    );
+  }
   if (isDevelopmentBypassEnabled())
     return privateJson(
       {

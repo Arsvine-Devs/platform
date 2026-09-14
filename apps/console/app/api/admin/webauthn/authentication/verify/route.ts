@@ -32,6 +32,7 @@ function genericFailure(reason: string) {
 }
 
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') return genericFailure('legacy login disabled');
   if (isDevelopmentBypassEnabled()) return genericFailure('development bypass is enabled');
   const limiter = await enforceRateLimit(
     `webauthn-auth-verify:${getClientKey(request)}`,

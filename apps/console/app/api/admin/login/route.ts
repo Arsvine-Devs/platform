@@ -40,6 +40,12 @@ function verifyAccountTotp(token: string, config: TotpSecretConfig) {
 }
 
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { ok: false, error: { code: 'LEGACY_LOGIN_DISABLED', message: 'Use Auth OIDC sign-in.' } },
+      { status: 410 },
+    );
+  }
   try {
     // Per-IP bucket — caps any single (possibly spoofed) X-Forwarded-For.
     const perIpLimiter = await enforceRateLimit(`login:${getClientKey(request)}`, 5, 60_000);
