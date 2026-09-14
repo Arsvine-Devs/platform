@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import Fastify, { type FastifyReply } from "fastify";
 import swagger from "@fastify/swagger";
 import {
@@ -27,6 +28,21 @@ const currentPointerKey =
 type ContentServerOptions = {
   storage?: ContentStorage | null;
 };
+
+type PublicationObject = { key: string; body: string };
+
+function verifyPublicationToken(value: string | undefined) {
+  const configured = process.env.CONTENT_PUBLISH_TOKEN?.trim();
+  if (!configured || !value) return false;
+  const expected = Buffer.from(configured);
+  const actual = Buffer.from(value);
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
+function writableStorage() {
+  const config = readObjectStorageConfig();
+  return config ? createObjectStorage(config) : null;
+}
 
 function notReady(reply: FastifyReply) {
   return reply.code(503).send({
@@ -104,6 +120,62 @@ export function buildContentServer(options: ContentServerOptions = {}) {
       return reply.code(503).send({ status: "not_ready", service: "content" });
     }
   });
+
+  app.post<{ Body: {
+    releaseId: string;
+    publishedAt: string;
+    pointerKey: string;
+    manifestKey: string;
+    objects: PublicationObject[];
+  } }>(
+    "/v1/internal/publications",
+    async (request, reply) => {
+      const publicationToken = request.headers["x-publication-token"];
+      if (!verifyPublicationToken(Array.isArray(publicationToken) ? publicationToken[0] : publicationToken)) {
+        return reply.code(401).send({ error: { code: "PUBLICATION_AUTH_REQUIRED" } });
+      }
+      const body = request.body;
+      if (
+        !body ||
+        typeof body.releaseId !== "string" ||
+        typeof body.publishedAt !== "string" ||
+        typeof body.pointerKey !== "string" ||
+        typeof body.manifestKey !== "string" ||
+        !Array.isArray(body.objects) ||
+        body.objects.some((object) => !object || typeof object.key !== "string" || typeof object.body !== "string")
+      ) {
+        return reply.code(422).send({ error: { code: "PUBLICATION_INVALID" } });
+      }
+      const storage = writableStorage();
+      if (!storage) return notReady(reply);
+      try {
+        for (const object of body.objects) {
+          if (!object.key || object.key.startsWith("/") || object.key.includes("..")) {
+            return reply.code(422).send({ error: { code: "PUBLICATION_INVALID" } });
+          }
+          await storage.putText(object.key, object.body);
+          if ((await storage.getText(object.key)) !== object.body) {
+            throw new Error(`Publication verification failed: ${object.key}`);
+          }
+        }
+        const pointer = {
+          schemaVersion: 1,
+          releaseId: body.releaseId,
+          publishedAt: body.publishedAt,
+          manifest: body.manifestKey,
+        };
+        await storage.putText(body.pointerKey, JSON.stringify(pointer));
+        const verified = JSON.parse(await storage.getText(body.pointerKey)) as typeof pointer;
+        if (verified.releaseId !== pointer.releaseId || verified.manifest !== pointer.manifest) {
+          throw new Error("Current release pointer verification failed");
+        }
+        return { releaseId: body.releaseId, pointerKey: body.pointerKey, objectCount: body.objects.length };
+      } catch (error) {
+        log("error", { service: "content", operation: "publication.failed", message: error instanceof Error ? error.message : "unknown" });
+        return notReady(reply);
+      }
+    },
+  );
 
   app.get("/v1/posts", async (_request, reply) => {
     const storage =

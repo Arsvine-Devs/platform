@@ -90,7 +90,6 @@ export type CreateTweetInput = {
   visibility?: TweetVisibility;
   pinned?: boolean;
   createdAt?: string;
-  autoTranslate?: boolean;
 };
 
 export type UpdateTweetInput = {

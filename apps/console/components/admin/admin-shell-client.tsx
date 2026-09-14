@@ -3,13 +3,10 @@
 import Link from 'next/link';
 import {
   FileText,
-  KeyRound,
   Library,
   LogOut,
   MessageCircle,
   Search,
-  Settings,
-  Users,
 } from 'lucide-react';
 import { useEffect, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
@@ -30,7 +27,6 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarRail,
-  SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
@@ -61,7 +57,6 @@ type AdminShellClientProps = {
   csrfToken: string;
   email: string;
   role: 'owner' | 'editor';
-  developmentBypass: boolean;
   children: ReactNode;
 };
 
@@ -69,22 +64,12 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/library', labelKey: 'nav.library', icon: <Library /> },
   { href: '/blog', labelKey: 'nav.blog', icon: <FileText /> },
   { href: '/tweets', labelKey: 'nav.tweets', icon: <MessageCircle /> },
-  { href: '/workspace', labelKey: 'nav.workspace', icon: <Settings /> },
-];
-
-const OWNER_NAV_ITEMS: NavItem[] = [
-  { href: '/security', labelKey: 'nav.security', icon: <KeyRound /> },
-  { href: '/members', labelKey: 'nav.members', icon: <Users /> },
 ];
 
 const PAGE_LABELS: Array<{ prefix: string; labelKey: string }> = [
   { prefix: '/library', labelKey: 'nav.library' },
   { prefix: '/blog', labelKey: 'nav.blog' },
   { prefix: '/tweets', labelKey: 'nav.tweets' },
-  { prefix: '/workspace', labelKey: 'nav.workspace' },
-  { prefix: '/security', labelKey: 'nav.security' },
-  { prefix: '/members', labelKey: 'nav.members' },
-  { prefix: '/onboarding', labelKey: 'nav.onboarding' },
 ];
 
 export default function AdminShellClient({
@@ -92,7 +77,6 @@ export default function AdminShellClient({
   csrfToken,
   email,
   role,
-  developmentBypass,
   children,
 }: AdminShellClientProps) {
   const { t } = useI18n();
@@ -125,11 +109,7 @@ export default function AdminShellClient({
 
   const pageLabelKey = PAGE_LABELS.find(({ prefix }) => currentPath.startsWith(prefix))?.labelKey;
   const pageLabel = pageLabelKey ? t(pageLabelKey) : t('shell.admin');
-  const navItems = (role === 'owner' ? [...NAV_ITEMS, ...OWNER_NAV_ITEMS] : NAV_ITEMS).map(
-    (item) => ({ ...item, label: t(item.labelKey) }),
-  );
-  const contentNavItems = NAV_ITEMS.slice(0, 3);
-  const workspaceNavItems = [...NAV_ITEMS.slice(3), ...(role === 'owner' ? OWNER_NAV_ITEMS : [])];
+  const navItems = NAV_ITEMS.map((item) => ({ ...item, label: t(item.labelKey) }));
 
   function navigateFromSearch(href: string) {
     setSearchOpen(false);
@@ -182,32 +162,7 @@ export default function AdminShellClient({
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {contentNavItems.map((item) => {
-                  const label = t(item.labelKey);
-                  return (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton
-                        render={<Link href={item.href} />}
-                        isActive={currentPath.startsWith(item.href)}
-                        tooltip={label}
-                      >
-                        {item.icon}
-                        <span className="group-data-[collapsible=icon]:hidden">{label}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-          <SidebarSeparator className="mx-2" />
-          <SidebarGroup className="px-1 py-2">
-            <SidebarGroupLabel className="px-2 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground group-data-[collapsible=icon]:hidden">
-              {t('shell.workspace')}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {workspaceNavItems.map((item) => {
+                {NAV_ITEMS.map((item) => {
                   const label = t(item.labelKey);
                   return (
                     <SidebarMenuItem key={item.href}>
@@ -283,11 +238,6 @@ export default function AdminShellClient({
               <LocaleSwitcher />
               <ThemeToggle />
             </div>
-            {developmentBypass ? (
-              <span className="shrink-0 rounded-full border border-warning/60 bg-warning/10 px-2.5 py-1 text-xs font-semibold text-warning shadow-sm">
-                {t('shell.devSession')}
-              </span>
-            ) : null}
           </div>
         </header>
         <div className="flex-1 overflow-auto">{children}</div>

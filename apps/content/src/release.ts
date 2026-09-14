@@ -158,12 +158,13 @@ export async function readPublishedRelease(
   const tweetIndex = manifest.tweets
     ? readTweetIndex(
         readJson(await storage.getText(manifest.tweets.index), manifest.tweets.index),
+        manifest.tweets.index,
       )
     : [];
   return { pointer, manifest, posts, tweetIndex };
 }
 
-function readTweetIndex(value: unknown): ReleaseTweetIndexEntry[] {
+function readTweetIndex(value: unknown, indexKey: string): ReleaseTweetIndexEntry[] {
   if (!Array.isArray(value)) {
     throw new ReleaseFormatError("Published tweet index is invalid");
   }
@@ -171,9 +172,14 @@ function readTweetIndex(value: unknown): ReleaseTweetIndexEntry[] {
     if (typeof entry.month !== "string" || typeof entry.path !== "string") {
       throw new ReleaseFormatError("Published tweet index entry is invalid");
     }
+    const releasePrefix = indexKey.replace(/\/tweets\/index\.json$/, "");
+    const rawPath = requireObjectKey(entry.path, "tweet month");
+    const path = rawPath.startsWith(`${releasePrefix}/`)
+      ? rawPath
+      : `${releasePrefix}/tweets/${rawPath}`;
     return {
       month: entry.month,
-      path: requireObjectKey(entry.path, "tweet month"),
+      path,
       ...(typeof entry.count === "number" ? { count: entry.count } : {}),
       ...(typeof entry.updatedAt === "string" ? { updatedAt: entry.updatedAt } : {}),
     };

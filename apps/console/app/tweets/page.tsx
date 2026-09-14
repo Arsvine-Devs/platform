@@ -19,7 +19,6 @@ export default async function TweetsPage({
       csrfToken={session.csrf}
       email={session.email}
       role={session.role}
-      developmentBypass={Boolean(session.developmentBypass)}
     >
       <TweetsPageClient csrfToken={session.csrf} initialSelection={await searchParams} />
     </AdminShell>

@@ -7,7 +7,6 @@ type AdminShellProps = {
   csrfToken: string;
   email: string;
   role: 'owner' | 'editor';
-  developmentBypass?: boolean;
   children: ReactNode;
 };
 
@@ -15,7 +14,6 @@ export default async function AdminShell({
   csrfToken,
   email,
   role,
-  developmentBypass = false,
   children,
 }: AdminShellProps) {
   const headerStore = await headers();
@@ -27,7 +25,6 @@ export default async function AdminShell({
       csrfToken={csrfToken}
       email={email}
       role={role}
-      developmentBypass={developmentBypass}
     >
       {children}
     </AdminShellClient>

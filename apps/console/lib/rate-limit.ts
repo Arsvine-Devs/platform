@@ -1,6 +1,5 @@
 import { createClient } from 'redis';
 import { Redis as UpstashRedis } from '@upstash/redis';
-import { isDevelopmentBypassEnabled } from './development-preview';
 
 type Bucket = {
   count: number;
@@ -155,9 +154,6 @@ export function isRateLimitPersistent() {
 }
 
 export async function enforceRateLimit(key: string, limit: number, windowMs: number) {
-  if (isDevelopmentBypassEnabled()) {
-    return { ok: true, remaining: limit, retryAfterMs: 0 };
-  }
   const redis = await getConnectedRedis();
   const legacyUpstash = redis ? null : getLegacyUpstashRedis();
   if (!redis && !legacyUpstash) {

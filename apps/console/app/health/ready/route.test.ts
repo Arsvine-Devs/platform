@@ -1,14 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const execute = vi.fn();
-vi.mock('@/lib/db', () => ({ getDb: () => ({ execute }) }));
-
 import { GET } from './route';
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', 'test-session-secret');
-  vi.stubEnv('DATABASE_URL', 'postgresql://localhost/test');
-  execute.mockResolvedValue([]);
+  vi.stubEnv('AUTH_OIDC_ISSUER', 'https://auth.example.com');
+  vi.stubEnv('AUTH_OIDC_RESOURCE', 'https://api.example.com');
 });
 
 afterEach(() => {
@@ -35,6 +32,5 @@ describe('GET /health/ready', () => {
       service: 'console',
       reason: 'missing_configuration:SESSION_SECRET',
     });
-    expect(execute).not.toHaveBeenCalled();
   });
 });

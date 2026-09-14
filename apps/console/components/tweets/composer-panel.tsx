@@ -1,6 +1,6 @@
 'use client';
 
-import { Languages, Loader2, Save, Trash2, X } from 'lucide-react';
+import { Loader2, Save, Trash2, X } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,6 @@ export type TweetFormState = {
   visibility: TweetVisibility;
   pinned: boolean;
   createdAt: string;
-  autoTranslate: boolean;
 };
 
 export const INITIAL_TWEET_FORM = (): TweetFormState => ({
@@ -38,7 +37,6 @@ export const INITIAL_TWEET_FORM = (): TweetFormState => ({
   visibility: 'public',
   pinned: false,
   createdAt: formatNowLocal(),
-  autoTranslate: false,
 });
 
 function formatNowLocal() {
@@ -63,13 +61,10 @@ type ComposerPanelProps = {
   form: TweetFormState;
   onChange: <K extends keyof TweetFormState>(key: K, value: TweetFormState[K]) => void;
   editingTweet: TweetItem | null;
-  translationTargets: string[];
   saving: boolean;
-  retranslating: boolean;
   onSubmit: () => void;
   onCancel: () => void;
   onDelete?: () => void;
-  onRetranslate?: () => void;
 };
 
 export default function ComposerPanel({
@@ -77,13 +72,10 @@ export default function ComposerPanel({
   form,
   onChange,
   editingTweet,
-  translationTargets,
   saving,
-  retranslating,
   onSubmit,
   onCancel,
   onDelete,
-  onRetranslate,
 }: ComposerPanelProps) {
   const { t } = useI18n();
   const summary = editingTweet ? getTranslationSummary(editingTweet) : [];
@@ -123,7 +115,7 @@ export default function ComposerPanel({
           type="button"
           variant="ghost"
           className="min-h-10"
-          disabled={saving || retranslating}
+          disabled={saving}
           onClick={onCancel}
         >
           <X />
@@ -216,24 +208,7 @@ export default function ComposerPanel({
               onCheckedChange={(value) => onChange('pinned', value)}
             />
           </div>
-          {mode === 'create' ? (
-            <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3">
-              <label htmlFor="tweet-auto-translate" className="text-sm">
-                {t('tweets.autoTranslate', { locales: translationTargets.join(' / ') })}
-              </label>
-              <Switch
-                id="tweet-auto-translate"
-                checked={form.autoTranslate}
-                onCheckedChange={(value) => onChange('autoTranslate', value)}
-              />
-            </div>
-          ) : null}
         </div>
-        {mode === 'create' ? (
-          <p className="text-sm text-muted-foreground">
-            {form.autoTranslate ? t('tweets.autoTranslateHint') : t('tweets.noAutoTranslateHint')}
-          </p>
-        ) : null}
         {mode === 'edit' && editingTweet ? (
           <div className="rounded-xl border bg-muted/20 p-4">
             <div className="flex flex-wrap gap-1.5">
@@ -252,30 +227,7 @@ export default function ComposerPanel({
                 </Badge>
               ))}
             </div>
-            {hasStaleOrMissing && onRetranslate ? (
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="min-h-10"
-                  disabled={saving || retranslating}
-                  onClick={onRetranslate}
-                >
-                  {retranslating ? (
-                    <>
-                      <Loader2 className="animate-spin motion-reduce:animate-none" />
-                      {t('tweets.retranslating')}
-                    </>
-                  ) : (
-                    <>
-                      <Languages />
-                      {t('tweets.retranslate')}
-                    </>
-                  )}
-                </Button>
-                <p className="text-xs text-muted-foreground">{t('tweets.retranslateHint')}</p>
-              </div>
-            ) : (
+            {hasStaleOrMissing ? null : (
               <p className="mt-2 text-xs text-muted-foreground">{t('tweets.translationLatest')}</p>
             )}
           </div>
@@ -285,14 +237,12 @@ export default function ComposerPanel({
         <Button
           type="submit"
           className="min-h-11"
-          disabled={saving || retranslating || (mode === 'create' && !form.content.trim())}
+          disabled={saving || (mode === 'create' && !form.content.trim())}
         >
           {saving ? (
             <>
               <Loader2 className="animate-spin motion-reduce:animate-none" />
-              {mode === 'create' && form.autoTranslate
-                ? t('tweets.translatingCreate')
-                : t('tweets.saving')}
+              {t('tweets.saving')}
             </>
           ) : (
             <>
@@ -306,7 +256,7 @@ export default function ComposerPanel({
           variant="outline"
           className="min-h-11"
           onClick={onCancel}
-          disabled={saving || retranslating}
+          disabled={saving}
         >
           {t('common.cancel')}
         </Button>
@@ -315,7 +265,7 @@ export default function ComposerPanel({
             type="button"
             variant="destructive"
             className="min-h-11 sm:ml-auto"
-            disabled={saving || retranslating}
+            disabled={saving}
             onClick={onDelete}
           >
             <Trash2 />

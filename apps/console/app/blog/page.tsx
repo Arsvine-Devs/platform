@@ -19,7 +19,6 @@ export default async function BlogPage({
       csrfToken={session.csrf}
       email={session.email}
       role={session.role}
-      developmentBypass={Boolean(session.developmentBypass)}
     >
       <BlogPageClient csrfToken={session.csrf} initialSelection={await searchParams} />
     </AdminShell>

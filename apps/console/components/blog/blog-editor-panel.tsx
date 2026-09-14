@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, FilePenLine, Languages, Loader2, PlusCircle } from 'lucide-react';
+import { CheckCircle2, FilePenLine, PlusCircle } from 'lucide-react';
 
 import { BLOG_LOCALES, getLocaleLabel, type BlogLocale } from './blog-locale-labels';
 import type { BlogAccessMode } from '@/lib/admin-api/contracts';
@@ -39,16 +39,12 @@ type BlogEditorPanelProps = {
   onChange: <K extends keyof BlogFormState>(key: K, value: BlogFormState[K]) => void;
   publishing: boolean;
   batchPublishing: boolean;
-  translating: boolean;
   savingDraft: boolean;
-  rebuilding: boolean;
   draftCount: number;
-  onTranslate: () => void;
   onSaveDraft: () => void;
   onPublishAllDrafts: () => void;
   onSelectLocale: (locale: BlogLocale) => void;
   onPublish: () => void;
-  onRebuild: () => void;
 };
 
 export const INITIAL_BLOG_FORM: BlogFormState = {
@@ -71,16 +67,12 @@ export default function BlogEditorPanel({
   onChange,
   publishing,
   batchPublishing,
-  translating,
   savingDraft,
-  rebuilding,
   draftCount,
-  onTranslate,
   onSaveDraft,
   onPublishAllDrafts,
   onSelectLocale,
   onPublish,
-  onRebuild,
 }: BlogEditorPanelProps) {
   const { locale: uiLocale, t } = useI18n();
   return (
@@ -250,33 +242,6 @@ export default function BlogEditorPanel({
             </Select>
           </Field>
         </FieldGroup>
-        {form.locale === 'zh-CN' ? (
-          <div className="mt-5 rounded-xl bg-muted/40 p-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="min-h-10"
-              disabled={translating}
-              onClick={onTranslate}
-            >
-              {translating ? (
-                <>
-                  <Loader2 className="animate-spin motion-reduce:animate-none" />
-                  {t('blog.translating')}
-                </>
-              ) : (
-                <>
-                  <Languages />
-                  {t('blog.translate')}
-                </>
-              )}
-            </Button>
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">
-              {t('blog.translateHint')}
-            </p>
-          </div>
-        ) : null}
         <p className="mt-4 text-xs leading-5 text-muted-foreground">
           {t('blog.draftCount', { count: draftCount })}
         </p>
@@ -305,7 +270,7 @@ export default function BlogEditorPanel({
           >
             {t('blog.publishArticle', { count: draftCount })}
           </AsyncAction>
-          <div className="grid grid-cols-2 gap-2 pt-2">
+          <div className="pt-2">
             <AsyncAction
               type="button"
               variant="outline"
@@ -315,16 +280,6 @@ export default function BlogEditorPanel({
               onClick={onSaveDraft}
             >
               {t('blog.saveDraft')}
-            </AsyncAction>
-            <AsyncAction
-              type="button"
-              variant="ghost"
-              className="min-h-10"
-              busy={rebuilding}
-              busyLabel={t('blog.rebuilding')}
-              onClick={onRebuild}
-            >
-              {t('blog.rebuild')}
             </AsyncAction>
           </div>
         </div>

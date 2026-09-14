@@ -11,7 +11,6 @@ import type {
   BlogPublishBatchInput,
   BlogPublishInput,
   BlogPublishResponse,
-  BlogTranslateResponse,
   BlogVariantData,
 } from '@/lib/admin-api/contracts';
 import { DetailSheet, PageFrame, PageHeader } from '@/components/admin/blocks';
@@ -124,9 +123,7 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
   const [selectedKey, setSelectedKey] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [batchPublishing, setBatchPublishing] = useState(false);
-  const [translating, setTranslating] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
-  const [rebuilding, setRebuilding] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [editorError, setEditorError] = useState<string | null>(null);
@@ -446,99 +443,6 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
     }
   }
 
-  async function handleTranslate() {
-    if (form.locale !== 'zh-CN') {
-      toast.error(t('blog.translationSourceError'));
-      return;
-    }
-    if (!form.slug.trim()) {
-      toast.error(t('blog.slugRequired'));
-      return;
-    }
-    if (!form.title.trim() || !form.excerpt.trim() || !form.content.trim()) {
-      toast.error(t('blog.translationFieldsRequired'));
-      return;
-    }
-
-    const normalizedSlug = form.slug.trim().toLowerCase();
-    saveDraft({ ...form, slug: normalizedSlug }, { silent: true });
-
-    setTranslating(true);
-    try {
-      const data = await adminRequest<BlogTranslateResponse>('/api/admin/blog-translate', {
-        method: 'POST',
-        csrfToken,
-        body: {
-          sourceLocale: 'zh-CN',
-          title: form.title,
-          excerpt: form.excerpt,
-          tags: form.tags
-            .split(',')
-            .map((tag) => tag.trim())
-            .filter(Boolean),
-          content: form.content,
-          targetLocales: ['zh-TW', 'en'],
-        },
-      });
-
-      const nextDrafts = { ...drafts };
-      nextDrafts[getDraftKey(normalizedSlug, form.locale)] = {
-        ...form,
-        slug: normalizedSlug,
-        savedAt: Date.now(),
-      };
-
-      for (const variant of data.variants) {
-        nextDrafts[getDraftKey(normalizedSlug, variant.locale)] = {
-          slug: normalizedSlug,
-          locale: variant.locale,
-          title: variant.title,
-          excerpt: variant.excerpt,
-          date: form.date,
-          tags: variant.tags.join(', '),
-          pinned: form.pinned,
-          accessMode: form.accessMode,
-          accessGroup: form.accessGroup,
-          originLocale: variant.originLocale,
-          content: variant.content,
-          savedAt: Date.now(),
-        };
-      }
-
-      persistDrafts(nextDrafts);
-      toast.success(
-        t('blog.generatedDrafts', {
-          locales: data.variants.map((item) => item.locale).join(' / '),
-        }),
-      );
-    } catch (error) {
-      notifyError(error, t('blog.translationError'));
-    } finally {
-      setTranslating(false);
-    }
-  }
-
-  async function handleRebuild() {
-    setRebuilding(true);
-    try {
-      const data = await adminRequest<{ revalidated: { paths: string[] } }>(
-        '/api/admin/rebuild-index',
-        {
-          method: 'POST',
-          csrfToken,
-        },
-      );
-      toast.success(
-        t('blog.indexRebuilt', { paths: data.revalidated.paths.join(', ') || t('common.none') }),
-      );
-      await loadIndex();
-    } catch (error) {
-      notifyError(error, t('blog.rebuildError'));
-    } finally {
-      setRebuilding(false);
-    }
-  }
-
   const documentKey = selectedKey || `new:${form.locale}`;
 
   return (
@@ -627,16 +531,12 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
             onChange={updateField}
             publishing={publishing}
             batchPublishing={batchPublishing}
-            translating={translating}
             savingDraft={savingDraft}
-            rebuilding={rebuilding}
             draftCount={draftCount}
-            onTranslate={() => void handleTranslate()}
             onSaveDraft={() => void handleSaveDraft()}
             onPublishAllDrafts={() => void handlePublishAllDrafts()}
             onSelectLocale={(locale) => void handleLocaleSelect(locale)}
             onPublish={() => void handlePublish()}
-            onRebuild={() => void handleRebuild()}
           />
         </aside>
       </div>
@@ -672,16 +572,12 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
           onChange={updateField}
           publishing={publishing}
           batchPublishing={batchPublishing}
-          translating={translating}
           savingDraft={savingDraft}
-          rebuilding={rebuilding}
           draftCount={draftCount}
-          onTranslate={() => void handleTranslate()}
           onSaveDraft={() => void handleSaveDraft()}
           onPublishAllDrafts={() => void handlePublishAllDrafts()}
           onSelectLocale={(locale) => void handleLocaleSelect(locale)}
           onPublish={() => void handlePublish()}
-          onRebuild={() => void handleRebuild()}
         />
       </DetailSheet>
     </PageFrame>

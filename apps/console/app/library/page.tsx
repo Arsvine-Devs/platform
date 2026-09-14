@@ -11,7 +11,6 @@ export default async function LibraryPage() {
       csrfToken={session.csrf}
       email={session.email}
       role={session.role}
-      developmentBypass={Boolean(session.developmentBypass)}
     >
       <LibraryPageClient />
     </AdminShell>

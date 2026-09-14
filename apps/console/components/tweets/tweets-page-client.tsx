@@ -2,13 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { History, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { adminRequest, isAdminApiError } from '@/lib/admin-api/client';
-import type { XSyncData } from '@/lib/admin-api/contracts';
 import {
-  AsyncAction,
   ConfirmAction,
   DetailSheet,
   PageFrame,
@@ -33,7 +30,6 @@ import {
   tagsToInput,
   type DateGranularity,
 } from './tweet-utils';
-import { getTranslationTargetLocales } from '../../lib/tweets-types';
 import type {
   CreateTweetInput,
   TweetFilter,
@@ -53,10 +49,9 @@ function normalizeFormFromTweetItem(tweet: TweetItem): TweetFormState {
     content: tweet.content,
     lang: tweet.lang ?? 'zh-CN',
     tags: tagsToInput(tweet.tags),
-    visibility: (tweet.visibility ?? 'public') as TweetVisibility,
-    pinned: Boolean(tweet.pinned),
-    createdAt: formatDateTimeLocal(tweet.createdAt),
-    autoTranslate: false,
+      visibility: (tweet.visibility ?? 'public') as TweetVisibility,
+      pinned: Boolean(tweet.pinned),
+      createdAt: formatDateTimeLocal(tweet.createdAt),
   };
 }
 
@@ -66,7 +61,6 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
   const [data, setData] = useState<TweetsDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [retranslating, setRetranslating] = useState(false);
   const [granularity, setGranularity] = useState<DateGranularity>('month');
   const [selectedGroupKey, setSelectedGroupKey] = useState(initialSelection?.month ?? '');
   const [filter, setFilter] = useState<TweetFilter>('all');
@@ -75,7 +69,6 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
   const [composerMode, setComposerMode] = useState<'create' | 'edit' | null>(null);
   const [form, setForm] = useState<TweetFormState>(INITIAL_TWEET_FORM());
   const [pendingDelete, setPendingDelete] = useState<TweetItem | null>(null);
-  const [syncing, setSyncing] = useState<'recent' | 'backfill' | null>(null);
 
   const loadDashboard = useCallback(
     async (preferredGroupKey?: string) => {
@@ -140,10 +133,6 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
         ? `tweets/${activeGroup.months[0]}.json`
         : t('tweets.fileCount', { count: activeGroup.months.length })
       : 'tweets/YYYY-MM.json';
-  const translationTargets = useMemo(
-    () => getTranslationTargetLocales(form.lang as CreateTweetInput['lang']),
-    [form.lang],
-  );
   const stats = {
     total: allTweets.length,
     publicCount: allTweets.filter((tweet) => tweet.visibility === 'public').length,
@@ -228,13 +217,12 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
       visibility: form.visibility,
       pinned: form.pinned,
       createdAt: form.createdAt,
-      autoTranslate: form.autoTranslate,
     };
     if (
       await runMutation(
         '/api/admin/tweets',
         { method: 'POST', body: payload },
-        form.autoTranslate ? t('tweets.createdTranslatedSuccess') : t('tweets.createdSuccess'),
+        t('tweets.createdSuccess'),
         targetMonth,
       )
     )
@@ -258,49 +246,6 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
     if (deleted && editingTweetId === tweet.id) resetForm();
   }
 
-  async function handleRetranslate() {
-    if (!editingTweet) return;
-    setRetranslating(true);
-    try {
-      const result = await adminRequest<{ month?: string }>(
-        `/api/admin/tweets/${editingTweet.id}/retranslate`,
-        { method: 'POST', csrfToken },
-      );
-      await loadDashboard(activeGroupKey || result.month || selectedGroupKey);
-      toast.success(t('tweets.retranslatedSuccess', { id: editingTweet.id }));
-    } catch (caught) {
-      if (isAdminApiError(caught) && caught.status === 401) router.push('/login');
-      else toast.error(caught instanceof Error ? caught.message : t('tweets.retranslateError'));
-    } finally {
-      setRetranslating(false);
-    }
-  }
-
-  async function runXSync(mode: 'recent' | 'backfill') {
-    setSyncing(mode);
-    try {
-      const result = await adminRequest<XSyncData>('/api/admin/tweets/sync/x', {
-        method: 'POST',
-        csrfToken,
-        body: { mode },
-      });
-      await loadDashboard(activeGroupKey || selectedGroupKey);
-      toast.success(
-        t('tweets.syncSuccess', {
-          created: result.created,
-          updated: result.updated,
-          removed: result.removed,
-          suffix: result.hasMore ? t('tweets.moreBackfill') : '',
-        }),
-      );
-    } catch (caught) {
-      if (isAdminApiError(caught) && caught.status === 401) router.push('/login');
-      else toast.error(caught instanceof Error ? caught.message : t('tweets.syncError'));
-    } finally {
-      setSyncing(null);
-    }
-  }
-
   return (
     <PageFrame size="full" className="gap-5 px-4 py-5 sm:px-6 lg:px-8">
       <PageHeader
@@ -312,30 +257,6 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
             <Button type="button" className="min-h-11" onClick={startCreate}>
               {t('tweets.new')}
             </Button>
-            <AsyncAction
-              type="button"
-              variant="outline"
-              className="min-h-11"
-              busy={syncing === 'recent'}
-              busyLabel={t('tweets.syncing')}
-              disabled={syncing !== null}
-              onClick={() => void runXSync('recent')}
-            >
-              <RefreshCw />
-              {t('tweets.sync')}
-            </AsyncAction>
-            <AsyncAction
-              type="button"
-              variant="ghost"
-              className="min-h-11"
-              busy={syncing === 'backfill'}
-              busyLabel={t('tweets.backfilling')}
-              disabled={syncing !== null}
-              onClick={() => void runXSync('backfill')}
-            >
-              <History />
-              {t('tweets.backfill')}
-            </AsyncAction>
           </div>
         }
       />
@@ -381,7 +302,7 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
       <DetailSheet
         open={composerMode !== null}
         onOpenChange={(open) => {
-          if (!open && !saving && !retranslating) resetForm();
+          if (!open && !saving) resetForm();
         }}
         title={
           composerMode === 'edit'
@@ -397,9 +318,7 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
           form={form}
           onChange={updateField}
           editingTweet={editingTweet}
-          translationTargets={translationTargets as string[]}
           saving={saving}
-          retranslating={retranslating}
           onSubmit={() => void handleSubmit()}
           onCancel={resetForm}
           onDelete={
@@ -407,7 +326,6 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
               ? () => setPendingDelete(editingTweet)
               : undefined
           }
-          onRetranslate={composerMode === 'edit' ? () => void handleRetranslate() : undefined}
         />
       </DetailSheet>
       <ConfirmAction

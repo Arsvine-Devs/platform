@@ -30,7 +30,6 @@ export async function GET(request: NextRequest) {
     authAt: session.authAt,
     csrf: session.csrf,
     amr: session.amr,
-    developmentBypass: Boolean(session.developmentBypass),
   };
   if (session.authSource === 'oidc' && 'accessToken' in session && typeof session.accessToken === 'string') {
     try {
