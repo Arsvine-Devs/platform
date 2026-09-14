@@ -92,6 +92,7 @@ If every Owner security key is lost, use a protected offline database operation 
 
 - Login, WebAuthn ceremonies, invitation activation, publish, tweet write, and tweet retranslate endpoints are rate-limited.
 - Configure `REDIS_URL` for a Redis/Valkey-compatible endpoint so limits persist across cold starts and multiple instances.
+- The existing Vercel Upstash REST variables remain a temporary migration fallback until `REDIS_URL` is provisioned.
 - If Upstash is missing or temporarily unavailable, the app falls back to a process-local `Map`. That fallback is acceptable for local development, but not strong enough as the only production layer.
 
 ## Console Routes
