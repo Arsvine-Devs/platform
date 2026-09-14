@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { clearAuthCookies, getSessionFromRequest, verifyCsrf } from '../../../../lib/auth';
+import { deleteOidcSession, oidcSessionIdFromRequest } from '../../../../lib/oidc-session';
 import { getClientKey } from '../../../../lib/client-key';
 import { enforceRateLimit } from '../../../../lib/rate-limit';
 import {
@@ -46,6 +47,7 @@ export async function POST(request: NextRequest) {
   }
 
   const response = NextResponse.json({ ok: true });
+  if (session.authSource === 'oidc') await deleteOidcSession(oidcSessionIdFromRequest(request));
   clearAuthCookies(response);
   return response;
 }

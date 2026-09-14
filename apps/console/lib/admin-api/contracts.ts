@@ -247,7 +247,7 @@ export type SessionData = {
   exp: number;
   authAt: number;
   csrf: string;
-  amr: 'password+totp' | 'webauthn';
+  amr: 'password+totp' | 'webauthn' | 'oidc';
   developmentBypass?: boolean;
 };
 

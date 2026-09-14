@@ -3,13 +3,18 @@ import { cookies } from 'next/headers';
 import type { NextRequest, NextResponse } from 'next/server';
 import { getActiveAccount } from './accounts';
 import { isDevelopmentBypassEnabled } from './development-preview';
+import {
+  clearOidcSessionCookie,
+  getOidcSessionFromCookieStore,
+  getOidcSessionFromRequest,
+} from './oidc-session';
 
 const SESSION_COOKIE = 'arsvine_admin_session';
 const CSRF_COOKIE = 'arsvine_admin_csrf';
 export const DEVELOPMENT_SESSION_COOKIE = 'arsvine_admin_dev_session';
 const SESSION_TTL_SECONDS = 60 * 60 * 12;
 
-export type AuthMethod = 'password+totp' | 'webauthn';
+export type AuthMethod = 'password+totp' | 'webauthn' | 'oidc';
 export type AuthenticatedSession = {
   userId: string;
   email: string;
@@ -20,6 +25,7 @@ export type AuthenticatedSession = {
   amr: AuthMethod;
   authAt: number;
   developmentBypass?: boolean;
+  authSource?: 'oidc';
 };
 
 type SignedSession = Omit<AuthenticatedSession, 'email'> & { sig: string };
@@ -179,12 +185,16 @@ async function resolve(value: string | undefined): Promise<AuthenticatedSession 
 }
 
 export async function getSessionFromRequest(request: NextRequest) {
+  const oidc = await getOidcSessionFromRequest(request);
+  if (oidc) return oidc;
   const development = resolveDevelopment(request.cookies.get(DEVELOPMENT_SESSION_COOKIE)?.value);
   if (development) return development;
   return resolve(request.cookies.get(SESSION_COOKIE)?.value);
 }
 
 export async function getSessionFromCookieStore() {
+  const oidc = await getOidcSessionFromCookieStore();
+  if (oidc) return oidc;
   const store = await cookies();
   const development = resolveDevelopment(store.get(DEVELOPMENT_SESSION_COOKIE)?.value);
   if (development) return development;
@@ -213,6 +223,7 @@ export function applyAuthCookies(
 }
 
 export function clearAuthCookies(response: NextResponse) {
+  clearOidcSessionCookie(response);
   const secure = process.env.NODE_ENV === 'production';
   for (const name of [SESSION_COOKIE, DEVELOPMENT_SESSION_COOKIE, CSRF_COOKIE])
     response.cookies.set(name, '', {
