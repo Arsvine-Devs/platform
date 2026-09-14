@@ -3,6 +3,7 @@ import { getSessionFromRequest } from '../../../../lib/auth';
 import { getClientKey } from '../../../../lib/client-key';
 import { enforceRateLimit } from '../../../../lib/rate-limit';
 import { privateJson } from '../../../../lib/private-response';
+import { readControlPlanePrincipal } from '../../../../lib/control-plane';
 import type { SessionData } from '../../../../lib/admin-api/contracts';
 
 export async function GET(request: NextRequest) {
@@ -31,6 +32,17 @@ export async function GET(request: NextRequest) {
     amr: session.amr,
     developmentBypass: Boolean(session.developmentBypass),
   };
+  if (session.authSource === 'oidc' && 'accessToken' in session && typeof session.accessToken === 'string') {
+    try {
+      data.controlPlane = await readControlPlanePrincipal(session.accessToken);
+    } catch (error) {
+      console.error('[admin/session] control API verification failed:', error);
+      return NextResponse.json(
+        { ok: false, error: { message: 'Control API unavailable.' } },
+        { status: 503 },
+      );
+    }
+  }
   return privateJson({
     ok: true,
     data,

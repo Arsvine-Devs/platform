@@ -249,6 +249,11 @@ export type SessionData = {
   csrf: string;
   amr: 'password+totp' | 'webauthn' | 'oidc';
   developmentBypass?: boolean;
+  controlPlane?: {
+    id: string;
+    role: 'owner' | 'editor' | null;
+    scopes: string[];
+  };
 };
 
 export type LoginData = {
