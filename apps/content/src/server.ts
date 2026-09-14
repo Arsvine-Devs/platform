@@ -1,15 +1,34 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyReply } from "fastify";
 import swagger from "@fastify/swagger";
 import {
   readObjectStorageConfig,
   createObjectStorage,
 } from "@arsvine/object-storage";
 import { log } from "@arsvine/observability";
+import {
+  findPublishedPost,
+  getVariantKey,
+  readPublishedRelease,
+  type ContentStorage,
+} from "./release.js";
 
 const currentPointerKey =
   process.env.CONTENT_CURRENT_POINTER ?? "realm-content/current.json";
 
-export function buildContentServer() {
+type ContentServerOptions = {
+  storage?: ContentStorage | null;
+};
+
+function notReady(reply: FastifyReply) {
+  return reply.code(503).send({
+    error: {
+      code: "NOT_READY",
+      message: "Published content storage is not ready.",
+    },
+  });
+}
+
+export function buildContentServer(options: ContentServerOptions = {}) {
   const app = Fastify({ logger: false });
   const displayName =
     process.env.CONTENT_DISPLAY_NAME?.trim() || "Published Content";
@@ -24,12 +43,17 @@ export function buildContentServer() {
 
   app.get("/health/live", async () => ({ status: "live", service: "content" }));
   app.get("/health/ready", async (_request, reply) => {
-    const config = readObjectStorageConfig();
-    if (!config)
+    const storage =
+      options.storage ??
+      (() => {
+        const config = readObjectStorageConfig();
+        return config ? createObjectStorage(config) : null;
+      })();
+    if (!storage)
       return reply.code(503).send({ status: "not_ready", service: "content" });
 
     try {
-      await createObjectStorage(config).getText(currentPointerKey);
+      await readPublishedRelease(storage, currentPointerKey);
       return { status: "ready", service: "content" };
     } catch {
       return reply.code(503).send({ status: "not_ready", service: "content" });
@@ -37,23 +61,100 @@ export function buildContentServer() {
   });
 
   app.get("/v1/posts", async (_request, reply) => {
-    const config = readObjectStorageConfig();
-    if (!config) {
-      return reply.code(503).send({
-        error: {
-          code: "NOT_READY",
-          message: "Published content storage is not configured.",
-        },
+    const storage =
+      options.storage ??
+      (() => {
+        const config = readObjectStorageConfig();
+        return config ? createObjectStorage(config) : null;
+      })();
+    if (!storage) return notReady(reply);
+    try {
+      const release = await readPublishedRelease(storage, currentPointerKey);
+      log("info", {
+        service: "content",
+        operation: "posts.read",
+        releaseId: release.pointer.releaseId,
       });
+      reply
+        .header("ETag", `"${release.pointer.releaseId}"`)
+        .header("Last-Modified", release.pointer.publishedAt)
+        .header(
+          "Cache-Control",
+          "public, max-age=60, stale-while-revalidate=300",
+        )
+        .header("X-Arsvine-Content-Release", release.pointer.releaseId);
+      return {
+        releaseId: release.pointer.releaseId,
+        publishedAt: release.pointer.publishedAt,
+        posts: release.posts,
+      };
+    } catch {
+      return notReady(reply);
     }
-    log("info", { service: "content", operation: "posts.read" });
-    return reply.code(503).send({
-      error: {
-        code: "NOT_READY",
-        message: "Published release reader is not configured.",
-      },
-    });
   });
+
+  app.get<{ Params: { slug: string } }>(
+    "/v1/posts/:slug",
+    async (request, reply) => {
+      const storage =
+        options.storage ??
+        (() => {
+          const config = readObjectStorageConfig();
+          return config ? createObjectStorage(config) : null;
+        })();
+      if (!storage) return notReady(reply);
+      try {
+        const release = await readPublishedRelease(storage, currentPointerKey);
+        const post = findPublishedPost(release.posts, request.params.slug);
+        if (!post)
+          return reply.code(404).send({ error: { code: "NOT_FOUND" } });
+        reply.header("X-Arsvine-Content-Release", release.pointer.releaseId);
+        return {
+          releaseId: release.pointer.releaseId,
+          publishedAt: release.pointer.publishedAt,
+          post: {
+            ...post,
+            ...(post.access?.mode === "totp" ? { variants: undefined } : {}),
+          },
+        };
+      } catch {
+        return notReady(reply);
+      }
+    },
+  );
+
+  app.get<{ Params: { slug: string; locale: string } }>(
+    "/v1/posts/:slug/variants/:locale",
+    async (request, reply) => {
+      const storage =
+        options.storage ??
+        (() => {
+          const config = readObjectStorageConfig();
+          return config ? createObjectStorage(config) : null;
+        })();
+      if (!storage) return notReady(reply);
+      try {
+        const release = await readPublishedRelease(storage, currentPointerKey);
+        const post = findPublishedPost(release.posts, request.params.slug);
+        if (!post)
+          return reply.code(404).send({ error: { code: "NOT_FOUND" } });
+        if (post.access?.mode === "totp") {
+          return reply.code(403).send({ error: { code: "PROTECTED_CONTENT" } });
+        }
+        const key = getVariantKey(post, request.params.locale);
+        if (!key) return reply.code(404).send({ error: { code: "NOT_FOUND" } });
+        const variant = JSON.parse(await storage.getText(key)) as unknown;
+        reply.header("X-Arsvine-Content-Release", release.pointer.releaseId);
+        return {
+          releaseId: release.pointer.releaseId,
+          publishedAt: release.pointer.publishedAt,
+          variant,
+        };
+      } catch {
+        return notReady(reply);
+      }
+    },
+  );
 
   return app;
 }

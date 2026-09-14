@@ -87,7 +87,11 @@ const authPlugins = [
   jwt({
     disableSettingJwtHeader: true,
     jwks: { keyPairConfig: { alg: "EdDSA", crv: "Ed25519" } },
-    jwt: { issuer: authIssuer, audience: authAudience },
+    jwt: {
+      issuer: authIssuer,
+      audience: authAudience,
+      definePayload: ({ user }) => ({ role: user.role }),
+    },
   }),
   passkey({
     rpID: passkeyRpId,
