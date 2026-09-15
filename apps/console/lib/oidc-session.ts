@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { Redis } from '@upstash/redis';
+import { readEnv } from '@arsvine/env';
 import { cookies } from 'next/headers';
 import type { NextRequest, NextResponse } from 'next/server';
 import { OIDC_SESSION_COOKIE, OIDC_SESSION_TTL_SECONDS, type OidcTokens } from './oidc';
@@ -11,15 +12,15 @@ const localSessions = new Map<string, { value: string; expiresAt: number }>();
 let redis: Redis | null = null;
 
 function getRedis() {
-  const url = process.env.UPSTASH_REDIS_REST_URL?.trim();
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  const url = readEnv('UPSTASH_REDIS_REST_URL');
+  const token = readEnv('UPSTASH_REDIS_REST_TOKEN');
   if (!url || !token) return null;
   redis ??= new Redis({ url, token });
   return redis;
 }
 
 function key() {
-  const secret = process.env.SESSION_SECRET?.trim();
+  const secret = readEnv('SESSION_SECRET');
   if (!secret) throw new Error('Missing SESSION_SECRET');
   return createHash('sha256').update(secret).digest();
 }

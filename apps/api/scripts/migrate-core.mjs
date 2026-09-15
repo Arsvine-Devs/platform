@@ -2,9 +2,14 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { readEnv } from "@arsvine/env";
+import { loadProjectEnv } from "@arsvine/env/dotenv";
 
 const { Pool } = pg;
-const databaseUrl = process.env.CORE_DATABASE_URL?.trim();
+
+loadProjectEnv();
+
+const databaseUrl = readEnv("CORE_DATABASE_URL");
 if (!databaseUrl) throw new Error("CORE_DATABASE_URL is required");
 
 const here = path.dirname(fileURLToPath(import.meta.url));

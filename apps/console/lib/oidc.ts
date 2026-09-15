@@ -1,5 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { readEnv, requiredEnv } from '@arsvine/env';
 
 export const OIDC_STATE_COOKIE = '__Host-console_oidc_state';
 export const OIDC_SESSION_COOKIE = '__Host-console_session';
@@ -24,9 +25,7 @@ export type OidcTokens = {
 };
 
 function required(name: string) {
-  const value = process.env[name]?.trim();
-  if (!value) throw new Error(`Missing ${name}`);
-  return value;
+  return requiredEnv(name);
 }
 
 function requiredUrl(name: string) {
@@ -92,7 +91,7 @@ export function buildAuthorizationRequest(returnTo: string) {
     redirect_uri: requiredUrl('AUTH_OIDC_REDIRECT_URI'),
     response_type: 'code',
     scope:
-      process.env.AUTH_OIDC_SCOPE?.trim() ||
+      readEnv('AUTH_OIDC_SCOPE') ||
       'openid profile email content:read content:write content:publish assets:read assets:write integrations:read integrations:write jobs:read jobs:run',
     resource: requiredUrl('AUTH_OIDC_RESOURCE'),
     state: state.state,

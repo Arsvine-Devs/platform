@@ -9,26 +9,22 @@ import {
   twoFactor,
 } from "better-auth/plugins";
 import { Pool } from "pg";
+import { readEnv, readEnvList } from "@arsvine/env";
 
 function readList(name: string): string[] | undefined {
-  const values = process.env[name]
-    ?.split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-  return values?.length ? values : undefined;
+  return readEnvList(name);
 }
 
-const databaseUrl = process.env.AUTH_DATABASE_URL?.trim();
+const databaseUrl = readEnv("AUTH_DATABASE_URL");
 const pool = databaseUrl ? new Pool({ connectionString: databaseUrl }) : null;
-const authBaseUrl = process.env.BETTER_AUTH_URL?.trim();
-const authIssuer = process.env.BETTER_AUTH_ISSUER?.trim();
-const authDisplayName = process.env.AUTH_DISPLAY_NAME?.trim();
+const authBaseUrl = readEnv("BETTER_AUTH_URL");
+const authIssuer = readEnv("BETTER_AUTH_ISSUER");
+const authDisplayName = readEnv("AUTH_DISPLAY_NAME");
 const authAudience = readList("BETTER_AUTH_AUDIENCE");
 const trustedOrigins = readList("AUTH_TRUSTED_ORIGINS");
 const oauthResources = readList("OAUTH_RESOURCES");
-const passkeyRpId = process.env.PASSKEY_RP_ID?.trim();
-const passkeyOrigin = process.env.PASSKEY_ORIGIN?.trim();
+const passkeyRpId = readEnv("PASSKEY_RP_ID");
+const passkeyOrigin = readEnv("PASSKEY_ORIGIN");
 
 const statement = {
   content: ["read", "write", "publish"],
@@ -130,7 +126,7 @@ const authPlugins = [
 export const auth = betterAuth({
   database: pool ?? undefined,
   baseURL: authBaseUrl,
-  secret: process.env.BETTER_AUTH_SECRET ?? "development-only-auth-secret",
+  secret: readEnv("BETTER_AUTH_SECRET") ?? "development-only-auth-secret",
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,

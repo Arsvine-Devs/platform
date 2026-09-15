@@ -23,4 +23,4 @@
 
 ## 变更规则
 
-涉及 Auth、Session、JWT、scope、CSRF、Content protected read、发布 pointer 或 object storage 的改动，必须同时检查对应服务 README/AGENTS、测试和 `OPERATIONS.md`。不要为了兼容已删除的仓库、页面或 worker 重新开放入口。
+涉及 Auth、Session、JWT、scope、CSRF、Content protected read、发布 pointer、object storage 或环境 provider 的改动，必须同时检查对应服务 README/AGENTS、测试、`CONFIGURATION.md` 和 `OPERATIONS.md`。运行时入口由当前服务所有权决定。

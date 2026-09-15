@@ -1,7 +1,9 @@
+import { readEnv } from '@arsvine/env';
+
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 export function getApiBaseUrl() {
-  const value = process.env.API_BASE_URL?.trim();
+  const value = readEnv('API_BASE_URL');
   if (!value) throw new Error('Missing API_BASE_URL');
 
   let url: URL;

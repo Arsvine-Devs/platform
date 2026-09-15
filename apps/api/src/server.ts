@@ -2,6 +2,7 @@ import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import swagger from "@fastify/swagger";
 import { Type } from "@sinclair/typebox";
 import type { MeResponse } from "@arsvine/contracts";
+import { readEnv } from "@arsvine/env";
 import {
   AuthConfigurationError,
   AuthTokenError,
@@ -92,8 +93,8 @@ async function authenticateRequest(
 
 export function buildApiServer() {
   const app = Fastify({ logger: false });
-  const displayName = process.env.API_DISPLAY_NAME?.trim() || "Control API";
-  const publicUrl = process.env.API_PUBLIC_URL?.trim();
+  const displayName = readEnv("API_DISPLAY_NAME") || "Control API";
+  const publicUrl = readEnv("API_PUBLIC_URL");
 
   app.register(swagger, {
     openapi: {
@@ -111,7 +112,7 @@ export function buildApiServer() {
       "AUTH_ISSUER",
       "AUTH_JWKS_URL",
       "API_RESOURCE",
-    ].filter((key) => !process.env[key]?.trim());
+    ].filter((key) => !readEnv(key));
     if (missing.length > 0) {
       return reply.code(503).send({
         status: "not_ready",

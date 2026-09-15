@@ -10,7 +10,7 @@ api.arsvine.com     → Core PostgreSQL + content.arsvine.com
 arsvine.com         → content.arsvine.com
 ```
 
-Console 浏览器只访问同源 BFF；OAuth token、数据库连接和 object-storage 凭据保持在服务端。独立的 `arsvine-content` 仓库已退出当前运行时链路，不属于本 workspace 的维护范围。
+Console 浏览器只访问同源 BFF；OAuth token、数据库连接和 object-storage 凭据保持在服务端。内容 authoring 与 published read plane 由本 workspace 的 API、Content 服务和共享契约负责。
 
 ## 快速开始
 

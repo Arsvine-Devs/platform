@@ -4,6 +4,7 @@ import {
   S3Client,
   type S3ClientConfig,
 } from "@aws-sdk/client-s3";
+import { readEnv } from "@arsvine/env";
 
 export type ObjectStorageConfig = {
   endpoint: string;
@@ -16,12 +17,13 @@ export type ObjectStorageConfig = {
 
 export function readObjectStorageConfig(env: NodeJS.ProcessEnv = process.env) {
   const values = {
-    endpoint: env.S3_ENDPOINT?.trim(),
-    region: env.S3_REGION?.trim(),
-    accessKeyId: env.S3_ACCESS_KEY_ID?.trim(),
-    secretAccessKey: env.S3_SECRET_ACCESS_KEY?.trim(),
-    bucket: env.S3_PRIVATE_BUCKET?.trim(),
-    forcePathStyle: env.S3_FORCE_PATH_STYLE?.trim().toLowerCase() !== "false",
+    endpoint: readEnv("S3_ENDPOINT", env),
+    region: readEnv("S3_REGION", env),
+    accessKeyId: readEnv("S3_ACCESS_KEY_ID", env),
+    secretAccessKey: readEnv("S3_SECRET_ACCESS_KEY", env),
+    bucket: readEnv("S3_PRIVATE_BUCKET", env),
+    forcePathStyle:
+      readEnv("S3_FORCE_PATH_STYLE", env)?.toLowerCase() !== "false",
   };
   if (
     [

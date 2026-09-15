@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@arsvine/authz": "workspace:*",
+    "@arsvine/env": "workspace:*",
     "@arsvine/object-storage": "workspace:*",
     "@arsvine/observability": "workspace:*",
     "@fastify/swagger": "^9.5.2",

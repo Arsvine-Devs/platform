@@ -1,0 +1,21 @@
+{
+  "name": "@arsvine/env",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.mjs",
+  "types": "src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.mjs"
+    },
+    "./dotenv": {
+      "types": "./src/dotenv.d.ts",
+      "import": "./src/dotenv.mjs"
+    }
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
+}

@@ -1,3 +1,5 @@
+import { readEnv } from '@arsvine/env';
+
 function notReady(reason: string, status = 503) {
   return Response.json(
     { status: 'not_ready', service: 'console', reason },
@@ -22,7 +24,7 @@ const REQUIRED_CONFIGURATION = [
 ] as const;
 
 export async function GET() {
-  const missing = REQUIRED_CONFIGURATION.filter((key) => !process.env[key]?.trim());
+  const missing = REQUIRED_CONFIGURATION.filter((key) => !readEnv(key));
   if (missing.length > 0) return notReady(`missing_configuration:${missing.join(',')}`);
   return Response.json(
     { status: 'ready', service: 'console' },

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import Fastify, { type FastifyReply } from "fastify";
 import swagger from "@fastify/swagger";
+import { readEnv } from "@arsvine/env";
 import {
   AuthConfigurationError,
   AuthTokenError,
@@ -24,7 +25,7 @@ import {
 } from "./release.js";
 
 const currentPointerKey =
-  process.env.CONTENT_CURRENT_POINTER ?? "realm-content/current.json";
+  readEnv("CONTENT_CURRENT_POINTER") ?? "realm-content/current.json";
 
 type ContentServerOptions = {
   storage?: ContentStorage | null;
@@ -33,7 +34,7 @@ type ContentServerOptions = {
 type PublicationObject = { key: string; body: string };
 
 function verifyPublicationToken(value: string | undefined) {
-  const configured = process.env.CONTENT_PUBLISH_TOKEN?.trim();
+  const configured = readEnv("CONTENT_PUBLISH_TOKEN");
   if (!configured || !value) return false;
   const expected = Buffer.from(configured);
   const actual = Buffer.from(value);
@@ -75,9 +76,9 @@ function notReady(reply: FastifyReply) {
 }
 
 function readProtectedContentAuthConfig(): AuthVerificationConfig {
-  const issuer = process.env.AUTH_ISSUER?.trim();
-  const audience = process.env.CONTENT_RESOURCE?.trim();
-  const jwksUrl = process.env.AUTH_JWKS_URL?.trim();
+  const issuer = readEnv("AUTH_ISSUER");
+  const audience = readEnv("CONTENT_RESOURCE");
+  const jwksUrl = readEnv("AUTH_JWKS_URL");
   if (!issuer || !audience || !jwksUrl) {
     throw new AuthConfigurationError(
       "AUTH_ISSUER, CONTENT_RESOURCE, and AUTH_JWKS_URL are required",
@@ -128,9 +129,8 @@ async function authenticateProtectedContent(
 
 export function buildContentServer(options: ContentServerOptions = {}) {
   const app = Fastify({ logger: false });
-  const displayName =
-    process.env.CONTENT_DISPLAY_NAME?.trim() || "Published Content";
-  const publicUrl = process.env.CONTENT_PUBLIC_URL?.trim();
+  const displayName = readEnv("CONTENT_DISPLAY_NAME") || "Published Content";
+  const publicUrl = readEnv("CONTENT_PUBLIC_URL");
 
   app.register(swagger, {
     openapi: {
@@ -142,7 +142,7 @@ export function buildContentServer(options: ContentServerOptions = {}) {
   app.get("/health/live", async () => ({ status: "live", service: "content" }));
   app.get("/health/ready", async (_request, reply) => {
     const missing = ["AUTH_ISSUER", "CONTENT_RESOURCE", "AUTH_JWKS_URL"].filter(
-      (key) => !process.env[key]?.trim(),
+      (key) => !readEnv(key),
     );
     if (missing.length > 0) {
       return reply.code(503).send({

@@ -15,6 +15,7 @@
     "@arsvine/authz": "workspace:*",
     "@arsvine/contracts": "workspace:*",
     "@arsvine/core-db": "workspace:*",
+    "@arsvine/env": "workspace:*",
     "@arsvine/observability": "workspace:*",
     "@fastify/swagger": "^9.5.2",
     "@sinclair/typebox": "^0.34.41",

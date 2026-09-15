@@ -29,11 +29,11 @@ Blog 和 Tweet authoring 属于 Core/API。Realm 的公开读取属于 Content r
 
 账户安全、Passkey、TOTP、密码和账户生命周期属于 `auth.arsvine.com/security`。退出登录会删除 Console session、清除浏览器 cookie，再完成 Auth RP-Initiated Logout；已注册的安全密钥不会因退出登录而删除。
 
-`prompts/` 保存供维护者手动使用的 Blog/Tweet 翻译模板，不会被 Console runtime 加载，也不代表已部署 translation worker。
+`prompts/` 保存供维护者手动使用的 Blog/Tweet 翻译模板；它们由维护者显式提供输入，Console runtime 只处理当前 Core/API 流程。
 
 ## 配置
 
-环境变量以 [`./.env.example`](./.env.example) 为准：
+环境变量以 [`./.env.example`](./.env.example) 和仓库 [`CONFIGURATION.md`](../../docs/CONFIGURATION.md) 为准：
 
 - `SESSION_SECRET`：服务端 session 加密密钥；
 - `AUTH_OIDC_*`：Auth issuer、client、回调、JWKS、resource 和 logout 配置；
@@ -42,7 +42,9 @@ Blog 和 Tweet authoring 属于 Core/API。Realm 的公开读取属于 Content r
 - `TRUST_PROXY`：只有可信代理覆盖 client header 时才开启；
 - `NEXT_PUBLIC_ANALYTICS_*`：可选 Vercel telemetry。
 
-Console 不再需要 Core DB、object storage、GitHub、独立内容仓库、X cron 或翻译 provider 的配置。
+Console 的服务端配置读取统一经过 `@arsvine/env`。`next.config.ts` 和浏览器 Analytics 组件保留直接读取 `NEXT_PUBLIC_*`，以便 Next.js 在构建时注入公开值。
+
+Console 配置只覆盖 Session、Auth OIDC、Control API、Upstash session/limiter 和可选 Analytics；Core DB、Content storage 和其他服务凭据由对应服务拥有。
 
 ## 本地检查
 

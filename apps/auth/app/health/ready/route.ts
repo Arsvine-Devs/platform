@@ -1,3 +1,5 @@
+import { readEnv } from "@arsvine/env";
+
 export function GET() {
   const missing = [
     "AUTH_DATABASE_URL",
@@ -9,7 +11,7 @@ export function GET() {
     "OAUTH_RESOURCES",
     "PASSKEY_RP_ID",
     "PASSKEY_ORIGIN",
-  ].filter((key) => !process.env[key]?.trim());
+  ].filter((key) => !readEnv(key));
   const ready = missing.length === 0;
   return Response.json(
     {

@@ -12,7 +12,7 @@ corepack pnpm --filter @arsvine/content typecheck
 corepack pnpm --filter @arsvine/content test
 ```
 
-环境变量以 [`./.env.example`](./.env.example) 为准。`S3_*`、current pointer、发布 token 和 Auth JWKS/resource 配置均属于服务端输入。
+环境变量以 [`./.env.example`](./.env.example) 和仓库 [`CONFIGURATION.md`](../../docs/CONFIGURATION.md) 为准。Node 入口通过 `@arsvine/env/dotenv` 加载本地 dotenv；`S3_*`、current pointer、发布 token 和 Auth JWKS/resource 配置均属于服务端输入。
 
 ## 当前边界
 

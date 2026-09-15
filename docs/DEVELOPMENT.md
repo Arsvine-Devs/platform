@@ -43,6 +43,7 @@ corepack pnpm --filter arsvine-admin lint
 ```bash
 corepack pnpm format:check
 corepack pnpm docs:check
+corepack pnpm env:check
 corepack pnpm lint
 corepack pnpm typecheck
 corepack pnpm quality
@@ -59,4 +60,4 @@ corepack pnpm build
 - `apps/console/**/*.test.*` 保护 BFF、OIDC、限流、预览和当前 UI helper。
 - `apps/auth` 当前依赖 typecheck/build 与运行时服务验证；增加测试前应先证明测试隔离能保护真实 Auth 契约。
 
-不要为了保持已删除页面、旧仓库同步或未部署 worker 而保留测试或生产路由。
+测试只保护当前服务、数据和安全契约；新增测试前先写清实际回归风险或未解决的不确定性。

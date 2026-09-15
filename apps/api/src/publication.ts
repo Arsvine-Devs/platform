@@ -1,12 +1,13 @@
 import { createHmac, randomUUID } from "node:crypto";
 import type { ApiPublication } from "@arsvine/contracts";
+import { readEnv } from "@arsvine/env";
 import { listPosts, listTweets } from "@arsvine/core-db";
 
 type RealmRevalidator = { url: string; secret: string };
 
 function requiredRealmRevalidator(): RealmRevalidator {
-  const url = process.env.REALM_REVALIDATE_URL?.trim();
-  const secret = process.env.REVALIDATE_WEBHOOK_SECRET?.trim();
+  const url = readEnv("REALM_REVALIDATE_URL");
+  const secret = readEnv("REVALIDATE_WEBHOOK_SECRET");
   if (!url || !secret) throw new Error("Realm revalidation is not configured.");
   try {
     const parsed = new URL(url);
@@ -60,8 +61,8 @@ async function notifyRealm(
 }
 
 function requiredPublisher() {
-  const url = process.env.CONTENT_PUBLISH_URL?.trim();
-  const token = process.env.CONTENT_PUBLISH_TOKEN?.trim();
+  const url = readEnv("CONTENT_PUBLISH_URL");
+  const token = readEnv("CONTENT_PUBLISH_TOKEN");
   if (!url || !token) throw new Error("Content publisher is not configured.");
   return { url, token };
 }
@@ -88,7 +89,7 @@ export async function publishCoreRelease(): Promise<ApiPublication> {
   const releaseId = `${Date.now().toString(36).toUpperCase()}-${randomUUID()}`;
   const prefix = `realm-content/releases/${releaseId}`;
   const pointerKey =
-    process.env.CONTENT_CURRENT_POINTER?.trim() || "realm-content/current.json";
+    readEnv("CONTENT_CURRENT_POINTER") || "realm-content/current.json";
   const posts = await listPosts({ includeBody: true });
   const tweets = await listTweets();
   const objects: Array<{ key: string; body: string }> = [];

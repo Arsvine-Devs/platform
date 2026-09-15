@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { readEnv } from '@arsvine/env';
 
 // Only honor X-Forwarded-For when an explicit `TRUST_PROXY=1` flag is set —
 // otherwise an unauthenticated client can rotate the header and bypass any
@@ -12,7 +13,7 @@ function isTruthyEnv(value: string | undefined) {
 }
 
 function isProxyTrusted() {
-  return isTruthyEnv(process.env.TRUST_PROXY);
+  return isTruthyEnv(readEnv('TRUST_PROXY'));
 }
 
 function firstHopFromForwardedFor(value: string | null) {

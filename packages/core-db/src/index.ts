@@ -3,13 +3,14 @@ import { Pool } from "pg";
 import { and, asc, desc, eq, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "./schema.js";
+import { readEnv } from "@arsvine/env";
 
 export * from "./schema.js";
 
 export type CoreDb = ReturnType<typeof createCoreDb>;
 
 function createCoreDb() {
-  const url = process.env.CORE_DATABASE_URL?.trim();
+  const url = readEnv("CORE_DATABASE_URL");
   if (!url) throw new Error("Missing CORE_DATABASE_URL");
   const pool = new Pool({ connectionString: url, max: 5 });
   return drizzle(pool, { schema });

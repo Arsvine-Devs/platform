@@ -1,4 +1,5 @@
 import { Redis } from '@upstash/redis';
+import { readEnv } from '@arsvine/env';
 
 type Bucket = {
   count: number;
@@ -12,8 +13,8 @@ type LimiterDecision = {
 };
 
 const buckets = new Map<string, Bucket>();
-const REST_URL = process.env.UPSTASH_REDIS_REST_URL?.trim();
-const REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+const REST_URL = readEnv('UPSTASH_REDIS_REST_URL');
+const REST_TOKEN = readEnv('UPSTASH_REDIS_REST_TOKEN');
 let redis: Redis | null = null;
 
 function getRedis() {

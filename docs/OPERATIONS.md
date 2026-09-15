@@ -4,27 +4,24 @@
 
 ## 配置所有权
 
-环境变量按服务维护在对应 `.env.example`：
+完整的变量填写说明见 [`CONFIGURATION.md`](./CONFIGURATION.md)。机器契约是 [`config/env-contracts.json`](../config/env-contracts.json)；每个服务的 `.env.example` 是对应的安全模板。
 
-| 服务    | 关键配置                                                                                                |
-| ------- | ------------------------------------------------------------------------------------------------------- |
-| Auth    | `AUTH_DATABASE_URL`、`BETTER_AUTH_*`、`AUTH_TRUSTED_ORIGINS`、`OAUTH_RESOURCES`、Passkey 配置           |
-| API     | `CORE_DATABASE_URL`、`AUTH_*`、`CONTENT_PUBLISH_*`、`REALM_REVALIDATE_URL`、`REVALIDATE_WEBHOOK_SECRET` |
-| Content | `S3_*`、`CONTENT_CURRENT_POINTER`、`CONTENT_PUBLISH_TOKEN`、Auth JWKS 配置                              |
-| Console | `SESSION_SECRET`、`AUTH_OIDC_*`、`API_BASE_URL`、`UPSTASH_REDIS_REST_*`                                 |
+| 服务    | 配置目录和职责                                                                                 |
+| ------- | ---------------------------------------------------------------------------------------------- |
+| Auth    | `apps/auth/.env.example`：Better Auth、OIDC provider、数据库、Passkey 和 TOTP                  |
+| API     | `apps/api/.env.example`：Core DB、JWT 校验、Content publication 和 Realm revalidation          |
+| Content | `apps/content/.env.example`：S3 storage、published pointer、发布鉴权和 Auth JWKS/resource      |
+| Console | `apps/console/.env.example`：Host-only session、OIDC BFF、API origin、Upstash 和公开 Analytics |
 
 真实 secret 只配置在部署环境或本地未跟踪文件中。不要把 secret 放进 `NEXT_PUBLIC_*`、日志、测试 fixture 或提交。
 
-### 完整变量目录
+环境变量 provider 使用 `readEnv()` 去空白并统一空值语义；API/Content 的 Node 入口使用 `@arsvine/env/dotenv` 加载相邻 `.env.local`，Auth/Console 的 Next 运行时由 Next.js 加载 dotenv。新增键先用 `corepack pnpm envctl register` 登记，再接入消费者。
 
-下面的名称必须与对应 `.env.example` 保持一致；`.env.example` 是具体示例值和注释的权威来源。
-
-- API：`API_DISPLAY_NAME`、`API_PUBLIC_URL`、`AUTH_ISSUER`、`AUTH_JWKS_URL`、`API_RESOURCE`、`CORE_DATABASE_URL`、`CONTENT_CURRENT_POINTER`、`CONTENT_PUBLISH_URL`、`CONTENT_PUBLISH_TOKEN`、`REALM_REVALIDATE_URL`、`REVALIDATE_WEBHOOK_SECRET`。
-- Auth：`AUTH_DATABASE_URL`、`AUTH_DISPLAY_NAME`、`BETTER_AUTH_URL`、`BETTER_AUTH_ISSUER`、`BETTER_AUTH_AUDIENCE`、`BETTER_AUTH_SECRET`、`AUTH_TRUSTED_ORIGINS`、`OAUTH_RESOURCES`、`PASSKEY_RP_ID`、`PASSKEY_ORIGIN`。
-- Content：`CONTENT_DISPLAY_NAME`、`CONTENT_PUBLIC_URL`、`CONTENT_CURRENT_POINTER`、`AUTH_ISSUER`、`AUTH_JWKS_URL`、`CONTENT_RESOURCE`、`S3_ENDPOINT`、`S3_REGION`、`S3_FORCE_PATH_STYLE`、`S3_ACCESS_KEY_ID`、`S3_SECRET_ACCESS_KEY`、`S3_PRIVATE_BUCKET`、`CONTENT_PUBLISH_TOKEN`。
-- Console：`SESSION_SECRET`、`AUTH_OIDC_ISSUER`、`AUTH_OIDC_AUTHORIZATION_URL`、`AUTH_OIDC_TOKEN_URL`、`AUTH_OIDC_USERINFO_URL`、`AUTH_OIDC_JWKS_URL`、`AUTH_OIDC_END_SESSION_URL`、`AUTH_OIDC_CLIENT_ID`、`AUTH_OIDC_CLIENT_SECRET`、`AUTH_OIDC_REDIRECT_URI`、`AUTH_OIDC_POST_LOGOUT_REDIRECT_URI`、`AUTH_OIDC_RESOURCE`、`AUTH_OIDC_SCOPE`、`API_BASE_URL`、`UPSTASH_REDIS_REST_URL`、`UPSTASH_REDIS_REST_TOKEN`、`TRUST_PROXY`、`NEXT_PUBLIC_ANALYTICS_ENABLED`、`NEXT_PUBLIC_ANALYTICS_SCRIPT_ORIGIN`、`NEXT_PUBLIC_ANALYTICS_CONNECT_ORIGIN`。
-
-当前代码没有 `REDIS_URL`、`CONTENT_MIGRATION_URL`、`CONTENT_MIGRATION_TOKEN` 或独立仓库/GitHub/X worker 配置；这些名称不应回到任何 Platform 服务的环境文件或 Vercel 项目。
+```bash
+corepack pnpm envctl stats
+corepack pnpm envctl query --key CORE_DATABASE_URL
+corepack pnpm env:check
+```
 
 ## 健康检查
 
@@ -55,5 +52,3 @@ corepack pnpm check
 - Content 发布失败时，旧 pointer 保持有效；检查 object key、storage、publish token 和日志中的 release ID。
 - Realm revalidation 失败时，Content release 可能已发布；检查 HMAC 配置和 Realm cache，再单独重试 revalidation。
 - Console Redis 不可用时，当前实现使用本地限流状态；这只适用于短期可用性保护，不提供多实例一致性。
-
-2026-09-15 已用 Vercel CLI 逐项目核对 `arsvine-admin`、`arsvine-auth`、`arsvine-api`、`arsvine-content` 的 production 变量；现存变量均有当前读取器或部署入口消费者，没有执行无证据删除。Platform 根目录的 `.env.local` 是历史本地 scratch 文件，不参与提交；按服务使用 `vercel env pull` 前应先备份，并确认不会覆盖自定义本地变量。

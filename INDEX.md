@@ -2,7 +2,7 @@
 
 [项目主页](./README.md) · [文档入口](./docs/README.md)
 
-Platform 是管理系统的服务工作区。它不包含已废弃的独立 `arsvine-content` 仓库。
+Platform 是管理系统的服务工作区，集中维护 Console、Auth、API、Content 和共享运行时包。
 
 ## 应用与服务
 
@@ -36,7 +36,7 @@ Platform 是管理系统的服务工作区。它不包含已废弃的独立 `ars
 
 - workspace 边界与命令：根目录 `package.json`、`pnpm-workspace.yaml`
 - 每个服务的命令与依赖：对应 `apps/*/package.json`
-- 环境变量：对应 `apps/*/.env.example`
+- 环境变量：`config/env-contracts.json`、对应 `apps/*/.env.example` 与 `corepack pnpm envctl ...`
 - Core 数据结构：`migrations/core/` 与 `packages/core-db/src/schema.ts`
 - API wire types：`packages/contracts/src/index.ts`
 - 质量工具：`config/` 与根目录脚本

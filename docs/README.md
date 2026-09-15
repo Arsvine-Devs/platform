@@ -9,6 +9,7 @@
 - 第一次进入仓库：[`DEVELOPMENT.md`](./DEVELOPMENT.md)
 - 判断改动属于哪个服务：[`ARCHITECTURE.md`](./ARCHITECTURE.md)
 - 配置健康检查、发布链路和故障边界：[`OPERATIONS.md`](./OPERATIONS.md)
+- 每个环境变量的填写契约：[`CONFIGURATION.md`](./CONFIGURATION.md)
 - 修改身份、Token、Session 或 storage：[`SECURITY.md`](./SECURITY.md)
 - 具体服务和包：从 [`INDEX.md`](./INDEX.md) 进入对应入口
 

@@ -1,7 +1,11 @@
-import { buildContentServer } from "./server.js";
+import { readEnv } from "@arsvine/env";
+import { loadProjectEnv } from "@arsvine/env/dotenv";
 
+loadProjectEnv();
+
+const { buildContentServer } = await import("./server.js");
 const app = buildContentServer();
-const port = Number(process.env.PORT ?? 3002);
-const host = process.env.HOST ?? "0.0.0.0";
+const port = Number(readEnv("PORT") ?? 3002);
+const host = readEnv("HOST") ?? "0.0.0.0";
 
 await app.listen({ port, host });

@@ -1,4 +1,5 @@
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
+import { readEnv } from "@arsvine/env";
 
 const remoteJwks = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
@@ -37,9 +38,9 @@ export class AuthConfigurationError extends Error {
 export function readAuthVerificationConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): AuthVerificationConfig {
-  const issuer = env.AUTH_ISSUER?.trim();
-  const audience = env.API_RESOURCE?.trim();
-  const jwksUrl = env.AUTH_JWKS_URL?.trim();
+  const issuer = readEnv("AUTH_ISSUER", env);
+  const audience = readEnv("API_RESOURCE", env);
+  const jwksUrl = readEnv("AUTH_JWKS_URL", env);
   if (!issuer || !audience || !jwksUrl) {
     throw new AuthConfigurationError(
       "AUTH_ISSUER, API_RESOURCE, and AUTH_JWKS_URL are required",

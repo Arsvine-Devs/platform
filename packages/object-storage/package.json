@@ -16,6 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@arsvine/env": "workspace:*",
     "@aws-sdk/client-s3": "^3.943.0"
   },
   "devDependencies": {

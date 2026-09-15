@@ -12,6 +12,9 @@ Control API, published Content read plane, and small shared runtime packages.
   `.env.example` files as the primary current contract.
 - Keep the standalone deprecated `C:\dev\arsvine-content` repository outside
   this workspace and do not modify it.
+- Register user-configurable environment keys in `config/env-contracts.json`
+  and the owning `.env.example`; use `corepack pnpm envctl query` instead of
+  printing values while investigating configuration.
 - Default to branch-local work. Do not push, merge, deploy, or mutate remote
   infrastructure unless the current task explicitly authorizes it.
 
@@ -26,9 +29,11 @@ Control API, published Content read plane, and small shared runtime packages.
    publication endpoint.
 5. `packages/*` own only their named shared boundary; do not reintroduce
    service-specific behavior into a generic package.
-6. The current hosted path is Console → Auth/API, API → Content, and Realm →
+6. `@arsvine/env` owns dotenv loading and primitive environment normalization;
+   service policy stays in the consuming service.
+7. The current hosted path is Console → Auth/API, API → Content, and Realm →
    Content. Do not add compatibility paths for retired repository workflows.
-7. `infra/compose` and Docker files are a separate reference environment. Do
+8. `infra/compose` and Docker files are a separate reference environment. Do
    not modify or run them unless the task explicitly reopens that scope.
 
 ## Verification
