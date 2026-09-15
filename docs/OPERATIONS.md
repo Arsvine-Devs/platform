@@ -34,6 +34,10 @@ corepack pnpm env:check
 
 `live` 只证明进程可响应，`ready` 只证明应用可以接受其声明的依赖；两者都不替代已认证的写入、发布和浏览器流程验收。
 
+## Status 检测
+
+[status.arsvine.com](https://status.arsvine.com) 是独立部署的运维检测和状态展示站点。Status 的公开探针应以本节列出的服务健康路由为检测目标；具体检测项、通知渠道和状态页内容由 Status 站点维护，不进入各服务的环境变量或业务代码。
+
 ## 发布顺序
 
 应用部署由各 Vercel project 的当前配置负责。代码侧的内容发布顺序是 API → Content immutable objects → current pointer → Realm HMAC revalidation。pointer 只在对象逐一验证后切换；中途失败时旧 release 保持可读。

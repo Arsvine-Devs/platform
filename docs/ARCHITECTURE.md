@@ -17,9 +17,12 @@ content.arsvine.com → S3-compatible private object storage
 auth.arsvine.com → Auth PostgreSQL
 api.arsvine.com → Core PostgreSQL
 console.arsvine.com → Upstash Redis for session/rate-limit state
+status.arsvine.com → public health probes and operational status
 ```
 
 Console 浏览器只访问同源 BFF。OAuth access token、Core 数据库连接、Content publish token、object-storage 凭据和 Session secret 不进入浏览器。
+
+`status.arsvine.com` 是独立部署的运维检测与状态展示面。它观察公开健康路由，不参与 Console、Auth、API 或 Content 的业务请求链路。
 
 ## 服务所有权
 
@@ -51,4 +54,4 @@ Console 浏览器只访问同源 BFF。OAuth access token、Core 数据库连接
 5. API 对 Realm 发送带毫秒时间戳的 HMAC `content.published` 事件。
 6. Realm 下一次读取通过其 `config/site-config.mjs` 中的 Content origin 获取新的 published release。
 
-当前运行时拓扑只包含 Console、Auth、API、Content 和 Realm 的已发布 Content 读取链路；历史输入资料由架构快照独立记录。
+当前运行时拓扑包含 Console、Auth、API、Content 和 Realm 的已发布 Content 读取链路；`status.arsvine.com` 属于独立观测面，检测配置不由本仓库管理。历史输入资料由架构快照独立记录。
