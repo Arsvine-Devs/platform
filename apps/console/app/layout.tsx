@@ -8,7 +8,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'ARSVINE ADMIN',
-  description: 'Web-only writing and publishing console for the private content repository.',
+  description: 'Web-only writing and publishing console for the private content control plane.',
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

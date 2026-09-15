@@ -28,7 +28,7 @@ describe('adminRequest', () => {
     fetchMock.mockResolvedValue(jsonResponse({ ok: true, data: { saved: true } }));
 
     await expect(
-      adminRequest<{ saved: boolean }>('/api/admin/example', {
+      adminRequest<{ saved: boolean }>('/api/control/example', {
         method: 'PUT',
         csrfToken: 'csrf-token',
         body: { value: 'example' },
@@ -46,14 +46,14 @@ describe('adminRequest', () => {
   it('supports successful responses without a data property', async () => {
     fetchMock.mockResolvedValue(jsonResponse({ ok: true }));
     await expect(
-      adminRequest<void>('/api/admin/example', { method: 'DELETE' }),
+      adminRequest<void>('/api/control/example', { method: 'DELETE' }),
     ).resolves.toBeUndefined();
   });
 
   it('accepts an empty successful response', async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
     await expect(
-      adminRequest<void>('/api/admin/example', { method: 'DELETE' }),
+      adminRequest<void>('/api/control/example', { method: 'DELETE' }),
     ).resolves.toBeUndefined();
   });
 
@@ -66,7 +66,7 @@ describe('adminRequest', () => {
       ),
     );
 
-    const result = adminRequest('/api/admin/example');
+    const result = adminRequest('/api/control/example');
     await expect(result).rejects.toBeInstanceOf(AdminApiError);
     await expect(result).rejects.toMatchObject({
       status: 401,
@@ -85,7 +85,7 @@ describe('adminRequest', () => {
       ),
     );
 
-    await expect(adminRequest('/api/admin/example')).rejects.toMatchObject({
+    await expect(adminRequest('/api/control/example')).rejects.toMatchObject({
       status,
       code: `status_${status}`,
       message: `error-${status}`,
@@ -95,13 +95,13 @@ describe('adminRequest', () => {
 
   it('returns a safe error for non-JSON responses and network failures', async () => {
     fetchMock.mockResolvedValue(new Response('upstream failure', { status: 502 }));
-    await expect(adminRequest('/api/admin/example')).rejects.toMatchObject({
+    await expect(adminRequest('/api/control/example')).rejects.toMatchObject({
       status: 502,
       message: '请求失败（HTTP 502）。',
     });
 
     fetchMock.mockRejectedValue(new Error('connection reset'));
-    await expect(adminRequest('/api/admin/example')).rejects.toMatchObject({
+    await expect(adminRequest('/api/control/example')).rejects.toMatchObject({
       status: 0,
       message: '网络请求失败，请检查连接后重试。',
     });

@@ -5,10 +5,7 @@ import {
   OIDC_STATE_COOKIE,
   openState,
 } from '@/lib/oidc';
-import {
-  applyOidcSessionCookies,
-  createOidcSession,
-} from '@/lib/oidc-session';
+import { applyOidcSessionCookies, createOidcSession } from '@/lib/oidc-session';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,14 +39,23 @@ export async function GET(request: NextRequest) {
     console.info('[oidc/callback] console session created', { role: created.session.role });
     const response = NextResponse.redirect(new URL(normalizeReturnTo(state.returnTo), request.url));
     applyOidcSessionCookies(response, created.id, created.session.csrf);
-    response.cookies.set(OIDC_STATE_COOKIE, '', { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 0 });
+    response.cookies.set(OIDC_STATE_COOKIE, '', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 0,
+    });
     return response;
   } catch (error) {
     console.error('[oidc/callback] failed', {
       message: error instanceof Error ? error.message : 'unknown callback error',
     });
     const message = error instanceof Error ? error.message : 'OIDC callback failed.';
-    const reason = message === 'OIDC identity claims are incomplete.' ? 'identity_claims_incomplete' : 'oidc_callback_failed';
+    const reason =
+      message === 'OIDC identity claims are incomplete.'
+        ? 'identity_claims_incomplete'
+        : 'oidc_callback_failed';
     return redirectError(request, reason);
   }
 }

@@ -9,7 +9,7 @@ const analyticsConnectOrigin = process.env.NEXT_PUBLIC_ANALYTICS_CONNECT_ORIGIN?
 // inline; everything else is locked down. `'unsafe-eval'` is allowed for
 // scripts in development because Turbopack/Next-devtools rely on it; in
 // production we drop it. `connect-src` keeps `'self'` only — admin API
-// calls go through same-origin routes; no direct browser → GitHub call.
+// Browser calls go through same-origin Console BFF routes; the BFF calls the API service.
 const cspDirectives = [
   "default-src 'self'",
   [

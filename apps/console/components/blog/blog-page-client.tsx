@@ -145,8 +145,8 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
       window.clearTimeout(timer);
       controller.abort();
     };
-    // The controller intentionally performs one initial load for this page instance.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // The initial load is intentionally scoped to this page instance.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- loadIndex is not a stable dependency.
   }, []);
 
   function persistDrafts(nextDrafts: Record<string, BlogDraft>) {
@@ -160,7 +160,7 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
   async function loadIndex(signal?: AbortSignal) {
     setLoadingIndex(true);
     try {
-      const data = await adminRequest<BlogIndexData>('/api/admin/blog-index', { signal });
+      const data = await adminRequest<BlogIndexData>('/api/control/blog-index', { signal });
       setItems(data.posts);
       if (initialSelection?.slug) {
         const locale = BLOG_LOCALES.includes(initialSelection.locale as BlogLocale)
@@ -267,7 +267,7 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
 
     try {
       const data = await adminRequest<BlogVariantData>(
-        `/api/admin/blog-variant?slug=${encodeURIComponent(normalizedSlug)}&locale=${encodeURIComponent(locale)}`,
+        `/api/control/blog-variant?slug=${encodeURIComponent(normalizedSlug)}&locale=${encodeURIComponent(locale)}`,
       );
       const remoteForm: BlogFormState = {
         slug: data.slug,
@@ -329,7 +329,7 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
     setPublishing(true);
     try {
       const normalizedSlug = form.slug.trim().toLowerCase();
-      const data = await adminRequest<BlogPublishResponse>('/api/admin/publish', {
+      const data = await adminRequest<BlogPublishResponse>('/api/control/publish', {
         method: 'POST',
         csrfToken,
         body: {
@@ -402,7 +402,7 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
 
     setBatchPublishing(true);
     try {
-      const data = await adminRequest<BlogPublishResponse>('/api/admin/publish-batch', {
+      const data = await adminRequest<BlogPublishResponse>('/api/control/publish-batch', {
         method: 'POST',
         csrfToken,
         body: {

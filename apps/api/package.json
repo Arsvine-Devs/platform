@@ -8,12 +8,12 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
     "db:migrate:core": "node scripts/migrate-core.mjs"
   },
   "dependencies": {
     "@arsvine/authz": "workspace:*",
     "@arsvine/core-db": "workspace:*",
-    "@arsvine/contracts": "workspace:*",
     "@arsvine/observability": "workspace:*",
     "@fastify/swagger": "^9.5.2",
     "@sinclair/typebox": "^0.34.41",
@@ -23,6 +23,7 @@
   "devDependencies": {
     "@types/node": "^26.5.1",
     "tsx": "^4.20.6",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.0"
   }
 }

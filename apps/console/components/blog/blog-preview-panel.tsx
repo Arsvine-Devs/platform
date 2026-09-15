@@ -87,7 +87,8 @@ export default function BlogPreviewPanel({ content }: BlogPreviewPanelProps) {
                 const safe = sanitizeUrl(src);
                 if (!safe)
                   return <span className="text-muted-foreground italic">[blocked image]</span>;
-                // eslint-disable-next-line @next/next/no-img-element
+                // The preview accepts arbitrary sanitized Markdown image URLs.
+                // oxlint-disable-next-line nextjs/no-img-element -- next/image cannot represent this URL boundary.
                 return <img src={safe} alt={alt ?? ''} className="max-w-full rounded-xl" />;
               },
             }}

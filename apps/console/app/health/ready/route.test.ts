@@ -6,6 +6,7 @@ beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', 'test-session-secret');
   vi.stubEnv('AUTH_OIDC_ISSUER', 'https://auth.example.com');
   vi.stubEnv('AUTH_OIDC_RESOURCE', 'https://api.example.com');
+  vi.stubEnv('API_BASE_URL', 'https://api.example.com');
 });
 
 afterEach(() => {

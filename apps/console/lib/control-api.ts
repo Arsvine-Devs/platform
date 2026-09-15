@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { getApiBaseUrl } from './api-base';
 import { getSessionFromRequest, verifyCsrf, type AuthenticatedSession } from './auth';
 
 type ControlApiSuccess = {
@@ -18,12 +19,6 @@ function failure(status: number, message: string, code?: string) {
   );
 }
 
-function apiOrigin() {
-  const value = process.env.AUTH_OIDC_RESOURCE?.trim();
-  if (!value) throw new Error('Missing AUTH_OIDC_RESOURCE');
-  return value.endsWith('/') ? value : `${value}/`;
-}
-
 export async function callControlApi(
   request: NextRequest,
   path: string,
@@ -36,15 +31,25 @@ export async function callControlApi(
     return { response: failure(403, 'Invalid CSRF token.', 'CSRF_INVALID'), session };
   }
 
-  if (session.authSource !== 'oidc' || !('accessToken' in session) || typeof session.accessToken !== 'string') {
-    return { response: failure(503, 'Control API session is unavailable.', 'CONTROL_API_UNAVAILABLE'), session };
+  if (
+    session.authSource !== 'oidc' ||
+    !('accessToken' in session) ||
+    typeof session.accessToken !== 'string'
+  ) {
+    return {
+      response: failure(503, 'Control API session is unavailable.', 'CONTROL_API_UNAVAILABLE'),
+      session,
+    };
   }
 
   let url: URL;
   try {
-    url = new URL(path.replace(/^\//, ''), apiOrigin());
+    url = new URL(path.replace(/^\//, ''), getApiBaseUrl());
   } catch {
-    return { response: failure(503, 'Control API is not configured.', 'CONTROL_API_UNAVAILABLE'), session };
+    return {
+      response: failure(503, 'Control API is not configured.', 'CONTROL_API_UNAVAILABLE'),
+      session,
+    };
   }
 
   let response: Response;
@@ -56,7 +61,9 @@ export async function callControlApi(
         Authorization: `Bearer ${session.accessToken}`,
         ...options.headers,
         ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
-        ...(request.headers.get('if-match') ? { 'If-Match': request.headers.get('if-match')! } : {}),
+        ...(request.headers.get('if-match')
+          ? { 'If-Match': request.headers.get('if-match')! }
+          : {}),
       },
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
       cache: 'no-store',
@@ -64,16 +71,24 @@ export async function callControlApi(
     });
   } catch (error) {
     console.error('[control-api] request failed:', error);
-    return { response: failure(503, 'Control API unavailable.', 'CONTROL_API_UNAVAILABLE'), session };
+    return {
+      response: failure(503, 'Control API unavailable.', 'CONTROL_API_UNAVAILABLE'),
+      session,
+    };
   }
 
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    const error = payload && typeof payload === 'object' && payload !== null && 'error' in payload
-      ? (payload as { error?: { code?: string; message?: string } }).error
-      : undefined;
+    const error =
+      payload && typeof payload === 'object' && payload !== null && 'error' in payload
+        ? (payload as { error?: { code?: string; message?: string } }).error
+        : undefined;
     return {
-      response: failure(response.status, error?.message ?? `Control API request failed (${response.status}).`, error?.code),
+      response: failure(
+        response.status,
+        error?.message ?? `Control API request failed (${response.status}).`,
+        error?.code,
+      ),
       session,
     };
   }

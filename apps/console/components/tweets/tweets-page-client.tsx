@@ -5,12 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import { adminRequest, isAdminApiError } from '@/lib/admin-api/client';
-import {
-  ConfirmAction,
-  DetailSheet,
-  PageFrame,
-  PageHeader,
-} from '@/components/admin/blocks';
+import { ConfirmAction, DetailSheet, PageFrame, PageHeader } from '@/components/admin/blocks';
 import { useI18n } from '@/components/i18n/locale-provider';
 import { Button } from '@/components/ui/button';
 
@@ -49,9 +44,9 @@ function normalizeFormFromTweetItem(tweet: TweetItem): TweetFormState {
     content: tweet.content,
     lang: tweet.lang ?? 'zh-CN',
     tags: tagsToInput(tweet.tags),
-      visibility: (tweet.visibility ?? 'public') as TweetVisibility,
-      pinned: Boolean(tweet.pinned),
-      createdAt: formatDateTimeLocal(tweet.createdAt),
+    visibility: (tweet.visibility ?? 'public') as TweetVisibility,
+    pinned: Boolean(tweet.pinned),
+    createdAt: formatDateTimeLocal(tweet.createdAt),
   };
 }
 
@@ -74,7 +69,7 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
     async (preferredGroupKey?: string) => {
       setLoading(true);
       try {
-        const nextData = await adminRequest<TweetsDashboardData>('/api/admin/tweets');
+        const nextData = await adminRequest<TweetsDashboardData>('/api/control/tweets');
         setData(nextData);
         if (preferredGroupKey) setSelectedGroupKey(preferredGroupKey);
       } catch (caught) {
@@ -200,7 +195,7 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
       };
       if (
         await runMutation(
-          `/api/admin/tweets/${editingTweet.id}`,
+          `/api/control/tweets/${editingTweet.id}`,
           { method: 'PUT', body: payload },
           t('tweets.updatedSuccess'),
           editMonth,
@@ -220,7 +215,7 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
     };
     if (
       await runMutation(
-        '/api/admin/tweets',
+        '/api/control/tweets',
         { method: 'POST', body: payload },
         t('tweets.createdSuccess'),
         targetMonth,
@@ -238,7 +233,7 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
         ? monthFromCreatedAt(form.createdAt) || activeGroup?.months[0] || ''
         : activeGroup?.months[0] || '';
     const deleted = await runMutation(
-      `/api/admin/tweets/${tweet.id}`,
+      `/api/control/tweets/${tweet.id}`,
       { method: 'DELETE' },
       t('tweets.deleted', { id: tweet.id }),
       deleteMonth,

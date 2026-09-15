@@ -1,9 +1,22 @@
 "use client";
 
-import { AlertCircle, ArrowUpRight, Check, LockKeyhole, ShieldCheck, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowUpRight,
+  Check,
+  LockKeyhole,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 const scopeLabels = {
   openid: ["Sign in", "登录"],
@@ -22,11 +35,14 @@ const scopeLabels = {
 
 export default function ConsentPage() {
   const oauthQuery = useMemo(
-    () => (typeof window === "undefined" ? "" : window.location.search.slice(1)),
+    () =>
+      typeof window === "undefined" ? "" : window.location.search.slice(1),
     [],
   );
   const isChinese = useMemo(
-    () => typeof navigator !== "undefined" && navigator.language.toLowerCase().startsWith("zh"),
+    () =>
+      typeof navigator !== "undefined" &&
+      navigator.language.toLowerCase().startsWith("zh"),
     [],
   );
   const request = useMemo(() => {
@@ -37,7 +53,10 @@ export default function ConsentPage() {
     try {
       const url = new URL(redirectUri);
       appHost = url.host;
-      appName = url.hostname === "console.arsvine.com" ? "Arsvine Console" : url.hostname;
+      appName =
+        url.hostname === "console.arsvine.com"
+          ? "Arsvine Console"
+          : url.hostname;
     } catch {
       // The API will reject an invalid request; keep the page recoverable.
     }
@@ -65,7 +84,8 @@ export default function ConsentPage() {
     : {
         kicker: "SECURE AUTHORIZATION",
         title: "Authorize application",
-        description: "This application is requesting access to your ARSVINE account.",
+        description:
+          "This application is requesting access to your ARSVINE account.",
         account: "Your account",
         permissions: "View requested permissions",
         noPermissions: "No additional permissions requested",
@@ -74,7 +94,8 @@ export default function ConsentPage() {
         note: "You can revoke access at any time from your account settings.",
         errorTitle: "Authorization incomplete",
         retry: "Try again",
-        invalid: "This authorization request has expired. Start again from Console.",
+        invalid:
+          "This authorization request has expired. Start again from Console.",
       };
 
   async function respond(accept: boolean) {
@@ -87,12 +108,21 @@ export default function ConsentPage() {
     try {
       const response = await fetch("/api/auth/oauth2/consent", {
         method: "POST",
-        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ accept, oauth_query: oauthQuery }),
       });
-      const body = (await response.json().catch(() => null)) as { redirect_uri?: string; message?: string; error_description?: string } | null;
+      const body = (await response.json().catch(() => null)) as {
+        redirect_uri?: string;
+        message?: string;
+        error_description?: string;
+      } | null;
       if (!response.ok || !body?.redirect_uri) {
-        throw new Error(body?.error_description ?? body?.message ?? copy.invalid);
+        throw new Error(
+          body?.error_description ?? body?.message ?? copy.invalid,
+        );
       }
       window.location.assign(body.redirect_uri);
     } catch (cause) {
@@ -106,12 +136,16 @@ export default function ConsentPage() {
       <div className="auth-frame auth-consent-frame">
         <header className="auth-consent-brand">
           <span className="auth-mark">A</span>
-          <span>ARSVINE <small>AUTH</small></span>
+          <span>
+            ARSVINE <small>AUTH</small>
+          </span>
         </header>
 
         <Card className="auth-card auth-consent-card">
           <CardHeader className="auth-consent-header">
-            <div className="auth-consent-icon" aria-hidden="true"><ShieldCheck size={20} /></div>
+            <div className="auth-consent-icon" aria-hidden="true">
+              <ShieldCheck size={20} />
+            </div>
             <p className="auth-kicker">{copy.kicker}</p>
             <CardTitle>{copy.title}</CardTitle>
             <CardDescription>{copy.description}</CardDescription>
@@ -127,27 +161,52 @@ export default function ConsentPage() {
 
             <div className="auth-consent-account">
               <span className="auth-consent-label">{copy.account}</span>
-              <span className="auth-consent-account-value">ARSVINE owner account</span>
+              <span className="auth-consent-account-value">
+                ARSVINE owner account
+              </span>
             </div>
 
             <details className="auth-consent-permissions">
-              <summary>{copy.permissions} <span>{request.scopes.length}</span></summary>
+              <summary>
+                {copy.permissions} <span>{request.scopes.length}</span>
+              </summary>
               {request.scopes.length ? (
                 <ul>
                   {request.scopes.map((scope) => {
-                    const label = scopeLabels[scope as keyof typeof scopeLabels];
-                    return <li key={scope}><Check size={15} aria-hidden="true" /><span>{label ? label[isChinese ? 1 : 0] : scope}</span></li>;
+                    const label =
+                      scopeLabels[scope as keyof typeof scopeLabels];
+                    return (
+                      <li key={scope}>
+                        <Check size={15} aria-hidden="true" />
+                        <span>{label ? label[isChinese ? 1 : 0] : scope}</span>
+                      </li>
+                    );
                   })}
                 </ul>
-              ) : <p>{copy.noPermissions}</p>}
+              ) : (
+                <p>{copy.noPermissions}</p>
+              )}
             </details>
 
             <div className="auth-consent-actions">
-              <Button className="auth-consent-deny" disabled={busy} size="lg" variant="outline" type="button" onClick={() => void respond(false)}>
+              <Button
+                className="auth-consent-deny"
+                disabled={busy}
+                size="lg"
+                variant="outline"
+                type="button"
+                onClick={() => void respond(false)}
+              >
                 <X size={16} aria-hidden="true" />
                 {copy.deny}
               </Button>
-              <Button className="auth-button-primary" disabled={busy} size="lg" type="button" onClick={() => void respond(true)}>
+              <Button
+                className="auth-button-primary"
+                disabled={busy}
+                size="lg"
+                type="button"
+                onClick={() => void respond(true)}
+              >
                 <Check size={16} aria-hidden="true" />
                 {busy ? "…" : copy.allow}
               </Button>
@@ -156,13 +215,29 @@ export default function ConsentPage() {
             {error ? (
               <div className="auth-consent-error" role="alert">
                 <AlertCircle size={17} aria-hidden="true" />
-                <div><strong>{copy.errorTitle}</strong><p>{error}</p><Button size="sm" variant="ghost" type="button" onClick={() => { setError(null); setBusy(false); }}>{copy.retry}</Button></div>
+                <div>
+                  <strong>{copy.errorTitle}</strong>
+                  <p>{error}</p>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    type="button"
+                    onClick={() => {
+                      setError(null);
+                      setBusy(false);
+                    }}
+                  >
+                    {copy.retry}
+                  </Button>
+                </div>
               </div>
             ) : null}
           </CardContent>
         </Card>
 
-        <p className="auth-consent-note"><LockKeyhole size={14} aria-hidden="true" /> {copy.note}</p>
+        <p className="auth-consent-note">
+          <LockKeyhole size={14} aria-hidden="true" /> {copy.note}
+        </p>
       </div>
     </main>
   );

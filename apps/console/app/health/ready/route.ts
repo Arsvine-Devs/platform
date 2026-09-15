@@ -6,9 +6,12 @@ function notReady(reason: string, status = 503) {
 }
 
 export async function GET() {
-  const missing = ['SESSION_SECRET', 'AUTH_OIDC_ISSUER', 'AUTH_OIDC_RESOURCE'].filter(
-    (key) => !process.env[key]?.trim(),
-  );
+  const missing = [
+    'SESSION_SECRET',
+    'AUTH_OIDC_ISSUER',
+    'AUTH_OIDC_RESOURCE',
+    'API_BASE_URL',
+  ].filter((key) => !process.env[key]?.trim());
   if (missing.length > 0) return notReady(`missing_configuration:${missing.join(',')}`);
   return Response.json(
     { status: 'ready', service: 'console' },

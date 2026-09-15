@@ -1,0 +1,17 @@
+{
+  "path": ["../apps", "../packages"],
+  "pattern": "**/*.{ts,tsx,js,mjs,mts,cts}",
+  "ignore": [
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/dist/**",
+    "**/.next/**",
+    "**/output/**"
+  ],
+  "minTokens": 80,
+  "minLines": 10,
+  "mode": "weak",
+  "reporters": ["console"],
+  "noColors": true,
+  "noTips": true
+}

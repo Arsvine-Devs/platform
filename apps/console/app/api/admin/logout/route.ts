@@ -3,6 +3,7 @@ import { clearAuthCookies, getSessionFromRequest, verifyCsrf } from '../../../..
 import { deleteOidcSession, oidcSessionIdFromRequest } from '../../../../lib/oidc-session';
 import { getClientKey } from '../../../../lib/client-key';
 import { enforceRateLimit } from '../../../../lib/rate-limit';
+import { buildLogoutUrl } from '../../../../lib/oidc';
 
 export async function POST(request: NextRequest) {
   const limiter = await enforceRateLimit(`logout:${getClientKey(request)}`, 30, 60_000);
@@ -29,8 +30,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const response = NextResponse.json({ ok: true });
+  let authLogoutUrl: string | null = null;
+  try {
+    authLogoutUrl = buildLogoutUrl(session.idToken);
+  } catch (error) {
+    console.error('[admin/logout] Auth RP-initiated logout is not configured:', error);
+  }
   if (session.authSource === 'oidc') await deleteOidcSession(oidcSessionIdFromRequest(request));
+  const response = NextResponse.json({ ok: true, data: { authLogoutUrl } });
   clearAuthCookies(response);
   return response;
 }

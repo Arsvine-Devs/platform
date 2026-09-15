@@ -34,12 +34,20 @@ const passkeyOrigin = process.env.PASSKEY_ORIGIN?.trim();
 function verifyLegacyPassword(password: string, encoded: string) {
   const match = /^scrypt\\$([^$]+)\\$([^$]+)$/.exec(encoded);
   if (!match) return false;
-  const actual = Buffer.from(scryptSync(password, match[1], 64).toString("base64url"));
+  const actual = Buffer.from(
+    scryptSync(password, match[1], 64).toString("base64url"),
+  );
   const expected = Buffer.from(match[2]);
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-async function verifyAuthPassword({ hash, password }: { hash: string; password: string }) {
+async function verifyAuthPassword({
+  hash,
+  password,
+}: {
+  hash: string;
+  password: string;
+}) {
   if (hash.startsWith("scrypt$")) return verifyLegacyPassword(password, hash);
   return verifyPassword({ hash, password });
 }
@@ -148,7 +156,10 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     disableSignUp: true,
-    password: { hash: (password) => hashPassword(password), verify: verifyAuthPassword },
+    password: {
+      hash: (password) => hashPassword(password),
+      verify: verifyAuthPassword,
+    },
   },
   trustedOrigins,
   plugins: authPlugins,

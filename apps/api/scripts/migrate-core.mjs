@@ -8,7 +8,10 @@ const databaseUrl = process.env.CORE_DATABASE_URL?.trim();
 if (!databaseUrl) throw new Error("CORE_DATABASE_URL is required");
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const migrationPath = path.resolve(here, "../../../migrations/core/0001_core.sql");
+const migrationPath = path.resolve(
+  here,
+  "../../../migrations/core/0001_core.sql",
+);
 const migration = await readFile(migrationPath, "utf8");
 const pool = new Pool({ connectionString: databaseUrl, max: 1 });
 

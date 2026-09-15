@@ -1,0 +1,8 @@
+pnpm-lock.yaml
+**/package-lock.json
+patches/
+**/dist/
+**/.next/
+output/
+**/drizzle/**/*.sql
+migrations/**/*.sql

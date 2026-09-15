@@ -1,0 +1,47 @@
+{
+  "$schema": "../node_modules/knip/schema.json",
+  "workspaces": {
+    "apps/api": {
+      "entry": ["api/index.ts", "scripts/import-content-release.mjs"],
+      "project": [
+        "src/**/*.{ts,tsx,js,mjs,mts,cts}",
+        "api/**/*.{ts,tsx,js,mjs,mts,cts}",
+        "scripts/**/*.{js,mjs}",
+      ],
+    },
+    "apps/auth": {
+      "entry": ["app/**/*.{ts,tsx}"],
+      "project": [
+        "app/**/*.{ts,tsx,js,mjs,mts,cts}",
+        "app/**/*.css",
+        "components/**/*.{ts,tsx,js,mjs,mts,cts}",
+        "lib/**/*.{ts,tsx,js,mjs,mts,cts}",
+      ],
+      "ignoreIssues": {
+        "components/ui/*.tsx": ["exports"],
+      },
+    },
+    "apps/content": {
+      "entry": ["api/index.ts"],
+      "project": [
+        "src/**/*.{ts,tsx,js,mjs,mts,cts}",
+        "api/**/*.{ts,tsx,js,mjs,mts,cts}",
+      ],
+    },
+    "packages/authz": {
+      "project": ["src/**/*.{ts,tsx,js,mjs,mts,cts}"],
+    },
+    "packages/contracts": {
+      "project": ["src/**/*.{ts,tsx,js,mjs,mts,cts}"],
+    },
+    "packages/core-db": {
+      "project": ["src/**/*.{ts,tsx,js,mjs,mts,cts}"],
+    },
+    "packages/object-storage": {
+      "project": ["src/**/*.{ts,tsx,js,mjs,mts,cts}"],
+    },
+    "packages/observability": {
+      "project": ["src/**/*.{ts,tsx,js,mjs,mts,cts}"],
+    },
+  },
+}

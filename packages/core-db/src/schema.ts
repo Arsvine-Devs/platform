@@ -26,8 +26,12 @@ export const posts = pgTable(
     revision: integer("revision").notNull().default(1),
     createdBy: text("created_by").notNull(),
     updatedBy: text("updated_by").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     index("posts_status_updated_idx").on(table.status, table.updatedAt),
@@ -54,8 +58,12 @@ export const postVariants = pgTable(
     readingMinutes: integer("reading_minutes").notNull().default(0),
     checksum: text("checksum").notNull().default(""),
     revision: integer("revision").notNull().default(1),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     uniqueIndex("post_variants_post_locale_idx").on(table.postId, table.locale),
@@ -84,9 +92,16 @@ export const postRevisions = pgTable(
     revision: integer("revision").notNull(),
     snapshot: jsonb("snapshot").notNull(),
     createdBy: text("created_by").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
-  (table) => [uniqueIndex("post_revisions_post_revision_idx").on(table.postId, table.revision)],
+  (table) => [
+    uniqueIndex("post_revisions_post_revision_idx").on(
+      table.postId,
+      table.revision,
+    ),
+  ],
 );
 
 export const tweets = pgTable(
@@ -103,9 +118,15 @@ export const tweets = pgTable(
     createdBy: text("created_by").notNull(),
     updatedBy: text("updated_by").notNull(),
     origin: jsonb("origin"),
-    tags: jsonb("tags").notNull().default(sql`'[]'::jsonb`),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    tags: jsonb("tags")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [
     index("tweets_published_at_idx").on(table.publishedAt),
@@ -124,8 +145,12 @@ export const tweetVariants = pgTable(
     originLocale: text("origin_locale"),
     translationState: text("translation_state").notNull().default("source"),
     revision: integer("revision").notNull().default(1),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.tweetId, table.locale] })],
 );
@@ -140,10 +165,14 @@ export const publications = pgTable(
     manifestKey: text("manifest_key"),
     error: text("error"),
     requestedBy: text("requested_by").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
     activatedAt: timestamp("activated_at", { withTimezone: true }),
   },
-  (table) => [index("publications_status_created_idx").on(table.status, table.createdAt)],
+  (table) => [
+    index("publications_status_created_idx").on(table.status, table.createdAt),
+  ],
 );
 
 export const publicationItems = pgTable(
@@ -157,6 +186,8 @@ export const publicationItems = pgTable(
     revision: integer("revision").notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.publicationId, table.resourceType, table.resourceId] }),
+    primaryKey({
+      columns: [table.publicationId, table.resourceType, table.resourceId],
+    }),
   ],
 );

@@ -60,7 +60,8 @@ function normalizeTags(tags: readonly string[] | undefined) {
 }
 
 function asDate(value: string | Date | undefined, fallback = new Date()) {
-  const date = value instanceof Date ? value : value ? new Date(value) : fallback;
+  const date =
+    value instanceof Date ? value : value ? new Date(value) : fallback;
   if (Number.isNaN(date.getTime())) throw new Error("Invalid date value.");
   return date;
 }
@@ -72,11 +73,18 @@ function checksum(value: string) {
 }
 
 async function tagsForPost(db: CoreDb, postId: string) {
-  const rows = await db.select().from(schema.postTags).where(eq(schema.postTags.postId, postId));
+  const rows = await db
+    .select()
+    .from(schema.postTags)
+    .where(eq(schema.postTags.postId, postId));
   return rows.map((row) => row.tag);
 }
 
-async function variantsForPost(db: CoreDb, postId: string, includeBody: boolean) {
+async function variantsForPost(
+  db: CoreDb,
+  postId: string,
+  includeBody: boolean,
+) {
   const rows = await db
     .select()
     .from(schema.postVariants)
@@ -97,7 +105,11 @@ async function variantsForPost(db: CoreDb, postId: string, includeBody: boolean)
   }));
 }
 
-async function postView(db: CoreDb, row: typeof schema.posts.$inferSelect, includeBody: boolean) {
+async function postView(
+  db: CoreDb,
+  row: typeof schema.posts.$inferSelect,
+  includeBody: boolean,
+) {
   const [tags, variants] = await Promise.all([
     tagsForPost(db, row.id),
     variantsForPost(db, row.id, includeBody),
@@ -128,33 +140,54 @@ export async function listPosts(options: { includeBody?: boolean } = {}) {
     .from(schema.posts)
     .where(sql`${schema.posts.status} <> 'archived'`)
     .orderBy(desc(schema.posts.pinned), desc(schema.posts.updatedAt));
-  return Promise.all(rows.map((row) => postView(database, row, options.includeBody === true)));
+  return Promise.all(
+    rows.map((row) => postView(database, row, options.includeBody === true)),
+  );
 }
 
 export async function findPost(idOrSlug: string, includeBody = true) {
   const database = getCoreDb();
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idOrSlug);
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      idOrSlug,
+    );
   const [row] = await database
     .select()
     .from(schema.posts)
-    .where(isUuid ? or(eq(schema.posts.id, idOrSlug), eq(schema.posts.slug, idOrSlug)) : eq(schema.posts.slug, idOrSlug))
+    .where(
+      isUuid
+        ? or(eq(schema.posts.id, idOrSlug), eq(schema.posts.slug, idOrSlug))
+        : eq(schema.posts.slug, idOrSlug),
+    )
     .limit(1);
   return row ? postView(database, row, includeBody) : null;
 }
 
 export async function findPostVariant(idOrSlug: string, locale: string) {
   const database = getCoreDb();
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idOrSlug);
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      idOrSlug,
+    );
   const [post] = await database
     .select()
     .from(schema.posts)
-    .where(isUuid ? or(eq(schema.posts.id, idOrSlug), eq(schema.posts.slug, idOrSlug)) : eq(schema.posts.slug, idOrSlug))
+    .where(
+      isUuid
+        ? or(eq(schema.posts.id, idOrSlug), eq(schema.posts.slug, idOrSlug))
+        : eq(schema.posts.slug, idOrSlug),
+    )
     .limit(1);
   if (!post) return null;
   const [variant] = await database
     .select()
     .from(schema.postVariants)
-    .where(and(eq(schema.postVariants.postId, post.id), eq(schema.postVariants.locale, locale)))
+    .where(
+      and(
+        eq(schema.postVariants.postId, post.id),
+        eq(schema.postVariants.locale, locale),
+      ),
+    )
     .limit(1);
   if (!variant) return null;
   return {
@@ -188,7 +221,8 @@ export async function createPost(input: PostInput, actorId: string) {
       pinned: input.pinned ?? false,
       accessMode: input.accessMode ?? "public",
       accessGroup: input.accessGroup ?? null,
-      publishedAt: input.status === "published" ? asDate(input.date, now) : null,
+      publishedAt:
+        input.status === "published" ? asDate(input.date, now) : null,
       revision: 1,
       createdBy: actorId,
       updatedBy: actorId,
@@ -211,7 +245,9 @@ export async function createPost(input: PostInput, actorId: string) {
       });
     }
     if (tags.length > 0) {
-      await tx.insert(schema.postTags).values(tags.map((tag) => ({ postId: id, tag })));
+      await tx
+        .insert(schema.postTags)
+        .values(tags.map((tag) => ({ postId: id, tag })));
     }
     await tx.insert(schema.postRevisions).values({
       id: randomUUID(),
@@ -227,15 +263,21 @@ export async function createPost(input: PostInput, actorId: string) {
 
 export async function updatePost(
   id: string,
-  input: Omit<Partial<Omit<PostInput, "variant">>, "accessGroup"> & { accessGroup?: string | null },
+  input: Omit<Partial<Omit<PostInput, "variant">>, "accessGroup"> & {
+    accessGroup?: string | null;
+  },
   actorId: string,
   expectedRevision?: number,
 ) {
   const database = getCoreDb();
   const now = new Date();
-  const revisionPredicate = expectedRevision === undefined
-    ? eq(schema.posts.id, id)
-    : and(eq(schema.posts.id, id), eq(schema.posts.revision, expectedRevision));
+  const revisionPredicate =
+    expectedRevision === undefined
+      ? eq(schema.posts.id, id)
+      : and(
+          eq(schema.posts.id, id),
+          eq(schema.posts.revision, expectedRevision),
+        );
   const updated = await database
     .update(schema.posts)
     .set({
@@ -244,7 +286,9 @@ export async function updatePost(
       ...(input.sourceLocale ? { sourceLocale: input.sourceLocale } : {}),
       ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
       ...(input.accessMode ? { accessMode: input.accessMode } : {}),
-      ...(input.accessGroup === undefined ? {} : { accessGroup: input.accessGroup ?? null }),
+      ...(input.accessGroup === undefined
+        ? {}
+        : { accessGroup: input.accessGroup ?? null }),
       ...(input.status === "published" ? { publishedAt: now } : {}),
       revision: sql`${schema.posts.revision} + 1`,
       updatedBy: actorId,
@@ -263,7 +307,10 @@ export async function updatePost(
     const tags = normalizeTags(input.tags);
     await database.transaction(async (tx) => {
       await tx.delete(schema.postTags).where(eq(schema.postTags.postId, id));
-      if (tags.length > 0) await tx.insert(schema.postTags).values(tags.map((tag) => ({ postId: id, tag })));
+      if (tags.length > 0)
+        await tx
+          .insert(schema.postTags)
+          .values(tags.map((tag) => ({ postId: id, tag })));
     });
   }
   return findPost(id, true);
@@ -282,9 +329,18 @@ export async function upsertPostVariant(
   const [existing] = await database
     .select()
     .from(schema.postVariants)
-    .where(and(eq(schema.postVariants.postId, id), eq(schema.postVariants.locale, locale)))
+    .where(
+      and(
+        eq(schema.postVariants.postId, id),
+        eq(schema.postVariants.locale, locale),
+      ),
+    )
     .limit(1);
-  if (existing && expectedRevision !== undefined && existing.revision !== expectedRevision) {
+  if (
+    existing &&
+    expectedRevision !== undefined &&
+    existing.revision !== expectedRevision
+  ) {
     const error = new Error("The resource changed since it was loaded.");
     error.name = "RevisionConflict";
     throw error;
@@ -326,17 +382,28 @@ export async function upsertPostVariant(
   }
   await database
     .update(schema.posts)
-    .set({ revision: sql`${schema.posts.revision} + 1`, updatedBy: actorId, updatedAt: now })
+    .set({
+      revision: sql`${schema.posts.revision} + 1`,
+      updatedBy: actorId,
+      updatedAt: now,
+    })
     .where(eq(schema.posts.id, id));
   return findPostVariant(id, locale);
 }
 
 export async function deletePost(id: string, expectedRevision?: number) {
   const database = getCoreDb();
-  const predicate = expectedRevision === undefined
-    ? eq(schema.posts.id, id)
-    : and(eq(schema.posts.id, id), eq(schema.posts.revision, expectedRevision));
-  const deleted = await database.delete(schema.posts).where(predicate).returning({ id: schema.posts.id });
+  const predicate =
+    expectedRevision === undefined
+      ? eq(schema.posts.id, id)
+      : and(
+          eq(schema.posts.id, id),
+          eq(schema.posts.revision, expectedRevision),
+        );
+  const deleted = await database
+    .delete(schema.posts)
+    .where(predicate)
+    .returning({ id: schema.posts.id });
   if (deleted.length === 0) {
     const existing = await findPost(id, false);
     if (!existing) return null;
@@ -347,13 +414,17 @@ export async function deletePost(id: string, expectedRevision?: number) {
   return { id };
 }
 
-async function tweetView(database: CoreDb, row: typeof schema.tweets.$inferSelect) {
+async function tweetView(
+  database: CoreDb,
+  row: typeof schema.tweets.$inferSelect,
+) {
   const variants = await database
     .select()
     .from(schema.tweetVariants)
     .where(eq(schema.tweetVariants.tweetId, row.id))
     .orderBy(asc(schema.tweetVariants.locale));
-  const source = variants.find((variant) => variant.locale === "source") ?? variants[0];
+  const source =
+    variants.find((variant) => variant.locale === "source") ?? variants[0];
   return {
     id: row.id,
     source: row.source,
@@ -361,21 +432,26 @@ async function tweetView(database: CoreDb, row: typeof schema.tweets.$inferSelec
     createdAt: row.publishedAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     content: source?.body ?? "",
-    lang: source?.originLocale ?? (source?.locale === "source" ? undefined : source?.locale),
+    lang:
+      source?.originLocale ??
+      (source?.locale === "source" ? undefined : source?.locale),
     tags: Array.isArray(row.tags) ? row.tags : [],
     visibility: row.visibility,
     pinned: row.pinned,
     translations: Object.fromEntries(
       variants
         .filter((variant) => variant.locale !== "source")
-        .map((variant) => [variant.locale, {
-          content: variant.body,
-          sourceLang: source?.locale ?? "other",
-          translatedAt: variant.updatedAt.toISOString(),
-          model: "core-db",
-          promptKey: `translate-to-${variant.locale}`,
-          stale: variant.translationState === "stale",
-        }]),
+        .map((variant) => [
+          variant.locale,
+          {
+            content: variant.body,
+            sourceLang: source?.locale ?? "other",
+            translatedAt: variant.updatedAt.toISOString(),
+            model: "core-db",
+            promptKey: `translate-to-${variant.locale}`,
+            stale: variant.translationState === "stale",
+          },
+        ]),
     ),
     ...(row.origin ? { origin: row.origin } : {}),
     revision: row.revision,
@@ -384,7 +460,10 @@ async function tweetView(database: CoreDb, row: typeof schema.tweets.$inferSelec
 
 export async function listTweets() {
   const database = getCoreDb();
-  const rows = await database.select().from(schema.tweets).orderBy(desc(schema.tweets.publishedAt));
+  const rows = await database
+    .select()
+    .from(schema.tweets)
+    .orderBy(desc(schema.tweets.publishedAt));
   return Promise.all(rows.map((row) => tweetView(database, row)));
 }
 
@@ -431,43 +510,77 @@ export async function updateTweet(
   expectedRevision?: number,
 ) {
   const database = getCoreDb();
-  const current = await database.select().from(schema.tweets).where(eq(schema.tweets.id, id)).limit(1);
+  const current = await database
+    .select()
+    .from(schema.tweets)
+    .where(eq(schema.tweets.id, id))
+    .limit(1);
   if (current.length === 0) return null;
-  if (expectedRevision !== undefined && current[0].revision !== expectedRevision) {
+  if (
+    expectedRevision !== undefined &&
+    current[0].revision !== expectedRevision
+  ) {
     const error = new Error("The resource changed since it was loaded.");
     error.name = "RevisionConflict";
     throw error;
   }
   const now = new Date();
-  await database.update(schema.tweets).set({
-    ...(input.visibility ? { visibility: input.visibility, visible: input.visibility !== "hidden" } : {}),
-    ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
-    ...(input.tags ? { tags: normalizeTags(input.tags) } : {}),
-    ...(input.publishedAt ? { publishedAt: asDate(input.publishedAt) } : {}),
-    revision: sql`${schema.tweets.revision} + 1`,
-    updatedBy: actorId,
-    updatedAt: now,
-  }).where(eq(schema.tweets.id, id));
-  if (input.content !== undefined || input.locale !== undefined) {
-    await database.update(schema.tweetVariants).set({
-      ...(input.content === undefined ? {} : { body: input.content.trim() }),
-      ...(input.locale === undefined ? {} : { originLocale: input.locale }),
-      translationState: "stale",
-      revision: sql`${schema.tweetVariants.revision} + 1`,
+  await database
+    .update(schema.tweets)
+    .set({
+      ...(input.visibility
+        ? {
+            visibility: input.visibility,
+            visible: input.visibility !== "hidden",
+          }
+        : {}),
+      ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
+      ...(input.tags ? { tags: normalizeTags(input.tags) } : {}),
+      ...(input.publishedAt ? { publishedAt: asDate(input.publishedAt) } : {}),
+      revision: sql`${schema.tweets.revision} + 1`,
+      updatedBy: actorId,
       updatedAt: now,
-    }).where(and(eq(schema.tweetVariants.tweetId, id), eq(schema.tweetVariants.locale, "source")));
+    })
+    .where(eq(schema.tweets.id, id));
+  if (input.content !== undefined || input.locale !== undefined) {
+    await database
+      .update(schema.tweetVariants)
+      .set({
+        ...(input.content === undefined ? {} : { body: input.content.trim() }),
+        ...(input.locale === undefined ? {} : { originLocale: input.locale }),
+        translationState: "stale",
+        revision: sql`${schema.tweetVariants.revision} + 1`,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(schema.tweetVariants.tweetId, id),
+          eq(schema.tweetVariants.locale, "source"),
+        ),
+      );
   }
   return (await listTweets()).find((tweet) => tweet.id === id) ?? null;
 }
 
 export async function deleteTweet(id: string, expectedRevision?: number) {
   const database = getCoreDb();
-  const predicate = expectedRevision === undefined
-    ? eq(schema.tweets.id, id)
-    : and(eq(schema.tweets.id, id), eq(schema.tweets.revision, expectedRevision));
-  const deleted = await database.delete(schema.tweets).where(predicate).returning({ id: schema.tweets.id });
+  const predicate =
+    expectedRevision === undefined
+      ? eq(schema.tweets.id, id)
+      : and(
+          eq(schema.tweets.id, id),
+          eq(schema.tweets.revision, expectedRevision),
+        );
+  const deleted = await database
+    .delete(schema.tweets)
+    .where(predicate)
+    .returning({ id: schema.tweets.id });
   if (deleted.length === 0) {
-    const existing = await database.select({ id: schema.tweets.id }).from(schema.tweets).where(eq(schema.tweets.id, id)).limit(1);
+    const existing = await database
+      .select({ id: schema.tweets.id })
+      .from(schema.tweets)
+      .where(eq(schema.tweets.id, id))
+      .limit(1);
     if (existing.length === 0) return null;
     const error = new Error("The resource changed since it was loaded.");
     error.name = "RevisionConflict";

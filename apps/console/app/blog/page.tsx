@@ -15,11 +15,7 @@ export default async function BlogPage({
   }
 
   return (
-    <AdminShell
-      csrfToken={session.csrf}
-      email={session.email}
-      role={session.role}
-    >
+    <AdminShell csrfToken={session.csrf} email={session.email} role={session.role}>
       <BlogPageClient csrfToken={session.csrf} initialSelection={await searchParams} />
     </AdminShell>
   );

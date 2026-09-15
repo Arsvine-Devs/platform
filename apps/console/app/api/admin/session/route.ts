@@ -31,7 +31,11 @@ export async function GET(request: NextRequest) {
     csrf: session.csrf,
     amr: session.amr,
   };
-  if (session.authSource === 'oidc' && 'accessToken' in session && typeof session.accessToken === 'string') {
+  if (
+    session.authSource === 'oidc' &&
+    'accessToken' in session &&
+    typeof session.accessToken === 'string'
+  ) {
     try {
       data.controlPlane = await readControlPlanePrincipal(session.accessToken);
     } catch (error) {

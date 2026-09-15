@@ -30,9 +30,7 @@ export function proxy(request: NextRequest) {
   // source of truth (they validate the HMAC signature); this just stops new
   // routes from being silently exposed if the author forgets the boilerplate.
   if (isAdminApi(pathname) && OIDC_CONTROL_API_PATHS.has(pathname)) {
-    const hasSession = Boolean(
-      request.cookies.get(OIDC_SESSION_COOKIE)?.value,
-    );
+    const hasSession = Boolean(request.cookies.get(OIDC_SESSION_COOKIE)?.value);
     if (!hasSession) {
       return NextResponse.json({ ok: false, error: { message: 'Unauthorized' } }, { status: 401 });
     }

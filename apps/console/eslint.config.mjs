@@ -1,5 +1,6 @@
 import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import nextTypescript from 'eslint-config-next/typescript';
+import oxlint from 'eslint-plugin-oxlint';
 
 const config = [...nextCoreWebVitals, ...nextTypescript];
 
@@ -21,8 +22,11 @@ const platformBoundaryPatterns = [
   '**/packages/integrations/**',
 ];
 
+const compatibilityConfig = oxlint.buildFromOxlintConfigFile('../../config/oxlint.json');
+
 const platformEslintConfig = [
   ...config,
+  ...compatibilityConfig,
   {
     files: ['**/*.{js,mjs,cjs,ts,mts,cts,tsx}'],
     rules: {

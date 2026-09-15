@@ -1,13 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  FileText,
-  Library,
-  LogOut,
-  MessageCircle,
-  Search,
-} from 'lucide-react';
+import { FileText, Library, LogOut, MessageCircle, Search } from 'lucide-react';
 import { useEffect, useState, useTransition, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -98,11 +92,13 @@ export default function AdminShellClient({
   const handleLogout = () => {
     startTransition(async () => {
       try {
-        await adminRequest<void>('/api/admin/logout', { method: 'POST', csrfToken });
+        const result = await adminRequest<{ authLogoutUrl: string | null }>('/api/admin/logout', {
+          method: 'POST',
+          csrfToken,
+        });
+        window.location.replace(result.authLogoutUrl ?? '/auth/signed-out');
       } catch (error) {
         toast.error(error instanceof Error ? error.message : t('shell.logoutError'));
-      } finally {
-        router.push('/login');
       }
     });
   };

@@ -6,9 +6,9 @@ export type TweetLang = (typeof TWEET_LANGS)[number];
 export type SiteTweetLocale = (typeof SITE_TWEET_LOCALES)[number];
 export type TweetVisibility = (typeof TWEET_VISIBILITIES)[number];
 export type TweetFilter = (typeof TWEET_FILTERS)[number];
-export type TweetTranslationPromptKey = `translate-to-${SiteTweetLocale}`;
+type TweetTranslationPromptKey = `translate-to-${SiteTweetLocale}`;
 
-export type TweetOrigin = {
+type TweetOrigin = {
   provider: 'x';
   externalId: string;
   canonicalUrl: string;
@@ -18,7 +18,7 @@ export type TweetOrigin = {
   syncedAt?: string;
 };
 
-export type TweetTranslation = {
+type TweetTranslation = {
   content: string;
   sourceLang: TweetLang;
   translatedAt: string;
@@ -40,23 +40,6 @@ export type TweetItem = {
   origin?: TweetOrigin;
 };
 
-export type ImportedTweet = {
-  externalId: string;
-  createdAt: string;
-  content: string;
-  lang?: TweetLang;
-  authorId: string;
-  authorUsername: string;
-  canonicalUrl: string;
-};
-
-export type TweetIndexItem = {
-  month: string;
-  path: string;
-  count: number;
-  updatedAt?: string;
-};
-
 export type TweetMonthRecord = {
   month: string;
   path: string;
@@ -65,7 +48,7 @@ export type TweetMonthRecord = {
   tweets: TweetItem[];
 };
 
-export type RepoSummary = {
+type RepoSummary = {
   name: string;
   branch: string;
   originUrl?: string;
@@ -99,10 +82,6 @@ export type UpdateTweetInput = {
   visibility?: TweetVisibility;
   pinned?: boolean;
 };
-
-export function getTweetTranslationPromptKey(locale: SiteTweetLocale): TweetTranslationPromptKey {
-  return `translate-to-${locale}` as TweetTranslationPromptKey;
-}
 
 export function getTranslationTargetLocales(sourceLang?: TweetLang): SiteTweetLocale[] {
   if (sourceLang === 'zh-CN') return ['zh-TW', 'en'];

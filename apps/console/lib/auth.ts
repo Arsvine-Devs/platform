@@ -41,7 +41,10 @@ export function verifyCsrf(request: NextRequest, session: AuthenticatedSession) 
   const header = request.headers.get('x-csrf-token')?.trim();
   const cookie = request.cookies.get(CSRF_COOKIE)?.value?.trim();
   return Boolean(
-    header && cookie && constantTimeEqual(header, cookie) && constantTimeEqual(header, session.csrf),
+    header &&
+    cookie &&
+    constantTimeEqual(header, cookie) &&
+    constantTimeEqual(header, session.csrf),
   );
 }
 
@@ -54,8 +57,4 @@ export function clearAuthCookies(response: NextResponse) {
     path: '/',
     maxAge: 0,
   });
-}
-
-export function isOwner(session: AuthenticatedSession) {
-  return session.role === 'owner';
 }

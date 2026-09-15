@@ -7,11 +7,7 @@ export default async function LibraryPage() {
   const session = await getSessionFromCookieStore();
   if (!session) redirect('/login');
   return (
-    <AdminShell
-      csrfToken={session.csrf}
-      email={session.email}
-      role={session.role}
-    >
+    <AdminShell csrfToken={session.csrf} email={session.email} role={session.role}>
       <LibraryPageClient />
     </AdminShell>
   );

@@ -27,7 +27,7 @@ export default function RepositoryPanel({ data, targetPath }: RepositoryPanelPro
     {
       icon: <MapPin />,
       label: t('tweets.source'),
-      value: repo?.originUrl ?? 'GitHub Contents API',
+      value: repo?.originUrl ?? 'Core API',
     },
     { icon: <FileCode2 />, label: t('tweets.currentFile'), value: targetPath },
   ];

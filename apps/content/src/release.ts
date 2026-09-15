@@ -9,7 +9,7 @@ export type CurrentPointer = {
   manifest: string;
 };
 
-export type ReleasePostVariantDescriptor =
+type ReleasePostVariantDescriptor =
   | string
   | {
       key: string;
@@ -46,7 +46,7 @@ export type ReleaseTweetIndexEntry = {
   updatedAt?: string;
 };
 
-export class ReleaseFormatError extends Error {
+class ReleaseFormatError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ReleaseFormatError";
@@ -118,7 +118,11 @@ function readManifest(
       : {}),
     ...(typeof postsIndex === "string" ? { posts: { index: postsIndex } } : {}),
     ...(isRecord(value.tweets) && typeof value.tweets.index === "string"
-      ? { tweets: { index: requireObjectKey(value.tweets.index, "tweets index") } }
+      ? {
+          tweets: {
+            index: requireObjectKey(value.tweets.index, "tweets index"),
+          },
+        }
       : {}),
   };
 }
@@ -157,14 +161,20 @@ export async function readPublishedRelease(
     : [];
   const tweetIndex = manifest.tweets
     ? readTweetIndex(
-        readJson(await storage.getText(manifest.tweets.index), manifest.tweets.index),
+        readJson(
+          await storage.getText(manifest.tweets.index),
+          manifest.tweets.index,
+        ),
         manifest.tweets.index,
       )
     : [];
   return { pointer, manifest, posts, tweetIndex };
 }
 
-function readTweetIndex(value: unknown, indexKey: string): ReleaseTweetIndexEntry[] {
+function readTweetIndex(
+  value: unknown,
+  indexKey: string,
+): ReleaseTweetIndexEntry[] {
   if (!Array.isArray(value)) {
     throw new ReleaseFormatError("Published tweet index is invalid");
   }
@@ -181,7 +191,9 @@ function readTweetIndex(value: unknown, indexKey: string): ReleaseTweetIndexEntr
       month: entry.month,
       path,
       ...(typeof entry.count === "number" ? { count: entry.count } : {}),
-      ...(typeof entry.updatedAt === "string" ? { updatedAt: entry.updatedAt } : {}),
+      ...(typeof entry.updatedAt === "string"
+        ? { updatedAt: entry.updatedAt }
+        : {}),
     };
   });
 }
@@ -191,7 +203,9 @@ export async function readPublishedTweetMonth(
   release: Awaited<ReturnType<typeof readPublishedRelease>>,
   month: string,
 ) {
-  const entry = release.tweetIndex.find((candidate) => candidate.month === month);
+  const entry = release.tweetIndex.find(
+    (candidate) => candidate.month === month,
+  );
   if (!entry) return null;
   const value = readJson(await storage.getText(entry.path), entry.path);
   if (!Array.isArray(value)) {

@@ -65,17 +65,9 @@ export async function adminRequest<T>(
     headers.set('x-csrf-token', csrfToken);
   }
 
-  const requestInput =
-    typeof input === 'string' &&
-    input.startsWith('/api/admin/') &&
-    input !== '/api/admin/logout' &&
-    input !== '/api/admin/session'
-      ? `/api/control/${input.slice('/api/admin/'.length)}`
-      : input;
-
   let response: Response;
   try {
-    response = await fetch(requestInput, {
+    response = await fetch(input, {
       ...requestInit,
       body: body === undefined ? undefined : JSON.stringify(body),
       cache: 'no-store',

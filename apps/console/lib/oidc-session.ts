@@ -2,11 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
 import { Redis } from '@upstash/redis';
 import { cookies } from 'next/headers';
 import type { NextRequest, NextResponse } from 'next/server';
-import {
-  OIDC_SESSION_COOKIE,
-  OIDC_SESSION_TTL_SECONDS,
-  type OidcTokens,
-} from './oidc';
+import { OIDC_SESSION_COOKIE, OIDC_SESSION_TTL_SECONDS, type OidcTokens } from './oidc';
 import type { AuthenticatedSession } from './auth';
 
 type StoredOidcSession = OidcTokens & AuthenticatedSession & { authSource: 'oidc' };
@@ -90,7 +86,7 @@ export async function createOidcSession(tokens: OidcTokens) {
   return { id, session };
 }
 
-export async function getOidcSession(id: string | undefined): Promise<StoredOidcSession | null> {
+async function getOidcSession(id: string | undefined): Promise<StoredOidcSession | null> {
   if (!id) return null;
   const value = await read(id);
   if (!value) return null;
@@ -124,11 +120,7 @@ export async function getOidcSessionFromCookieStore() {
   return getOidcSession(store.get(OIDC_SESSION_COOKIE)?.value);
 }
 
-export function applyOidcSessionCookies(
-  response: NextResponse,
-  id: string,
-  csrf: string,
-) {
+export function applyOidcSessionCookies(response: NextResponse, id: string, csrf: string) {
   response.cookies.set(OIDC_SESSION_COOKIE, id, {
     httpOnly: true,
     secure: true,

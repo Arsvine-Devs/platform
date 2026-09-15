@@ -1,16 +1,19 @@
 # ARSVINE PLATFORM
 
-The `Arsvine-Devs/platform` repository is the platform workspace for the Arsvine management system. The current Phase 1 workspace contains the behavior-preserving Console move; Auth, API, Content, Worker, and shared packages are introduced in later migration phases.
+The `Arsvine-Devs/platform` repository is the platform workspace for the Arsvine management system. It currently contains the Console, Auth, API, Content read plane, and shared runtime packages used by the subdomain migration.
 
 ## Workspace layout
 
 ```text
 apps/
-└── console/    # current Admin application; console.arsvine.com target
-packages/       # reserved for phase-owned shared/server packages
+├── console/    # console.arsvine.com BFF and management UI
+├── auth/       # auth.arsvine.com identity and OAuth/OIDC provider
+├── api/        # api.arsvine.com control plane
+└── content/    # content.arsvine.com published read plane
+packages/       # authz, Core DB, object storage, contracts, observability
 ```
 
-The Console application keeps its existing routes, server code, database migrations, tests, and operational scripts under `apps/console`. The workspace root owns dependency installation and delegates application commands through the `arsvine-admin` package.
+The workspace root owns dependency installation, cross-service quality gates, and the current service build/typecheck traversal. Console-specific UI and BFF code remains under `apps/console`; service ownership stays with each app/package.
 
 ## Development
 
@@ -21,7 +24,7 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm dev
 ```
 
-Run the application-scoped checks from the workspace root:
+Run the workspace checks from the root:
 
 ```bash
 corepack pnpm lint
@@ -31,13 +34,13 @@ corepack pnpm build
 corepack pnpm check
 ```
 
-The current Console still uses its existing provider and authentication boundaries. The Phase 1 move does not introduce Auth/API extraction or change production credentials.
+The current connection direction is Console BFF → `API_BASE_URL`/`api.arsvine.com`, Console identity → Auth OIDC, and Realm → `CONTENT_BASE_URL`/`content.arsvine.com`. Production environment values and authenticated mutation acceptance remain deployment concerns.
 
 Detailed Console behavior, environment variables, and current operational procedures are documented in [`apps/console/README.md`](./apps/console/README.md).
 
 ## Reference runtime
 
-The Phase 2 reference stack uses Docker Compose with PostgreSQL, Valkey, MinIO, Console, and Caddy. It is a local/provider-portability baseline; the current Console still retains its existing Neon, Upstash, and GitHub provider contracts until the later portability phases.
+The optional reference stack is a later provider-portability target. The current deployed connection is Console → Auth/API and API → Content; its runtime service contracts are configured per application environment.
 
 With Docker Desktop running:
 

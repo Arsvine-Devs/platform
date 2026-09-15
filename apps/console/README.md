@@ -26,18 +26,24 @@ by `content.arsvine.com`; Realm consumes that published read plane.
 - `/blog` edits Blog variants and publishes releases.
 - `/tweets` edits Tweet records.
 - `/control` shows the OIDC session and Control API principal.
+- `/auth/signed-out` is the post-logout landing page after Console and Auth
+  sessions have both been closed.
 - `/` redirects to `/library`.
 
 Identity security, invitations, passkeys, TOTP, and account lifecycle belong to
-`auth.arsvine.com`. The former local login, WebAuthn, Workspace, Members,
-Security, GitHub content, X cron, and local database routes are retired.
+`auth.arsvine.com/security`. Console logout deletes its host-only session and
+then completes Auth RP-Initiated Logout; registered passkeys are account
+credentials and are not deleted by signing out. The former local login,
+WebAuthn, Workspace, Members, Security, GitHub content, X cron, and local
+database routes are retired.
 
 ## Environment
 
 See [.env.example](./.env.example). The required production groups are:
 
 - `SESSION_SECRET` for encrypted server-side Console sessions;
-- `AUTH_OIDC_*` for the exact Auth client and `https://api.arsvine.com` resource;
+- `API_BASE_URL` for server-side Control API requests;
+- `AUTH_OIDC_*` for the exact Auth client, issuer, and `https://api.arsvine.com` resource;
 - Upstash REST or standard Redis/Valkey variables for session/rate-limit state;
 - optional Vercel Analytics origins.
 

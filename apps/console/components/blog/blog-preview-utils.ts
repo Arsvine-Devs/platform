@@ -1,14 +1,20 @@
 const SAFE_ABSOLUTE_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 const URI_SCHEME_PATTERN = /^[a-z][a-z\d+.-]*:/i;
-const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001F\u007F]/;
 const KNOWN_MDX_TAG_PATTERN = /<\/?(?:Term|Explain|Spoiler|Lead|Aside|Mark|Ref)(?:\s+[^>]*)?>/g;
+
+function containsControlCharacter(value: string) {
+  return Array.from(value).some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= 0x1f || code === 0x7f;
+  });
+}
 
 export function sanitizeUrl(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();
   if (
     !trimmed ||
-    CONTROL_CHARACTER_PATTERN.test(trimmed) ||
+    containsControlCharacter(trimmed) ||
     trimmed.startsWith('//') ||
     trimmed.includes('\\')
   )

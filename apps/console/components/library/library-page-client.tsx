@@ -109,7 +109,7 @@ export default function LibraryPageClient() {
     let active = true;
     void (async () => {
       try {
-        const data = await adminRequest<LibraryData>('/api/admin/library');
+        const data = await adminRequest<LibraryData>('/api/control/library');
         if (!active) return;
         setItems(data.items);
         setSelectedId(data.items[0]?.id);

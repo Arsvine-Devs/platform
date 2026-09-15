@@ -1,13 +1,15 @@
+import { getApiBaseUrl } from './api-base';
+
 export type ControlPlanePrincipal = {
   id: string;
   role: 'owner' | 'editor' | null;
   scopes: string[];
 };
 
-export async function readControlPlanePrincipal(accessToken: string): Promise<ControlPlanePrincipal> {
-  const resource = process.env.AUTH_OIDC_RESOURCE?.trim();
-  if (!resource) throw new Error('Missing AUTH_OIDC_RESOURCE');
-  const url = new URL('/v1/me', resource);
+export async function readControlPlanePrincipal(
+  accessToken: string,
+): Promise<ControlPlanePrincipal> {
+  const url = new URL('/v1/me', getApiBaseUrl());
   const response = await fetch(url, {
     headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
     signal: AbortSignal.timeout(8000),

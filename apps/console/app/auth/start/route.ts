@@ -1,5 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { buildAuthorizationRequest, OIDC_STATE_COOKIE, normalizeReturnTo, sealState } from '@/lib/oidc';
+import {
+  buildAuthorizationRequest,
+  OIDC_STATE_COOKIE,
+  normalizeReturnTo,
+  sealState,
+} from '@/lib/oidc';
 
 export const dynamic = 'force-dynamic';
 

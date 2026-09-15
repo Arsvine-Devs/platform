@@ -64,7 +64,8 @@ export function openState(value: string | undefined): OidcState | null {
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
   try {
     const state = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as OidcState;
-    if (!state.state || !state.nonce || !state.codeVerifier || state.expiresAt <= Date.now()) return null;
+    if (!state.state || !state.nonce || !state.codeVerifier || state.expiresAt <= Date.now())
+      return null;
     return state;
   } catch {
     return null;
@@ -93,13 +94,23 @@ export function buildAuthorizationRequest(returnTo: string) {
     scope:
       process.env.AUTH_OIDC_SCOPE?.trim() ||
       'openid profile email content:read content:write content:publish assets:read assets:write integrations:read integrations:write jobs:read jobs:run',
-    resource: process.env.AUTH_OIDC_RESOURCE?.trim() || requiredUrl('API_PUBLIC_URL'),
+    resource: requiredUrl('AUTH_OIDC_RESOURCE'),
     state: state.state,
     nonce: state.nonce,
     code_challenge: challenge,
     code_challenge_method: 'S256',
   }).toString();
   return { state, authorizationUrl: url.toString() };
+}
+
+export function buildLogoutUrl(idTokenHint: string) {
+  const url = new URL(requiredUrl('AUTH_OIDC_END_SESSION_URL'));
+  url.search = new URLSearchParams({
+    id_token_hint: idTokenHint,
+    client_id: required('AUTH_OIDC_CLIENT_ID'),
+    post_logout_redirect_uri: requiredUrl('AUTH_OIDC_POST_LOGOUT_REDIRECT_URI'),
+  }).toString();
+  return url.toString();
 }
 
 export async function exchangeAuthorizationCode(code: string, state: OidcState) {
@@ -144,7 +155,10 @@ export async function exchangeAuthorizationCode(code: string, state: OidcState) 
     signal: AbortSignal.timeout(8000),
     cache: 'no-store',
   });
-  const userInfo = (await userInfoResponse.json().catch(() => null)) as Record<string, unknown> | null;
+  const userInfo = (await userInfoResponse.json().catch(() => null)) as Record<
+    string,
+    unknown
+  > | null;
   if (!userInfoResponse.ok || !userInfo) throw new Error('OIDC userinfo request failed.');
 
   const claims = { ...verified.payload, ...userInfo };
@@ -152,7 +166,9 @@ export async function exchangeAuthorizationCode(code: string, state: OidcState) 
   const email = typeof claims.email === 'string' ? claims.email : '';
   const roleValue = claims.role;
   const role = Array.isArray(roleValue)
-    ? roleValue.find((value): value is 'owner' | 'editor' => value === 'owner' || value === 'editor')
+    ? roleValue.find(
+        (value): value is 'owner' | 'editor' => value === 'owner' || value === 'editor',
+      )
     : roleValue === 'owner' || roleValue === 'editor'
       ? roleValue
       : undefined;
