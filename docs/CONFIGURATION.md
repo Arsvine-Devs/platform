@@ -6,7 +6,7 @@ Platform 把配置分为两类：源代码拥有的固定站点拓扑，以及�
 
 机器契约是 [`config/env-contracts.json`](../config/env-contracts.json)，四个服务的 `.env.example` 是安全模板，由 `corepack pnpm env:check` 校验。真实值只放在对应服务目录的未跟踪 `.env.local` 或部署平台环境中，不进入 Git、浏览器 bundle、日志或测试 fixture。
 
-截至 2026-09-15，五个 Vercel production deployment 均使用当前主分支版本，production environment 只保留动态运行时契约键；固定拓扑键由 `@arsvine/site-config` 提供，不应重新加入 Vercel 或 `.env`。
+五个 Vercel production deployment 使用当前主分支版本，production environment 只保留动态运行时契约键；固定拓扑键由 `@arsvine/site-config` 提供，不应重新加入 Vercel 或 `.env`。
 
 ## 源代码固定拓扑
 
