@@ -24,6 +24,8 @@ Console 浏览器只访问同源 BFF。OAuth access token、Core 数据库连接
 
 `status.arsvine.com` 是独立部署的运维检测与状态展示面。它观察公开健康路由，不参与 Console、Auth、API 或 Content 的业务请求链路。
 
+`content.arsvine.com` 的部署源是本仓库的 `apps/content` 和 Vercel project `arsvine-content`；同名独立仓库已归档，不属于当前代码、构建或发布链路。
+
 ## 服务所有权
 
 | 服务    | 拥有                                                   | 不拥有                                   |
