@@ -12,7 +12,7 @@ corepack pnpm --filter @arsvine/auth typecheck
 corepack pnpm --filter @arsvine/auth build
 ```
 
-环境变量以 [`./.env.example`](./.env.example) 和仓库 [`CONFIGURATION.md`](../../docs/CONFIGURATION.md) 为准。`AUTH_DATABASE_URL`、`BETTER_AUTH_SECRET`、issuer/audience、trusted origins 和 Passkey origin 必须按部署环境配置；服务端读取统一经过 `@arsvine/env`。
+动态环境变量以 [`./.env.example`](./.env.example) 和仓库 [`CONFIGURATION.md`](../../docs/CONFIGURATION.md) 为准。`AUTH_DATABASE_URL`、`BETTER_AUTH_SECRET` 和 `AUTH_TRUSTED_ORIGINS` 必须按部署环境配置；Auth origin、issuer/audience、OAuth resources 和 Passkey origin 由 `@arsvine/site-config` 提供，服务端读取统一经过 `@arsvine/env`。
 
 ## 页面与接口
 

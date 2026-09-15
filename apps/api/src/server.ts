@@ -3,8 +3,8 @@ import swagger from "@fastify/swagger";
 import { Type } from "@sinclair/typebox";
 import type { MeResponse } from "@arsvine/contracts";
 import { readEnv } from "@arsvine/env";
+import { siteConfig } from "@arsvine/site-config";
 import {
-  AuthConfigurationError,
   AuthTokenError,
   parseBearerToken,
   verifyAccessToken,
@@ -66,18 +66,12 @@ async function authenticateRequest(
         "Authentication is required.",
       );
     }
-    request.authPrincipal = await verifyAccessToken(token);
+    request.authPrincipal = await verifyAccessToken(token, {
+      issuer: siteConfig.auth.issuer,
+      audience: siteConfig.api.resource,
+      jwksUrl: siteConfig.auth.jwksUrl,
+    });
   } catch (error) {
-    if (error instanceof AuthConfigurationError) {
-      log("error", { service: "api", operation: "auth.config", requestId });
-      return sendAuthError(
-        reply,
-        requestId,
-        503,
-        "AUTH_UNAVAILABLE",
-        "Authentication verification is not configured.",
-      );
-    }
     log("info", { service: "api", operation: "auth.rejected", requestId });
     return sendAuthError(
       reply,
@@ -93,8 +87,8 @@ async function authenticateRequest(
 
 export function buildApiServer() {
   const app = Fastify({ logger: false });
-  const displayName = readEnv("API_DISPLAY_NAME") || "Control API";
-  const publicUrl = readEnv("API_PUBLIC_URL");
+  const displayName = siteConfig.api.displayName;
+  const publicUrl = siteConfig.api.origin;
 
   app.register(swagger, {
     openapi: {
@@ -107,12 +101,7 @@ export function buildApiServer() {
 
   app.get("/health/live", async () => ({ status: "live", service: "api" }));
   app.get("/health/ready", async (_request, reply) => {
-    const missing = [
-      "CORE_DATABASE_URL",
-      "AUTH_ISSUER",
-      "AUTH_JWKS_URL",
-      "API_RESOURCE",
-    ].filter((key) => !readEnv(key));
+    const missing = ["CORE_DATABASE_URL"].filter((key) => !readEnv(key));
     if (missing.length > 0) {
       return reply.code(503).send({
         status: "not_ready",

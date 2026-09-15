@@ -1,5 +1,4 @@
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
-import { readEnv } from "@arsvine/env";
 
 const remoteJwks = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
@@ -26,39 +25,6 @@ export class AuthTokenError extends Error {
     super(message);
     this.name = "AuthTokenError";
   }
-}
-
-export class AuthConfigurationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "AuthConfigurationError";
-  }
-}
-
-export function readAuthVerificationConfig(
-  env: NodeJS.ProcessEnv = process.env,
-): AuthVerificationConfig {
-  const issuer = readEnv("AUTH_ISSUER", env);
-  const audience = readEnv("API_RESOURCE", env);
-  const jwksUrl = readEnv("AUTH_JWKS_URL", env);
-  if (!issuer || !audience || !jwksUrl) {
-    throw new AuthConfigurationError(
-      "AUTH_ISSUER, API_RESOURCE, and AUTH_JWKS_URL are required",
-    );
-  }
-
-  try {
-    const parsed = new URL(jwksUrl);
-    const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
-    if (parsed.protocol !== "https:" && !loopbackHosts.has(parsed.hostname)) {
-      throw new Error("JWKS URL must use HTTPS outside localhost");
-    }
-  } catch (error) {
-    if (error instanceof AuthConfigurationError) throw error;
-    throw new AuthConfigurationError("AUTH_JWKS_URL must be an absolute URL");
-  }
-
-  return { issuer, audience, jwksUrl };
 }
 
 function getRemoteKeys(jwksUrl: string) {
@@ -99,7 +65,7 @@ export function parseBearerToken(value: string | undefined) {
 
 export async function verifyAccessToken(
   token: string,
-  config = readAuthVerificationConfig(),
+  config: AuthVerificationConfig,
 ): Promise<AuthPrincipal> {
   try {
     const { payload } = await jwtVerify(token, getRemoteKeys(config.jwksUrl), {

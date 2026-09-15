@@ -22,6 +22,8 @@ Platform 是管理系统的服务工作区，集中维护 Console、Auth、API�
 | `packages/core-db/`        | Core PostgreSQL schema 与 authoring 查询 | [`packages/core-db/README.md`](./packages/core-db/README.md)               |
 | `packages/object-storage/` | S3-compatible object storage 适配        | [`packages/object-storage/README.md`](./packages/object-storage/README.md) |
 | `packages/observability/`  | 结构化服务日志                           | [`packages/observability/README.md`](./packages/observability/README.md)   |
+| `packages/env/`            | 动态环境读取、dotenv 入口和 envctl CLI   | [`packages/env/README.md`](./packages/env/README.md)                       |
+| `packages/site-config/`    | 固定服务拓扑和协议常量                   | [`packages/site-config/README.md`](./packages/site-config/README.md)       |
 
 ## 人类文档
 
@@ -36,7 +38,8 @@ Platform 是管理系统的服务工作区，集中维护 Console、Auth、API�
 
 - workspace 边界与命令：根目录 `package.json`、`pnpm-workspace.yaml`
 - 每个服务的命令与依赖：对应 `apps/*/package.json`
-- 环境变量：`config/env-contracts.json`、对应 `apps/*/.env.example` 与 `corepack pnpm envctl ...`
+- 固定拓扑：`packages/site-config/src/index.mjs`
+- 动态环境变量：`config/env-contracts.json`、对应 `apps/*/.env.example` 与 `corepack pnpm envctl ...`
 - Core 数据结构：`migrations/core/` 与 `packages/core-db/src/schema.ts`
 - API wire types：`packages/contracts/src/index.ts`
 - 质量工具：`config/` 与根目录脚本

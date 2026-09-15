@@ -33,16 +33,15 @@ Blog 和 Tweet authoring 属于 Core/API。Realm 的公开读取属于 Content r
 
 ## 配置
 
-环境变量以 [`./.env.example`](./.env.example) 和仓库 [`CONFIGURATION.md`](../../docs/CONFIGURATION.md) 为准：
+动态环境变量以 [`./.env.example`](./.env.example) 和仓库 [`CONFIGURATION.md`](../../docs/CONFIGURATION.md) 为准：
 
 - `SESSION_SECRET`：服务端 session 加密密钥；
-- `AUTH_OIDC_*`：Auth issuer、client、回调、JWKS、resource 和 logout 配置；
-- `API_BASE_URL`：服务端 Control API origin；
+- `AUTH_OIDC_CLIENT_ID`、`AUTH_OIDC_CLIENT_SECRET`：Auth 签发的 Console client credentials；
 - `UPSTASH_REDIS_REST_*`：session 与分布式限流；
 - `TRUST_PROXY`：只有可信代理覆盖 client header 时才开启；
 - `NEXT_PUBLIC_ANALYTICS_*`：可选 Vercel telemetry。
 
-Console 的服务端配置读取统一经过 `@arsvine/env`。`next.config.ts` 和浏览器 Analytics 组件保留直接读取 `NEXT_PUBLIC_*`，以便 Next.js 在构建时注入公开值。
+Console 的固定 OIDC/API 拓扑由 `@arsvine/site-config` 提供，动态服务端配置读取统一经过 `@arsvine/env`。`next.config.ts` 和浏览器 Analytics 组件保留直接读取 `NEXT_PUBLIC_*`，以便 Next.js 在构建时注入公开值。
 
 Console 配置只覆盖 Session、Auth OIDC、Control API、Upstash session/limiter 和可选 Analytics；Core DB、Content storage 和其他服务凭据由对应服务拥有。
 

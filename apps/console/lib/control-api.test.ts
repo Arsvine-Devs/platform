@@ -17,8 +17,6 @@ const fetchMock = vi.fn<typeof fetch>();
 
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
-  vi.stubEnv('API_BASE_URL', 'https://api.example.com');
-  vi.stubEnv('AUTH_OIDC_RESOURCE', 'https://resource.example.com');
   getSessionFromRequestMock.mockResolvedValue({
     authSource: 'oidc',
     accessToken: 'access-token',
@@ -41,7 +39,7 @@ afterEach(() => {
 });
 
 describe('callControlApi', () => {
-  it('calls the API base origin rather than the OAuth resource value', async () => {
+  it('calls the source-controlled API origin', async () => {
     const result = await callControlApi(
       new NextRequest('https://console.example.com/api/control/me'),
       '/v1/me',
@@ -49,7 +47,7 @@ describe('callControlApi', () => {
 
     expect(isControlApiSuccess(result)).toBe(true);
     const [url, init] = fetchMock.mock.calls[0] ?? [];
-    expect(String(url)).toBe('https://api.example.com/v1/me');
+    expect(String(url)).toBe('https://api.arsvine.com/v1/me');
     expect(init?.cache).toBe('no-store');
     expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer access-token');
   });

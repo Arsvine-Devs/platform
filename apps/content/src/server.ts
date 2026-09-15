@@ -2,8 +2,8 @@ import { timingSafeEqual } from "node:crypto";
 import Fastify, { type FastifyReply } from "fastify";
 import swagger from "@fastify/swagger";
 import { readEnv } from "@arsvine/env";
+import { siteConfig } from "@arsvine/site-config";
 import {
-  AuthConfigurationError,
   AuthTokenError,
   hasScopes,
   parseBearerToken,
@@ -24,8 +24,7 @@ import {
   type ReleasePost,
 } from "./release.js";
 
-const currentPointerKey =
-  readEnv("CONTENT_CURRENT_POINTER") ?? "realm-content/current.json";
+const currentPointerKey = siteConfig.content.pointerKey;
 
 type ContentServerOptions = {
   storage?: ContentStorage | null;
@@ -76,15 +75,11 @@ function notReady(reply: FastifyReply) {
 }
 
 function readProtectedContentAuthConfig(): AuthVerificationConfig {
-  const issuer = readEnv("AUTH_ISSUER");
-  const audience = readEnv("CONTENT_RESOURCE");
-  const jwksUrl = readEnv("AUTH_JWKS_URL");
-  if (!issuer || !audience || !jwksUrl) {
-    throw new AuthConfigurationError(
-      "AUTH_ISSUER, CONTENT_RESOURCE, and AUTH_JWKS_URL are required",
-    );
-  }
-  return { issuer, audience, jwksUrl };
+  return {
+    issuer: siteConfig.auth.issuer,
+    audience: siteConfig.content.resource,
+    jwksUrl: siteConfig.auth.jwksUrl,
+  };
 }
 
 async function authenticateProtectedContent(
@@ -113,7 +108,6 @@ async function authenticateProtectedContent(
     }
     return principal;
   } catch (error) {
-    if (error instanceof AuthConfigurationError) return notReady(reply);
     reply.header(
       "WWW-Authenticate",
       'Bearer realm="content", scope="content:protected:read"',
@@ -129,8 +123,8 @@ async function authenticateProtectedContent(
 
 export function buildContentServer(options: ContentServerOptions = {}) {
   const app = Fastify({ logger: false });
-  const displayName = readEnv("CONTENT_DISPLAY_NAME") || "Published Content";
-  const publicUrl = readEnv("CONTENT_PUBLIC_URL");
+  const displayName = siteConfig.content.displayName;
+  const publicUrl = siteConfig.content.origin;
 
   app.register(swagger, {
     openapi: {
@@ -141,16 +135,6 @@ export function buildContentServer(options: ContentServerOptions = {}) {
 
   app.get("/health/live", async () => ({ status: "live", service: "content" }));
   app.get("/health/ready", async (_request, reply) => {
-    const missing = ["AUTH_ISSUER", "CONTENT_RESOURCE", "AUTH_JWKS_URL"].filter(
-      (key) => !readEnv(key),
-    );
-    if (missing.length > 0) {
-      return reply.code(503).send({
-        status: "not_ready",
-        service: "content",
-        reason: `missing_configuration:${missing.join(",")}`,
-      });
-    }
     const storage = readableStorage(options);
     if (!storage)
       return reply.code(503).send({ status: "not_ready", service: "content" });

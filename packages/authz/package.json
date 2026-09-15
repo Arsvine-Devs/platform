@@ -16,7 +16,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@arsvine/env": "workspace:*",
     "jose": "^6.2.3"
   },
   "devDependencies": {

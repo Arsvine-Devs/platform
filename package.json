@@ -16,7 +16,7 @@
     "format": "prettier --write . --ignore-path .gitignore --ignore-path config/prettier.ignore --log-level warn",
     "format:check": "prettier --check . --ignore-path .gitignore --ignore-path config/prettier.ignore --log-level warn",
     "docs:check": "node scripts/check-doc-links.mjs",
-    "check:unused": "pnpm --filter arsvine-admin check:unused && knip --config config/knip.jsonc --workspace . --workspace apps/api --workspace apps/auth --workspace apps/content --workspace packages/authz --workspace packages/contracts --workspace packages/core-db --workspace packages/env --workspace packages/object-storage --workspace packages/observability --no-progress",
+    "check:unused": "pnpm --filter arsvine-admin check:unused && knip --config config/knip.jsonc --workspace . --workspace apps/api --workspace apps/auth --workspace apps/content --workspace packages/authz --workspace packages/contracts --workspace packages/core-db --workspace packages/env --workspace packages/object-storage --workspace packages/observability --workspace packages/site-config --no-progress",
     "check:duplicates": "jscpd --config config/jscpd.json",
     "quality": "pnpm check:unused && pnpm check:duplicates",
     "typecheck": "pnpm --recursive --if-present typecheck",

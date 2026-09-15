@@ -2,13 +2,13 @@
 
 [返回文档入口](./README.md) · [返回仓库地图](../INDEX.md)
 
-| 文档                                     | 用途                                              | 权威事实                                      |
-| ---------------------------------------- | ------------------------------------------------- | --------------------------------------------- |
-| [`DEVELOPMENT.md`](./DEVELOPMENT.md)     | 安装、开发、质量命令和测试边界                    | 根 `package.json` 与各 workspace manifest     |
-| [`ARCHITECTURE.md`](./ARCHITECTURE.md)   | 服务拓扑、数据流和所有权                          | 当前源码、workspace 依赖和环境读取器          |
-| [`OPERATIONS.md`](./OPERATIONS.md)       | 健康检查、配置分组、发布顺序和故障处理            | health routes、`.env.example`、发布代码       |
-| [`CONFIGURATION.md`](./CONFIGURATION.md) | 每个环境变量的格式、来源、范围和失败行为          | `config/env-contracts.json` 与 `.env.example` |
-| [`SECURITY.md`](./SECURITY.md)           | OIDC、Session、JWT、scope、Content 保护和密钥边界 | Auth/API/Console/Content 实现与测试           |
+| 文档                                     | 用途                                              | 权威事实                                   |
+| ---------------------------------------- | ------------------------------------------------- | ------------------------------------------ |
+| [`DEVELOPMENT.md`](./DEVELOPMENT.md)     | 安装、开发、质量命令和测试边界                    | 根 `package.json` 与各 workspace manifest  |
+| [`ARCHITECTURE.md`](./ARCHITECTURE.md)   | 服务拓扑、数据流和所有权                          | 当前源码、workspace 依赖和环境读取器       |
+| [`OPERATIONS.md`](./OPERATIONS.md)       | 健康检查、配置分组、发布顺序和故障处理            | health routes、`.env.example`、发布代码    |
+| [`CONFIGURATION.md`](./CONFIGURATION.md) | 动态环境变量与固定站点拓扑的格式、来源和失败行为  | `site-config`、`env-contracts.json` 与模板 |
+| [`SECURITY.md`](./SECURITY.md)           | OIDC、Session、JWT、scope、Content 保护和密钥边界 | Auth/API/Console/Content 实现与测试        |
 
 ## 阅读路径
 

@@ -2,26 +2,14 @@ import { createHmac, randomUUID } from "node:crypto";
 import type { ApiPublication } from "@arsvine/contracts";
 import { readEnv } from "@arsvine/env";
 import { listPosts, listTweets } from "@arsvine/core-db";
+import { siteConfig } from "@arsvine/site-config";
 
 type RealmRevalidator = { url: string; secret: string };
 
 function requiredRealmRevalidator(): RealmRevalidator {
-  const url = readEnv("REALM_REVALIDATE_URL");
   const secret = readEnv("REVALIDATE_WEBHOOK_SECRET");
-  if (!url || !secret) throw new Error("Realm revalidation is not configured.");
-  try {
-    const parsed = new URL(url);
-    const loopback = new Set(["localhost", "127.0.0.1", "[::1]"]);
-    if (parsed.protocol !== "https:" && !loopback.has(parsed.hostname)) {
-      throw new Error(
-        "Realm revalidation URL must use HTTPS outside localhost.",
-      );
-    }
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("HTTPS")) throw error;
-    throw new Error("REALM_REVALIDATE_URL must be an absolute URL.");
-  }
-  return { url, secret };
+  if (!secret) throw new Error("Realm revalidation is not configured.");
+  return { url: siteConfig.realm.revalidateUrl, secret };
 }
 
 async function notifyRealm(
@@ -61,9 +49,9 @@ async function notifyRealm(
 }
 
 function requiredPublisher() {
-  const url = readEnv("CONTENT_PUBLISH_URL");
   const token = readEnv("CONTENT_PUBLISH_TOKEN");
-  if (!url || !token) throw new Error("Content publisher is not configured.");
+  if (!token) throw new Error("Content publisher is not configured.");
+  const url = siteConfig.content.publicationUrl;
   return { url, token };
 }
 
@@ -88,8 +76,7 @@ export async function publishCoreRelease(): Promise<ApiPublication> {
   const publishedAt = new Date().toISOString();
   const releaseId = `${Date.now().toString(36).toUpperCase()}-${randomUUID()}`;
   const prefix = `realm-content/releases/${releaseId}`;
-  const pointerKey =
-    readEnv("CONTENT_CURRENT_POINTER") || "realm-content/current.json";
+  const pointerKey = siteConfig.content.pointerKey;
   const posts = await listPosts({ includeBody: true });
   const tweets = await listTweets();
   const objects: Array<{ key: string; body: string }> = [];

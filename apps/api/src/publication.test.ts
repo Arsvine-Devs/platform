@@ -17,15 +17,7 @@ const fetchMock = vi.fn<typeof fetch>();
 
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
-  vi.stubEnv(
-    "CONTENT_PUBLISH_URL",
-    "https://content.example.com/v1/internal/publications",
-  );
   vi.stubEnv("CONTENT_PUBLISH_TOKEN", "content-publish-token");
-  vi.stubEnv(
-    "REALM_REVALIDATE_URL",
-    "https://arsvine.example.com/api/internal/revalidate",
-  );
   vi.stubEnv("REVALIDATE_WEBHOOK_SECRET", "revalidation-secret");
   listPostsMock.mockResolvedValue([
     {
@@ -88,13 +80,13 @@ describe("publishCoreRelease", () => {
 
     expect(result.realmRevalidated).toBe(true);
     expect(String(publishCall?.[0])).toBe(
-      "https://content.example.com/v1/internal/publications",
+      "https://content.arsvine.com/v1/internal/publications",
     );
     expect(
       new Headers(publishCall?.[1]?.headers).get("x-publication-token"),
     ).toBe("content-publish-token");
     expect(String(revalidationCall?.[0])).toBe(
-      "https://arsvine.example.com/api/internal/revalidate",
+      "https://arsvine.com/api/internal/revalidate",
     );
     expect(timestamp).toMatch(/^\d{13}$/);
     expect(

@@ -38,6 +38,7 @@ Console 浏览器只访问同源 BFF。OAuth access token、Core 数据库连接
 - `@arsvine/object-storage`：S3-compatible storage 的最小读写接口。
 - `@arsvine/observability`：结构化日志输出。
 - `@arsvine/env`：环境变量读取、规范化和 Node 服务的 dotenv 加载。
+- `@arsvine/site-config`：固定服务 origin、协议 resource、OIDC endpoint、Passkey origin 和 publication pointer。
 
 共享包不得成为跨服务业务逻辑的垃圾桶；只有跨边界且稳定的责任才下沉。
 
@@ -48,6 +49,6 @@ Console 浏览器只访问同源 BFF。OAuth access token、Core 数据库连接
 3. API 将带有 release ID 的 immutable objects 发送到 Content。
 4. Content 验证每个对象，再最后写入 current pointer。
 5. API 对 Realm 发送带毫秒时间戳的 HMAC `content.published` 事件。
-6. Realm 下一次读取通过 `CONTENT_BASE_URL` 获取新的 published release。
+6. Realm 下一次读取通过其 `config/site-config.mjs` 中的 Content origin 获取新的 published release。
 
 当前运行时拓扑只包含 Console、Auth、API、Content 和 Realm 的已发布 Content 读取链路；历史输入资料由架构快照独立记录。

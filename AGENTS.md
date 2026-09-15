@@ -15,6 +15,8 @@ Control API, published Content read plane, and small shared runtime packages.
 - Register user-configurable environment keys in `config/env-contracts.json`
   and the owning `.env.example`; use `corepack pnpm envctl query` instead of
   printing values while investigating configuration.
+- Keep fixed service topology, protocol resources, and redirect relationships in
+  `@arsvine/site-config`; do not add dotenv fallbacks for those constants.
 - Default to branch-local work. Do not push, merge, deploy, or mutate remote
   infrastructure unless the current task explicitly authorizes it.
 

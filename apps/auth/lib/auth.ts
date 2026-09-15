@@ -10,21 +10,18 @@ import {
 } from "better-auth/plugins";
 import { Pool } from "pg";
 import { readEnv, readEnvList } from "@arsvine/env";
-
-function readList(name: string): string[] | undefined {
-  return readEnvList(name);
-}
+import { siteConfig } from "@arsvine/site-config";
 
 const databaseUrl = readEnv("AUTH_DATABASE_URL");
 const pool = databaseUrl ? new Pool({ connectionString: databaseUrl }) : null;
-const authBaseUrl = readEnv("BETTER_AUTH_URL");
-const authIssuer = readEnv("BETTER_AUTH_ISSUER");
-const authDisplayName = readEnv("AUTH_DISPLAY_NAME");
-const authAudience = readList("BETTER_AUTH_AUDIENCE");
-const trustedOrigins = readList("AUTH_TRUSTED_ORIGINS");
-const oauthResources = readList("OAUTH_RESOURCES");
-const passkeyRpId = readEnv("PASSKEY_RP_ID");
-const passkeyOrigin = readEnv("PASSKEY_ORIGIN");
+const authBaseUrl = siteConfig.auth.origin;
+const authIssuer = siteConfig.auth.issuer;
+const authDisplayName = siteConfig.auth.displayName;
+const authAudience = [...siteConfig.auth.audience];
+const trustedOrigins = readEnvList("AUTH_TRUSTED_ORIGINS");
+const oauthResources = [...siteConfig.auth.oauthResources];
+const passkeyRpId = siteConfig.auth.passkeyRpId;
+const passkeyOrigin = siteConfig.auth.passkeyOrigin;
 
 const statement = {
   content: ["read", "write", "publish"],
@@ -50,12 +47,6 @@ if (!pool) {
   // The service can still build and expose liveness locally without credentials.
   // Auth requests remain unavailable until AUTH_DATABASE_URL and BETTER_AUTH_SECRET exist.
   console.warn("[auth] AUTH_DATABASE_URL is not configured");
-}
-
-if (!authBaseUrl) {
-  console.warn(
-    "[auth] BETTER_AUTH_URL is not configured; OAuth provider is disabled",
-  );
 }
 
 const authPlugins = [

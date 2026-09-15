@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { readEnv, requiredEnv } from '@arsvine/env';
+import { requiredEnv } from '@arsvine/env';
+import { siteConfig } from '@arsvine/site-config';
 
 export const OIDC_STATE_COOKIE = '__Host-console_oidc_state';
 export const OIDC_SESSION_COOKIE = '__Host-console_session';
@@ -26,15 +27,6 @@ export type OidcTokens = {
 
 function required(name: string) {
   return requiredEnv(name);
-}
-
-function requiredUrl(name: string) {
-  const value = required(name);
-  const parsed = new URL(value);
-  if (parsed.protocol !== 'https:' && parsed.hostname !== 'localhost') {
-    throw new Error(`${name} must use HTTPS outside localhost`);
-  }
-  return value;
 }
 
 function base64Url(value: Uint8Array | Buffer) {
@@ -77,6 +69,7 @@ export function normalizeReturnTo(value: string | null | undefined) {
 }
 
 export function buildAuthorizationRequest(returnTo: string) {
+  const { oidc } = siteConfig.console;
   const state: OidcState = {
     state: base64Url(randomBytes(24)),
     nonce: base64Url(randomBytes(24)),
@@ -85,15 +78,13 @@ export function buildAuthorizationRequest(returnTo: string) {
     expiresAt: Date.now() + 10 * 60 * 1000,
   };
   const challenge = base64Url(createHash('sha256').update(state.codeVerifier).digest());
-  const url = new URL(requiredUrl('AUTH_OIDC_AUTHORIZATION_URL'));
+  const url = new URL(oidc.authorizationUrl);
   url.search = new URLSearchParams({
     client_id: required('AUTH_OIDC_CLIENT_ID'),
-    redirect_uri: requiredUrl('AUTH_OIDC_REDIRECT_URI'),
+    redirect_uri: oidc.redirectUri,
     response_type: 'code',
-    scope:
-      readEnv('AUTH_OIDC_SCOPE') ||
-      'openid profile email content:read content:write content:publish assets:read assets:write integrations:read integrations:write jobs:read jobs:run',
-    resource: requiredUrl('AUTH_OIDC_RESOURCE'),
+    scope: oidc.scope,
+    resource: oidc.resource,
     state: state.state,
     nonce: state.nonce,
     code_challenge: challenge,
@@ -103,18 +94,19 @@ export function buildAuthorizationRequest(returnTo: string) {
 }
 
 export function buildLogoutUrl(idTokenHint: string) {
-  const url = new URL(requiredUrl('AUTH_OIDC_END_SESSION_URL'));
+  const url = new URL(siteConfig.console.oidc.endSessionUrl);
   url.search = new URLSearchParams({
     id_token_hint: idTokenHint,
     client_id: required('AUTH_OIDC_CLIENT_ID'),
-    post_logout_redirect_uri: requiredUrl('AUTH_OIDC_POST_LOGOUT_REDIRECT_URI'),
+    post_logout_redirect_uri: siteConfig.console.oidc.postLogoutRedirectUri,
   }).toString();
   return url.toString();
 }
 
 export async function exchangeAuthorizationCode(code: string, state: OidcState) {
+  const { oidc } = siteConfig.console;
   const credentials = `${required('AUTH_OIDC_CLIENT_ID')}:${required('AUTH_OIDC_CLIENT_SECRET')}`;
-  const response = await fetch(requiredUrl('AUTH_OIDC_TOKEN_URL'), {
+  const response = await fetch(oidc.tokenUrl, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -124,7 +116,7 @@ export async function exchangeAuthorizationCode(code: string, state: OidcState) 
     body: new URLSearchParams({
       grant_type: 'authorization_code',
       code,
-      redirect_uri: requiredUrl('AUTH_OIDC_REDIRECT_URI'),
+      redirect_uri: oidc.redirectUri,
       code_verifier: state.codeVerifier,
     }),
     signal: AbortSignal.timeout(8000),
@@ -142,14 +134,14 @@ export async function exchangeAuthorizationCode(code: string, state: OidcState) 
     throw new Error(body?.error_description ?? body?.error ?? 'OIDC token exchange failed.');
   }
 
-  const jwks = createRemoteJWKSet(new URL(requiredUrl('AUTH_OIDC_JWKS_URL')));
+  const jwks = createRemoteJWKSet(new URL(oidc.jwksUrl));
   const verified = await jwtVerify(body.id_token, jwks, {
-    issuer: requiredUrl('AUTH_OIDC_ISSUER'),
+    issuer: oidc.issuer,
     audience: required('AUTH_OIDC_CLIENT_ID'),
   });
   if (verified.payload.nonce !== state.nonce) throw new Error('OIDC nonce validation failed.');
 
-  const userInfoResponse = await fetch(requiredUrl('AUTH_OIDC_USERINFO_URL'), {
+  const userInfoResponse = await fetch(oidc.userinfoUrl, {
     headers: { Accept: 'application/json', Authorization: `Bearer ${body.access_token}` },
     signal: AbortSignal.timeout(8000),
     cache: 'no-store',

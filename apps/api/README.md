@@ -12,7 +12,7 @@ corepack pnpm --filter @arsvine/api typecheck
 corepack pnpm --filter @arsvine/api test
 ```
 
-环境变量以 [`./.env.example`](./.env.example) 和仓库 [`CONFIGURATION.md`](../../docs/CONFIGURATION.md) 为准；Node 入口通过 `@arsvine/env/dotenv` 加载本地 dotenv，Core DB、Auth JWKS/resource、Content publish 和 Realm revalidation 都是服务端配置。
+动态环境变量以 [`./.env.example`](./.env.example) 和仓库 [`CONFIGURATION.md`](../../docs/CONFIGURATION.md) 为准；固定 API/Auth/Content/Realm 拓扑由 `@arsvine/site-config` 提供。Node 入口通过 `@arsvine/env/dotenv` 加载本地 dotenv，Core DB、Content publish 和 Realm revalidation secret 都是服务端配置。
 
 ## 当前接口
 

@@ -6,16 +6,16 @@
 
 完整的变量填写说明见 [`CONFIGURATION.md`](./CONFIGURATION.md)。机器契约是 [`config/env-contracts.json`](../config/env-contracts.json)；每个服务的 `.env.example` 是对应的安全模板。
 
-| 服务    | 配置目录和职责                                                                                 |
-| ------- | ---------------------------------------------------------------------------------------------- |
-| Auth    | `apps/auth/.env.example`：Better Auth、OIDC provider、数据库、Passkey 和 TOTP                  |
-| API     | `apps/api/.env.example`：Core DB、JWT 校验、Content publication 和 Realm revalidation          |
-| Content | `apps/content/.env.example`：S3 storage、published pointer、发布鉴权和 Auth JWKS/resource      |
-| Console | `apps/console/.env.example`：Host-only session、OIDC BFF、API origin、Upstash 和公开 Analytics |
+| 服务    | 配置目录和职责                                                                                                      |
+| ------- | ------------------------------------------------------------------------------------------------------------------- |
+| Auth    | `apps/auth/.env.example`：Auth 数据库、Better Auth secret 和 trusted origins；固定身份拓扑见 `@arsvine/site-config` |
+| API     | `apps/api/.env.example`：Core DB、Content publication token 和 Realm revalidation HMAC secret                       |
+| Content | `apps/content/.env.example`：S3 storage 和 publication token；发布 pointer/服务 origin 由静态配置拥有               |
+| Console | `apps/console/.env.example`：Host-only session、OIDC client credentials、Upstash、代理和公开 Analytics              |
 
 真实 secret 只配置在部署环境或本地未跟踪文件中。不要把 secret 放进 `NEXT_PUBLIC_*`、日志、测试 fixture 或提交。
 
-环境变量 provider 使用 `readEnv()` 去空白并统一空值语义；API/Content 的 Node 入口使用 `@arsvine/env/dotenv` 加载相邻 `.env.local`，Auth/Console 的 Next 运行时由 Next.js 加载 dotenv。新增键先用 `corepack pnpm envctl register` 登记，再接入消费者。
+环境变量 provider 使用 `readEnv()` 去空白并统一空值语义；API/Content 的 Node 入口使用 `@arsvine/env/dotenv` 加载相邻 `.env.local`，Auth/Console 的 Next 运行时由 Next.js 加载 dotenv。固定拓扑由 `@arsvine/site-config` 提供。新增动态键先用 `corepack pnpm envctl register` 登记，再接入消费者。
 
 ```bash
 corepack pnpm envctl stats
@@ -30,7 +30,7 @@ corepack pnpm env:check
 - Auth：数据库和 `BETTER_AUTH_SECRET`。
 - API：`CORE_DATABASE_URL`。
 - Content：object storage 和当前 release pointer/manifest。
-- Console：Session、OIDC、API origin 等 BFF 配置。
+- Console：Session、OIDC client credentials 和 BFF 运行配置；固定 OIDC/API origin 由 site-config 提供。
 
 `live` 只证明进程可响应，`ready` 只证明应用可以接受其声明的依赖；两者都不替代已认证的写入、发布和浏览器流程验收。
 
