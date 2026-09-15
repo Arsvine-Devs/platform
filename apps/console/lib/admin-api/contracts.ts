@@ -1,3 +1,5 @@
+import type { ApiPublication } from '@arsvine/contracts';
+
 export type AdminApiSuccess<T> = { ok: true; data: T };
 export type AdminApiVoidSuccess = { ok: true };
 export type AdminApiFailure = {
@@ -81,10 +83,7 @@ export type BlogPublishBatchInput = {
 };
 
 export type BlogPublishResponse = {
-  path?: string;
-  paths?: string[];
-  commits?: unknown[];
-  revalidated?: { revalidated: boolean; paths: string[]; error?: string };
+  publication: ApiPublication;
 };
 
 export type LibraryItem = {

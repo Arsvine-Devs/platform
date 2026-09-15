@@ -42,27 +42,12 @@ export type TweetItem = {
 
 export type TweetMonthRecord = {
   month: string;
-  path: string;
   count: number;
   updatedAt?: string;
   tweets: TweetItem[];
 };
 
-type RepoSummary = {
-  name: string;
-  branch: string;
-  originUrl?: string;
-  upstreamBranch?: string;
-  hasChanges: boolean;
-  changedFilesCount: number;
-  hasRemote: boolean;
-  aheadCount: number;
-  behindCount: number;
-};
-
 export type TweetsDashboardData = {
-  repo: RepoSummary;
-  tweetsDirPath: string;
   months: TweetMonthRecord[];
 };
 

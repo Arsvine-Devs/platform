@@ -249,7 +249,7 @@ export default function AdminShellClient({
           <CommandInput placeholder={t('shell.searchPlaceholder')} autoFocus />
           <CommandList>
             <CommandEmpty>{t('shell.searchEmpty')}</CommandEmpty>
-            <CommandGroup heading={t('shell.workspace')}>
+            <CommandGroup heading={t('shell.content')}>
               {navItems.map((item) => (
                 <CommandItem
                   key={item.href}

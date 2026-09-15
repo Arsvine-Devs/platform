@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { callControlApi, controlSuccess, isControlApiSuccess } from '../../../../lib/control-api';
+import type { ApiPost, ApiTweet } from '@arsvine/contracts';
 import type {
   BlogIndexData,
   BlogPublishBatchInput,
@@ -10,42 +11,6 @@ import type {
 import type { TweetItem, TweetsDashboardData } from '../../../../lib/tweets-types';
 
 type Context = { params: Promise<{ path: string[] }> };
-
-type ApiPost = {
-  id: string;
-  slug: string;
-  status: string;
-  sourceLocale: string;
-  pinned: boolean;
-  accessMode: 'public' | 'totp';
-  accessGroup: string | null;
-  publishedAt: string | null;
-  revision: number;
-  updatedAt: string;
-  tags: string[];
-  variants: Array<{
-    locale: string;
-    title: string;
-    excerpt: string;
-    bodyMdx?: string;
-    originLocale: string | null;
-    revision: number;
-  }>;
-};
-
-type ApiTweet = {
-  id: string;
-  createdAt: string;
-  updatedAt: string;
-  content: string;
-  lang?: TweetItem['lang'];
-  tags?: string[];
-  visibility?: 'public' | 'private' | 'hidden';
-  pinned?: boolean;
-  translations?: Record<string, unknown>;
-  origin?: Record<string, unknown>;
-  revision: number;
-};
 
 function bodyValue(result: unknown) {
   return result && typeof result === 'object' ? (result as Record<string, unknown>) : {};
@@ -116,7 +81,6 @@ function tweetDashboard(tweets: ApiTweet[]): TweetsDashboardData {
     .sort(([left], [right]) => right.localeCompare(left))
     .map(([month, entries]) => ({
       month,
-      path: `core://posts/tweets/${month}`,
       count: entries.length,
       updatedAt: entries
         .map((entry) => entry.updatedAt)
@@ -129,17 +93,6 @@ function tweetDashboard(tweets: ApiTweet[]): TweetsDashboardData {
         .map(toTweetItem),
     }));
   return {
-    repo: {
-      name: 'core-postgresql',
-      branch: 'main',
-      originUrl: process.env.API_BASE_URL,
-      hasChanges: false,
-      changedFilesCount: 0,
-      hasRemote: false,
-      aheadCount: 0,
-      behindCount: 0,
-    },
-    tweetsDirPath: 'core://posts/tweets',
     months,
   };
 }
@@ -380,19 +333,7 @@ async function mutation(request: NextRequest, segments: string[]) {
       body: { idempotencyKey: request.headers.get('idempotency-key') ?? crypto.randomUUID() },
     });
     if (!isControlApiSuccess(publication)) return publication.response;
-    const publicationData = bodyValue(publication.data).publication as
-      { realmRevalidated?: boolean } | undefined;
-    return NextResponse.json(
-      {
-        ok: true,
-        data: {
-          paths: [],
-          publication: bodyValue(publication.data).publication,
-          revalidated: { revalidated: publicationData?.realmRevalidated === true, paths: [] },
-        },
-      },
-      { status: 200 },
-    );
+    return controlSuccess(publication, bodyValue(publication.data).publication);
   }
 
   if (route === 'tweets') {
@@ -428,33 +369,6 @@ async function mutation(request: NextRequest, segments: string[]) {
     if (method === 'DELETE') return controlSuccess(result, { deletedId: tweetMatch[1] });
     const tweet = bodyValue(result.data).tweet as ApiTweet;
     return controlSuccess(result, { tweet, month: tweetMonth(tweet) });
-  }
-
-  const retranslate = /^tweets\/([^/]+)\/retranslate$/.exec(route);
-  if (retranslate) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: 'TRANSLATION_WORKER_UNAVAILABLE',
-          message: 'Translation worker is not configured.',
-        },
-      },
-      { status: 503 },
-    );
-  }
-
-  if (route === 'blog-translate' || route === 'rebuild-index' || route === 'tweets/sync/x') {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: {
-          code: 'WORKER_UNAVAILABLE',
-          message: 'This operation requires the Core worker, which is not deployed yet.',
-        },
-      },
-      { status: 503 },
-    );
   }
 
   return NextResponse.json(

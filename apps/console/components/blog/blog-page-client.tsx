@@ -349,12 +349,7 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
           content: form.content,
         } satisfies BlogPublishInput,
       });
-      toast.success(
-        t('blog.publishedTo', {
-          path: data.path || t('workspace.repository'),
-          paths: data.revalidated?.paths.join(', ') || t('common.none'),
-        }),
-      );
+      toast.success(t('blog.published', { releaseId: data.publication.releaseId }));
       clearDraftsForSlug(normalizedSlug, [form.locale]);
       await loadIndex();
       setSelectedKey(`${normalizedSlug}:${form.locale}`);
@@ -431,7 +426,7 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
       toast.success(
         t('blog.publishedBatch', {
           count: slugDrafts.length,
-          paths: data.revalidated?.paths.join(', ') || t('common.none'),
+          releaseId: data.publication.releaseId,
         }),
       );
       await loadIndex();
@@ -444,6 +439,19 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
   }
 
   const documentKey = selectedKey || `new:${form.locale}`;
+  const editorPanelProps = {
+    form,
+    localeStates,
+    onChange: updateField,
+    publishing,
+    batchPublishing,
+    savingDraft,
+    draftCount,
+    onSaveDraft: () => void handleSaveDraft(),
+    onPublishAllDrafts: () => void handlePublishAllDrafts(),
+    onSelectLocale: (locale: BlogLocale) => void handleLocaleSelect(locale),
+    onPublish: () => void handlePublish(),
+  };
 
   return (
     <PageFrame size="full" className="gap-5 px-4 py-5 sm:px-6 lg:px-8">
@@ -525,19 +533,7 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
           )}
         </section>
         <aside className="hidden min-h-0 xl:block">
-          <BlogEditorPanel
-            form={form}
-            localeStates={localeStates}
-            onChange={updateField}
-            publishing={publishing}
-            batchPublishing={batchPublishing}
-            savingDraft={savingDraft}
-            draftCount={draftCount}
-            onSaveDraft={() => void handleSaveDraft()}
-            onPublishAllDrafts={() => void handlePublishAllDrafts()}
-            onSelectLocale={(locale) => void handleLocaleSelect(locale)}
-            onPublish={() => void handlePublish()}
-          />
+          <BlogEditorPanel {...editorPanelProps} />
         </aside>
       </div>
       <DetailSheet
@@ -566,19 +562,7 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
         title={t('blog.settings')}
         description={t('blog.inspectorDescription')}
       >
-        <BlogEditorPanel
-          form={form}
-          localeStates={localeStates}
-          onChange={updateField}
-          publishing={publishing}
-          batchPublishing={batchPublishing}
-          savingDraft={savingDraft}
-          draftCount={draftCount}
-          onSaveDraft={() => void handleSaveDraft()}
-          onPublishAllDrafts={() => void handlePublishAllDrafts()}
-          onSelectLocale={(locale) => void handleLocaleSelect(locale)}
-          onPublish={() => void handlePublish()}
-        />
+        <BlogEditorPanel {...editorPanelProps} />
       </DetailSheet>
     </PageFrame>
   );

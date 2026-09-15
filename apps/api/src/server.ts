@@ -1,6 +1,7 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import swagger from "@fastify/swagger";
 import { Type } from "@sinclair/typebox";
+import type { MeResponse } from "@arsvine/contracts";
 import {
   AuthConfigurationError,
   AuthTokenError,
@@ -105,9 +106,18 @@ export function buildApiServer() {
 
   app.get("/health/live", async () => ({ status: "live", service: "api" }));
   app.get("/health/ready", async (_request, reply) => {
-    const ready = Boolean(process.env.CORE_DATABASE_URL);
-    if (!ready) {
-      return reply.code(503).send({ status: "not_ready", service: "api" });
+    const missing = [
+      "CORE_DATABASE_URL",
+      "AUTH_ISSUER",
+      "AUTH_JWKS_URL",
+      "API_RESOURCE",
+    ].filter((key) => !process.env[key]?.trim());
+    if (missing.length > 0) {
+      return reply.code(503).send({
+        status: "not_ready",
+        service: "api",
+        reason: `missing_configuration:${missing.join(",")}`,
+      });
     }
     return { status: "ready", service: "api" };
   });
@@ -133,11 +143,12 @@ export function buildApiServer() {
         );
       }
       log("info", { service: "api", operation: "me.read", requestId });
-      return {
+      const response: MeResponse = {
         id: principal.subject,
         role: principal.role ?? null,
         scopes: [...principal.scopes],
       };
+      return response;
     },
   );
 

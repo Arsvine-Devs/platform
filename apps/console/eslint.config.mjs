@@ -5,21 +5,19 @@ import oxlint from 'eslint-plugin-oxlint';
 const config = [...nextCoreWebVitals, ...nextTypescript];
 
 const platformBoundaryPatterns = [
-  '@arsvine/auth-db',
-  '@arsvine/auth-db/**',
+  '@arsvine/authz',
+  '@arsvine/authz/**',
   '@arsvine/core-db',
   '@arsvine/core-db/**',
   '@arsvine/object-storage',
   '@arsvine/object-storage/**',
-  '@arsvine/publication',
-  '@arsvine/publication/**',
-  '@arsvine/integrations',
-  '@arsvine/integrations/**',
-  '**/packages/auth-db/**',
+  '@arsvine/observability',
+  '@arsvine/observability/**',
+  '**/packages/authz/**',
+  '**/packages/contracts/**',
   '**/packages/core-db/**',
   '**/packages/object-storage/**',
-  '**/packages/publication/**',
-  '**/packages/integrations/**',
+  '**/packages/observability/**',
 ];
 
 const compatibilityConfig = oxlint.buildFromOxlintConfigFile('../../config/oxlint.json');

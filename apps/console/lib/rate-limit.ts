@@ -1,5 +1,4 @@
-import { createClient } from 'redis';
-import { Redis as UpstashRedis } from '@upstash/redis';
+import { Redis } from '@upstash/redis';
 
 type Bucket = {
   count: number;
@@ -13,56 +12,14 @@ type LimiterDecision = {
 };
 
 const buckets = new Map<string, Bucket>();
-const REDIS_URL = process.env.REDIS_URL?.trim();
-// Temporary migration compatibility for the existing Vercel Upstash REST setup.
-// REDIS_URL remains the canonical protocol-neutral configuration.
-const UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL?.trim();
-const UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
-
-type RedisClient = ReturnType<typeof createClient>;
-
-let redisClient: RedisClient | null = null;
-let redisConnection: Promise<RedisClient> | null = null;
-let upstashClient: UpstashRedis | null = null;
+const REST_URL = process.env.UPSTASH_REDIS_REST_URL?.trim();
+const REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+let redis: Redis | null = null;
 
 function getRedis() {
-  if (!REDIS_URL) return null;
-  if (!redisClient) {
-    redisClient = createClient({ url: REDIS_URL });
-    redisClient.on('error', (error) => {
-      console.error('[rate-limit] redis client error', error);
-    });
-  }
-  return redisClient;
-}
-
-async function getConnectedRedis() {
-  const redis = getRedis();
-  if (!redis) return null;
-  if (!redis.isOpen) {
-    if (!redisConnection) {
-      redisConnection = redis
-        .connect()
-        .then(() => redis)
-        .catch((error) => {
-          redisConnection = null;
-          throw error;
-        });
-    }
-    await redisConnection;
-  }
+  if (!REST_URL || !REST_TOKEN) return null;
+  redis ??= new Redis({ url: REST_URL, token: REST_TOKEN });
   return redis;
-}
-
-function getLegacyUpstashRedis() {
-  if (!UPSTASH_REDIS_REST_URL || !UPSTASH_REDIS_REST_TOKEN) return null;
-  if (!upstashClient) {
-    upstashClient = new UpstashRedis({
-      url: UPSTASH_REDIS_REST_URL,
-      token: UPSTASH_REDIS_REST_TOKEN,
-    });
-  }
-  return upstashClient;
 }
 
 function localEnforceRateLimit(key: string, limit: number, windowMs: number): LimiterDecision {
@@ -92,57 +49,25 @@ function localEnforceRateLimit(key: string, limit: number, windowMs: number): Li
 }
 
 async function redisEnforceRateLimit(
-  redis: RedisClient,
+  store: Redis,
   key: string,
   limit: number,
   windowMs: number,
 ): Promise<LimiterDecision> {
   const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
-  const count = await redis.incr(key);
-
+  const count = await store.incr(key);
   let ttlSeconds = windowSeconds;
   if (count === 1) {
-    await redis.expire(key, windowSeconds);
+    await store.expire(key, windowSeconds);
   } else {
-    const pttl = Number(await redis.pTTL(key));
+    const pttl = await store.pttl(key);
     if (pttl < 0) {
-      await redis.expire(key, windowSeconds);
+      await store.expire(key, windowSeconds);
     } else {
       ttlSeconds = Math.max(1, Math.ceil(pttl / 1000));
     }
   }
 
-  const retryAfterMs = ttlSeconds * 1000;
-  if (count > limit) {
-    return { ok: false, remaining: 0, retryAfterMs };
-  }
-
-  return {
-    ok: true,
-    remaining: Math.max(0, limit - count),
-    retryAfterMs,
-  };
-}
-
-async function upstashEnforceRateLimit(
-  redis: UpstashRedis,
-  key: string,
-  limit: number,
-  windowMs: number,
-): Promise<LimiterDecision> {
-  const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
-  const count = await redis.incr(key);
-  let ttlSeconds = windowSeconds;
-  if (count === 1) {
-    await redis.expire(key, windowSeconds);
-  } else {
-    const pttl = await redis.pttl(key);
-    if (pttl < 0) {
-      await redis.expire(key, windowSeconds);
-    } else {
-      ttlSeconds = Math.max(1, Math.ceil(pttl / 1000));
-    }
-  }
   const retryAfterMs = ttlSeconds * 1000;
   return count > limit
     ? { ok: false, remaining: 0, retryAfterMs }
@@ -150,21 +75,17 @@ async function upstashEnforceRateLimit(
 }
 
 export function isRateLimitPersistent() {
-  return Boolean(REDIS_URL || (UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN));
+  return Boolean(REST_URL && REST_TOKEN);
 }
 
 export async function enforceRateLimit(key: string, limit: number, windowMs: number) {
-  const redis = await getConnectedRedis();
-  const legacyUpstash = redis ? null : getLegacyUpstashRedis();
-  if (!redis && !legacyUpstash) {
-    return localEnforceRateLimit(key, limit, windowMs);
-  }
+  const store = getRedis();
+  if (!store) return localEnforceRateLimit(key, limit, windowMs);
 
   try {
-    if (redis) return await redisEnforceRateLimit(redis, key, limit, windowMs);
-    return await upstashEnforceRateLimit(legacyUpstash!, key, limit, windowMs);
+    return await redisEnforceRateLimit(store, key, limit, windowMs);
   } catch (error) {
-    console.error('[rate-limit] redis enforce failed; falling back to local map', error);
+    console.error('[rate-limit] Redis enforcement failed; using local limiter', error);
     return localEnforceRateLimit(key, limit, windowMs);
   }
 }

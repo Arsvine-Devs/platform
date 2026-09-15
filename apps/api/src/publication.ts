@@ -1,15 +1,6 @@
 import { createHmac, randomUUID } from "node:crypto";
+import type { ApiPublication } from "@arsvine/contracts";
 import { listPosts, listTweets } from "@arsvine/core-db";
-
-type PublishResult = {
-  releaseId: string;
-  pointerKey: string;
-  manifestKey: string;
-  postCount: number;
-  tweetCount: number;
-  publishedAt: string;
-  realmRevalidated: true;
-};
 
 type RealmRevalidator = { url: string; secret: string };
 
@@ -90,7 +81,7 @@ function monthFor(value: string) {
   }).format(new Date(value));
 }
 
-export async function publishCoreRelease(): Promise<PublishResult> {
+export async function publishCoreRelease(): Promise<ApiPublication> {
   const publisher = requiredPublisher();
   const revalidator = requiredRealmRevalidator();
   const publishedAt = new Date().toISOString();

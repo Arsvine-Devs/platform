@@ -1,56 +1,40 @@
 # ARSVINE PLATFORM
 
-The `Arsvine-Devs/platform` repository is the platform workspace for the Arsvine management system. It currently contains the Console, Auth, API, Content read plane, and shared runtime packages used by the subdomain migration.
+`Arsvine-Devs/platform` 是 ARSVINE 系列站点的管理平台工作区，当前包含 Console、Auth、API、Content read plane 以及共享运行时包。
 
-## Workspace layout
+## 当前服务链路
 
 ```text
-apps/
-├── console/    # console.arsvine.com BFF and management UI
-├── auth/       # auth.arsvine.com identity and OAuth/OIDC provider
-├── api/        # api.arsvine.com control plane
-└── content/    # content.arsvine.com published read plane
-packages/       # authz, Core DB, object storage, contracts, observability
+console.arsvine.com → Auth OIDC + api.arsvine.com
+api.arsvine.com     → Core PostgreSQL + content.arsvine.com
+arsvine.com         → content.arsvine.com
 ```
 
-The workspace root owns dependency installation, cross-service quality gates, and the current service build/typecheck traversal. Console-specific UI and BFF code remains under `apps/console`; service ownership stays with each app/package.
+Console 浏览器只访问同源 BFF；OAuth token、数据库连接和 object-storage 凭据保持在服务端。独立的 `arsvine-content` 仓库已退出当前运行时链路，不属于本 workspace 的维护范围。
 
-## Development
+## 快速开始
 
-Prerequisites: Node.js 24 and the repository-pinned pnpm version.
+前置条件：Node.js `24.x`，pnpm 版本以根目录 `package.json#packageManager` 为准。
 
 ```bash
 corepack pnpm install --frozen-lockfile
 corepack pnpm dev
 ```
 
-Run the workspace checks from the root:
+根目录 `dev` 启动 Console。Auth、API、Content 的单独启动命令和每个服务的配置见 [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md)。
+
+## 质量检查
 
 ```bash
-corepack pnpm lint
-corepack pnpm typecheck
-corepack pnpm test
-corepack pnpm build
 corepack pnpm check
 ```
 
-The current connection direction is Console BFF → `API_BASE_URL`/`api.arsvine.com`, Console identity → Auth OIDC, and Realm → `CONTENT_BASE_URL`/`content.arsvine.com`. Production environment values and authenticated mutation acceptance remain deployment concerns.
+该命令包含格式、文档链接与作用域入口、Oxlint、必要的 ESLint 兼容规则、TypeScript、Knip、jscpd、测试和各 workspace build。它不执行远程部署、数据库 migration、真实内容发布或已认证业务流程验收。
 
-Detailed Console behavior, environment variables, and current operational procedures are documented in [`apps/console/README.md`](./apps/console/README.md).
+## 文档
 
-## Reference runtime
+- [仓库地图](./INDEX.md) — 服务、包和机器事实来源。
+- [文档入口](./docs/README.md) — 面向维护者的开发、架构、运维和安全说明。
+- [Console 入口](./apps/console/README.md) — 管理 UI、BFF 和当前配置。
 
-The optional reference stack is a later provider-portability target. The current deployed connection is Console → Auth/API and API → Content; its runtime service contracts are configured per application environment.
-
-With Docker Desktop running:
-
-```bash
-pnpm compose:config
-pnpm compose:up
-```
-
-The Console is exposed through Caddy at `http://localhost:18080`. The liveness endpoint is `http://localhost:18080/health/live`. Stop the stack and remove its local volumes with:
-
-```bash
-pnpm compose:down
-```
+工作范围、分支和验证规则见 [`AGENTS.md`](./AGENTS.md)。

@@ -2,7 +2,7 @@
   "$schema": "../node_modules/knip/schema.json",
   "workspaces": {
     "apps/api": {
-      "entry": ["api/index.ts", "scripts/import-content-release.mjs"],
+      "entry": ["api/index.ts"],
       "project": [
         "src/**/*.{ts,tsx,js,mjs,mts,cts}",
         "api/**/*.{ts,tsx,js,mjs,mts,cts}",

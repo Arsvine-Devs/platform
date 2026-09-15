@@ -141,6 +141,16 @@ export function buildContentServer(options: ContentServerOptions = {}) {
 
   app.get("/health/live", async () => ({ status: "live", service: "content" }));
   app.get("/health/ready", async (_request, reply) => {
+    const missing = ["AUTH_ISSUER", "CONTENT_RESOURCE", "AUTH_JWKS_URL"].filter(
+      (key) => !process.env[key]?.trim(),
+    );
+    if (missing.length > 0) {
+      return reply.code(503).send({
+        status: "not_ready",
+        service: "content",
+        reason: `missing_configuration:${missing.join(",")}`,
+      });
+    }
     const storage = readableStorage(options);
     if (!storage)
       return reply.code(503).send({ status: "not_ready", service: "content" });

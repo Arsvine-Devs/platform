@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 
 import ComposerPanel, { INITIAL_TWEET_FORM, type TweetFormState } from './composer-panel';
 import MonthIndexPanel from './month-index-panel';
-import RepositoryPanel from './repository-panel';
 import StatsStrip from './stats-strip';
 import TweetListPanel from './tweet-list-panel';
 import {
@@ -119,15 +118,15 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
     ? (allTweets.find((tweet) => tweet.id === editingTweetId) ?? null)
     : null;
   const composerMonth = monthFromCreatedAt(form.createdAt);
-  const targetMonthPath = composerMode
+  const targetMonthLabel = composerMode
     ? composerMonth
-      ? `tweets/${composerMonth}.json`
-      : 'tweets/YYYY-MM.json'
+      ? composerMonth
+      : t('tweets.list')
     : activeGroup
       ? activeGroup.months.length === 1
-        ? `tweets/${activeGroup.months[0]}.json`
-        : t('tweets.fileCount', { count: activeGroup.months.length })
-      : 'tweets/YYYY-MM.json';
+        ? activeGroup.months[0]
+        : t('tweets.monthCount', { count: activeGroup.months.length })
+      : t('tweets.list');
   const stats = {
     total: allTweets.length,
     publicCount: allTweets.filter((tweet) => tweet.visibility === 'public').length,
@@ -244,7 +243,7 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
   return (
     <PageFrame size="full" className="gap-5 px-4 py-5 sm:px-6 lg:px-8">
       <PageHeader
-        eyebrow={`Tweets / ${targetMonthPath}`}
+        eyebrow={`Tweets / ${targetMonthLabel}`}
         title={t('tweets.title')}
         description={t('tweets.description')}
         actions={
@@ -288,9 +287,6 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
             onEdit={startEdit}
             onDelete={(tweet) => setPendingDelete(tweet)}
           />
-          <div className="mt-5">
-            <RepositoryPanel data={data} targetPath={targetMonthPath} />
-          </div>
         </section>
       </div>
 

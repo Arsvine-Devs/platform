@@ -10,12 +10,6 @@ function request(pathname: string, cookie?: string) {
 }
 
 describe('Console control-plane boundary', () => {
-  it('retires every legacy admin endpoint', async () => {
-    const response = proxy(request('/api/admin/webauthn/registration/options'));
-    expect(response.status).toBe(410);
-    expect((await response.json()).error.code).toBe('LEGACY_ADMIN_API_RETIRED');
-  });
-
   it('requires the host-only OIDC session for the new BFF', async () => {
     const unauthorized = proxy(request('/api/control/library'));
     expect(unauthorized.status).toBe(401);

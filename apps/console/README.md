@@ -1,65 +1,55 @@
 # ARSVINE Console
 
-`console.arsvine.com` is the human management interface for the ARSVINE platform.
-It uses Auth OIDC for identity and a host-only opaque session cookie. Browser code
-does not receive OAuth tokens and the Console has no PostgreSQL, GitHub, COS, or
-integration credentials.
+[返回仓库地图](../../INDEX.md) · [安全边界](../../docs/SECURITY.md)
 
-## Current flow
+`console.arsvine.com` 是 ARSVINE Platform 的管理界面。它使用 Auth OIDC 建立身份，再把加密的 Host-only opaque session 保存在服务端；浏览器代码不会接触 OAuth token、数据库连接或 Content storage 凭据。
+
+## 当前流程
 
 ```text
 Console UI
-  -> same-origin Console BFF (/api/control/*)
-  -> https://api.arsvine.com/v1/*
-  -> Core PostgreSQL
-  -> publish command to Content's internal release adapter
-  -> immutable Content release in COS
+  → same-origin Console BFF (/api/control/*)
+  → https://api.arsvine.com/v1/*
+  → Core PostgreSQL
+  → Content release publication
+  → Realm revalidation
 ```
 
-The Console manages Core-backed Blog and Tweet records. Public reads are served
-by `content.arsvine.com`; Realm consumes that published read plane.
+Blog 和 Tweet authoring 属于 Core/API。Realm 的公开读取属于 Content read plane。
 
-## Routes
+## 路由
 
-- `/login` starts the Auth OIDC flow.
-- `/library` lists Core-backed Blog and Tweet records.
-- `/blog` edits Blog variants and publishes releases.
-- `/tweets` edits Tweet records.
-- `/control` shows the OIDC session and Control API principal.
-- `/auth/signed-out` is the post-logout landing page after Console and Auth
-  sessions have both been closed.
-- `/` redirects to `/library`.
+- `/login`：跳转到 Auth OIDC 登录。
+- `/library`：列出 Core 中的 Blog 与 Tweet。
+- `/blog`：编辑 Blog variant 并发布 release。
+- `/tweets`：编辑 Core Tweet 记录。
+- `/control`：查看当前 OIDC session 和 Control API principal。
+- `/auth/signed-out`：Console 与 Auth session 关闭后的落点。
+- `/health/live`、`/health/ready`：进程与 BFF 配置探针。
 
-Identity security, invitations, passkeys, TOTP, and account lifecycle belong to
-`auth.arsvine.com/security`. Console logout deletes its host-only session and
-then completes Auth RP-Initiated Logout; registered passkeys are account
-credentials and are not deleted by signing out. The former local login,
-WebAuthn, Workspace, Members, Security, GitHub content, X cron, and local
-database routes are retired.
+账户安全、Passkey、TOTP、密码和账户生命周期属于 `auth.arsvine.com/security`。退出登录会删除 Console session、清除浏览器 cookie，再完成 Auth RP-Initiated Logout；已注册的安全密钥不会因退出登录而删除。
 
-## Environment
+`prompts/` 保存供维护者手动使用的 Blog/Tweet 翻译模板，不会被 Console runtime 加载，也不代表已部署 translation worker。
 
-See [.env.example](./.env.example). The required production groups are:
+## 配置
 
-- `SESSION_SECRET` for encrypted server-side Console sessions;
-- `API_BASE_URL` for server-side Control API requests;
-- `AUTH_OIDC_*` for the exact Auth client, issuer, and `https://api.arsvine.com` resource;
-- Upstash REST or standard Redis/Valkey variables for session/rate-limit state;
-- optional Vercel Analytics origins.
+环境变量以 [`./.env.example`](./.env.example) 为准：
 
-Do not add Core database, object-storage, GitHub, X, translation-provider, or
-legacy local-auth variables to the Console project.
+- `SESSION_SECRET`：服务端 session 加密密钥；
+- `AUTH_OIDC_*`：Auth issuer、client、回调、JWKS、resource 和 logout 配置；
+- `API_BASE_URL`：服务端 Control API origin；
+- `UPSTASH_REDIS_REST_*`：session 与分布式限流；
+- `TRUST_PROXY`：只有可信代理覆盖 client header 时才开启；
+- `NEXT_PUBLIC_ANALYTICS_*`：可选 Vercel telemetry。
 
-## Local checks
+Console 不再需要 Core DB、object storage、GitHub、独立内容仓库、X cron 或翻译 provider 的配置。
 
-From the platform repository root:
+## 本地检查
 
 ```bash
-pnpm --filter arsvine-admin typecheck
-pnpm --filter arsvine-admin test
-pnpm --filter arsvine-admin build
-pnpm --filter arsvine-admin lint
+corepack pnpm --filter arsvine-admin format:check
+corepack pnpm --filter arsvine-admin lint
+corepack pnpm --filter arsvine-admin typecheck
+corepack pnpm --filter arsvine-admin test
+corepack pnpm --filter arsvine-admin build
 ```
-
-The production project is `arsvine-admin`; its canonical origin is
-`https://console.arsvine.com`.
