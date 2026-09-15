@@ -2,7 +2,7 @@
 
 Translate the provided `zh-CN` blog MDX content into a natural, restrained, publishable English version.
 
-You must treat `zh-CN` as the single source text and follow the rules below. These rules are rewritten directly from the site's `mdx_translation_guide.md`.
+You must treat `zh-CN` as the single source text and follow the maintained translation policy defined below.
 
 ## Translation Intent
 

@@ -36,7 +36,7 @@ corepack pnpm env:check
 
 ## Status 检测
 
-[status.arsvine.com](https://status.arsvine.com) 是独立部署的运维检测和状态展示站点。Status 的公开探针应以本节列出的服务健康路由为检测目标；具体检测项、通知渠道和状态页内容由 Status 站点维护，不进入各服务的环境变量或业务代码。
+[status.arsvine.com](https://status.arsvine.com) 是 Better Stack Status Page，DNS CNAME 指向 `statuspage.betteruptime.com`，页面公开请求返回 HTTP 200。Status 的公开探针应以本节列出的服务健康路由为检测目标；Realm canonical health 当前会被 Vercel Bot Protection 返回 429，其他四个服务的 live/ready 公开探针返回 200。具体检测项、通知渠道和状态页内容由 Status 站点维护，不进入各服务的环境变量或业务代码。
 
 ## 发布顺序
 

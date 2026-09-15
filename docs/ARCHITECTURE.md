@@ -54,4 +54,4 @@ Console 浏览器只访问同源 BFF。OAuth access token、Core 数据库连接
 5. API 对 Realm 发送带毫秒时间戳的 HMAC `content.published` 事件。
 6. Realm 下一次读取通过其 `config/site-config.mjs` 中的 Content origin 获取新的 published release。
 
-当前运行时拓扑包含 Console、Auth、API、Content 和 Realm 的已发布 Content 读取链路；`status.arsvine.com` 属于独立观测面，检测配置不由本仓库管理。历史输入资料由架构快照独立记录。
+当前运行时拓扑包含 Console、Auth、API、Content 和 Realm 的已发布 Content 读取链路；`status.arsvine.com` 属于独立观测面，检测配置不由本仓库管理。

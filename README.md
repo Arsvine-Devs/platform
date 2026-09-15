@@ -8,6 +8,7 @@
 console.arsvine.com → Auth OIDC + api.arsvine.com
 api.arsvine.com     → Core PostgreSQL + content.arsvine.com
 arsvine.com         → content.arsvine.com
+status.arsvine.com  → public health probes and operational status
 ```
 
 Console 浏览器只访问同源 BFF；OAuth token、数据库连接和 object-storage 凭据保持在服务端。内容 authoring 与 published read plane 由本 workspace 的 API、Content 服务和共享契约负责。
