@@ -2,6 +2,8 @@
 
 [返回文档目录](./INDEX.md)
 
+跨仓长文在 [docs.arsvine.com/reference](https://docs.arsvine.com/reference) 与授权后的 `/internal`。本文件只记录 Platform 服务所有权。
+
 ## 当前拓扑
 
 ```text

@@ -1,6 +1,6 @@
 {
   "name": "@arsvine/site-config",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Canonical Arsvine service origins, OIDC topology, and catalog namespaces",
   "type": "module",
   "main": "src/index.mjs",
