@@ -15,6 +15,7 @@ import {
   createObjectStorage,
 } from "@arsvine/object-storage";
 import { log } from "@arsvine/observability";
+import { liveBody, readyBody } from "@arsvine/service-health";
 import {
   findPublishedPost,
   getVariantKey,
@@ -133,7 +134,7 @@ export function buildContentServer(options: ContentServerOptions = {}) {
     },
   });
 
-  app.get("/health/live", async () => ({ status: "live", service: "content" }));
+  app.get("/health/live", async () => liveBody("content"));
   app.get("/health/ready", async (_request, reply) => {
     const storage = readableStorage(options);
     if (!storage)
@@ -141,7 +142,7 @@ export function buildContentServer(options: ContentServerOptions = {}) {
 
     try {
       await readPublishedRelease(storage, currentPointerKey);
-      return { status: "ready", service: "content" };
+      return readyBody("content");
     } catch {
       return reply.code(503).send({ status: "not_ready", service: "content" });
     }

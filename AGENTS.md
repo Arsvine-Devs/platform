@@ -17,6 +17,10 @@ Control API, published Content read plane, and small shared runtime packages.
   printing values while investigating configuration.
 - Keep fixed service topology, protocol resources, and redirect relationships in
   `@arsvine/site-config`; do not add dotenv fallbacks for those constants.
+- Default branch is `main` (linear history). Develop on `dev/<topic>` and
+  integrate via PR; prefer squash merge.
+- The default branch is the deploy target. Do not promote production or mutate
+  remote infrastructure unless the current task explicitly authorizes it.
 - Default to branch-local work. Do not push, merge, deploy, or mutate remote
   infrastructure unless the current task explicitly authorizes it.
 

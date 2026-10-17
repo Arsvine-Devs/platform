@@ -11,6 +11,7 @@ import {
   type AuthPrincipal,
 } from "@arsvine/authz";
 import { log } from "@arsvine/observability";
+import { liveBody, readyBody } from "@arsvine/service-health";
 import { registerContentRoutes } from "./content-routes.js";
 import { publishCoreRelease } from "./publication.js";
 
@@ -99,7 +100,7 @@ export function buildApiServer() {
 
   app.get("/openapi.json", async () => app.swagger());
 
-  app.get("/health/live", async () => ({ status: "live", service: "api" }));
+  app.get("/health/live", async () => liveBody("api"));
   app.get("/health/ready", async (_request, reply) => {
     const missing = ["CORE_DATABASE_URL"].filter((key) => !readEnv(key));
     if (missing.length > 0) {
@@ -109,7 +110,7 @@ export function buildApiServer() {
         reason: `missing_configuration:${missing.join(",")}`,
       });
     }
-    return { status: "ready", service: "api" };
+    return readyBody("api");
   });
 
   app.get(

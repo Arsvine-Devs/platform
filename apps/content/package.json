@@ -14,8 +14,9 @@
     "@arsvine/authz": "workspace:*",
     "@arsvine/env": "workspace:*",
     "@arsvine/object-storage": "workspace:*",
-    "@arsvine/site-config": "workspace:*",
     "@arsvine/observability": "workspace:*",
+    "@arsvine/service-health": "workspace:*",
+    "@arsvine/site-config": "workspace:*",
     "@fastify/swagger": "^9.5.2",
     "fastify": "^5.6.2"
   },
