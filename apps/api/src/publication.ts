@@ -2,26 +2,24 @@ import { createHmac, randomUUID } from "node:crypto";
 import type { ApiPublication } from "@arsvine/contracts";
 import { readEnv } from "@arsvine/env";
 import { listPosts, listTweets } from "@arsvine/core-db";
-import { siteConfig } from "@arsvine/site-config";
+import { internalServiceUrl, siteConfig } from "@arsvine/site-config";
 
 type RealmRevalidator = { url: string; secret: string };
 
 function requiredRealmRevalidator(): RealmRevalidator {
   const secret = readEnv("REVALIDATE_WEBHOOK_SECRET");
   if (!secret) throw new Error("Realm revalidation is not configured.");
-  return { url: siteConfig.realm.revalidateUrl, secret };
+  return {
+    url: internalServiceUrl("realm", siteConfig.realm.revalidateUrl),
+    secret,
+  };
 }
 
-async function notifyRealm(
-  revalidator: RealmRevalidator,
-  releaseId: string,
-  resources: string[],
-) {
+async function notifyRealm(revalidator: RealmRevalidator, releaseId: string) {
   const timestamp = String(Date.now());
   const body = JSON.stringify({
     event: "content.published",
     releaseId,
-    resources,
     timestamp: new Date(Number(timestamp)).toISOString(),
   });
   const signature = createHmac("sha256", revalidator.secret)
@@ -51,7 +49,7 @@ async function notifyRealm(
 function requiredPublisher() {
   const token = readEnv("CONTENT_PUBLISH_TOKEN");
   if (!token) throw new Error("Content publisher is not configured.");
-  const url = siteConfig.content.publicationUrl;
+  const url = internalServiceUrl("content", siteConfig.content.publicationUrl);
   return { url, token };
 }
 
@@ -77,8 +75,12 @@ export async function publishCoreRelease(): Promise<ApiPublication> {
   const releaseId = `${Date.now().toString(36).toUpperCase()}-${randomUUID()}`;
   const prefix = `realm-content/releases/${releaseId}`;
   const pointerKey = siteConfig.content.pointerKey;
-  const posts = await listPosts({ includeBody: true });
-  const tweets = await listTweets();
+  const posts = (await listPosts({ includeBody: true })).filter(
+    (post) => post.status === "published",
+  );
+  const tweets = (await listTweets()).filter(
+    (tweet) => tweet.visibility === "public",
+  );
   const objects: Array<{ key: string; body: string }> = [];
   const postIndex = posts.map((post) => {
     const variants: Record<
@@ -211,10 +213,7 @@ export async function publishCoreRelease(): Promise<ApiPublication> {
   if (!response.ok || result?.releaseId !== releaseId) {
     throw new Error(result?.error?.code ?? "Content publication failed.");
   }
-  await notifyRealm(revalidator, releaseId, [
-    ...posts.map((post) => `posts:${post.slug}`),
-    "tweets",
-  ]);
+  await notifyRealm(revalidator, releaseId);
   return {
     releaseId,
     pointerKey,

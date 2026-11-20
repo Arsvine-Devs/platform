@@ -1,58 +1,27 @@
-# 配置、健康检查与发布
+# 发布与日常操作
 
 [返回文档目录](./INDEX.md)
 
-## 配置所有权
+Web 入口、编排、站点权限和诊断见 [Web 运维](../ops/WEB.md)。应用提供无缓存健康检查。Auth 和 API 检查 PostgreSQL，Console 检查会话配置与 Valkey，Content 检查当前快照。应用部署后可以在 Console 查询版本、健康、部署结果和访问日志。
 
-完整的变量填写说明见 [`CONFIGURATION.md`](./CONFIGURATION.md)。机器契约是 [`config/env-contracts.json`](../config/env-contracts.json)；每个服务的 `.env.example` 是对应的安全模板。
+## 数据服务
 
-| 服务    | 配置目录和职责                                                                                                      |
-| ------- | ------------------------------------------------------------------------------------------------------------------- |
-| Auth    | `apps/auth/.env.example`：Auth 数据库、Better Auth secret 和 trusted origins；固定身份拓扑见 `@arsvine/site-config` |
-| API     | `apps/api/.env.example`：Core DB、Content publication token 和 Realm revalidation HMAC secret                       |
-| Content | `apps/content/.env.example`：S3 storage 和 publication token；发布 pointer/服务 origin 由静态配置拥有               |
-| Console | `apps/console/.env.example`：Host-only session、OIDC client credentials、Upstash、代理和公开 Analytics              |
+在 VPS 准备只监听本机的 PostgreSQL 和 Valkey 二进制。数据库初始化依据 Web 站点登记生成每个环境的角色和配置。Valkey 由独立的 Web 服务启动。
 
-真实 secret 只配置在部署环境或本地未跟踪文件中。不要把 secret 放进 `NEXT_PUBLIC_*`、日志、测试 fixture 或提交。
-
-环境变量 provider 使用 `readEnv()` 去空白并统一空值语义；API/Content 的 Node 入口使用 `@arsvine/env/dotenv` 加载相邻 `.env.local`，Auth/Console 的 Next 运行时由 Next.js 加载 dotenv。固定拓扑由 `@arsvine/site-config` 提供。新增动态键先用 `corepack pnpm envctl register` 登记，再接入消费者。
-
-```bash
-corepack pnpm envctl stats
-corepack pnpm envctl query --key CORE_DATABASE_URL
-corepack pnpm env:check
+```sh
+uv sync --project ops --locked --no-dev --python 3.12
+uv run --project ops --locked --no-dev web-data provision --sites ops/config/sites.example.json
+sudo ops/.venv/bin/web-data provision --apply
 ```
 
-## 健康检查
+Auth、API 和 Realm 的数据库可以分别初始化。导入已有数据时使用各服务的 PostgreSQL custom dump，密钥文件随目标环境配置。
 
-每个服务提供 `/health/live`；readiness 还检查其实际运行所需的配置或 published pointer：
+新环境用 `sudo ops/.venv/bin/web-initialize preview` 创建独立密钥和空发布内容。用同一环境的 Auth 配置执行 `apps/auth/scripts/initialize.mjs`，生成 owner 和 Console、Realm 的 OIDC 客户端。该命令把结果写入指定的私有文件。再用 `sudo ops/.venv/bin/web-initialize preview --auth-state <私有文件>` 关联客户端配置。Core 初始表定义在 [Core schema](../migrations/core/0001_core.sql)。
 
-- Auth：数据库和 `BETTER_AUTH_SECRET`。
-- API：`CORE_DATABASE_URL`。
-- Content：object storage 和当前 release pointer/manifest。
-- Console：Session、OIDC client credentials 和 BFF 运行配置；固定 OIDC/API origin 由 site-config 提供。
+已导出的媒体和发布数据使用 `uv run --project ops --locked web-data import-media --help` 查看暂存参数。
 
-`live` 只证明进程可响应，`ready` 只证明应用可以接受其声明的依赖；两者都不替代已认证的写入、发布和浏览器流程验收。
+## 内容发布
 
-## Status 检测
+API 读取 Core 数据并构建发布快照。Content 验证各对象和清单，然后原子切换当前指针。Realm 接收带时间戳的 HMAC 通知，刷新公开页面。公开媒体在 VPS 的 `/media/` 路径提供。草稿、私有素材与受保护的文章正文由对应服务鉴权。
 
-[status.arsvine.com](https://status.arsvine.com) 是独立部署的运维检测和状态展示站点。Status 的公开探针应以本节列出的服务健康路由为检测目标；具体检测项、通知渠道和状态页内容由 Status 站点维护，不进入各服务的环境变量或业务代码。
-
-## 发布顺序
-
-应用部署由各 Vercel project 的当前配置负责。代码侧的内容发布顺序是 API → Content immutable objects → current pointer → Realm HMAC revalidation。pointer 只在对象逐一验证后切换；中途失败时旧 release 保持可读。
-
-发布前至少运行：
-
-```bash
-corepack pnpm check
-```
-
-然后针对目标服务验证 `/health/live` 与 `/health/ready`。真实 OIDC mutation、Content publish、数据库写入和生产域名 smoke test 需要相应外部权限，不由本地门禁代替。
-
-## 故障边界
-
-- Auth/API/Content readiness 失败时，先恢复其声明的依赖配置，不添加隐藏 fallback。
-- Content 发布失败时，旧 pointer 保持有效；检查 object key、storage、publish token 和日志中的 release ID。
-- Realm revalidation 失败时，Content release 可能已发布；检查 HMAC 配置和 Realm cache，再单独重试 revalidation。
-- Console Redis 不可用时，当前实现使用本地限流状态；这只适用于短期可用性保护，不提供多实例一致性。
+[公共状态页](https://status.arsvine.com) 从外部探测站点。诊断请求时可用 Console 的应用状态与请求标识关联 Cloudflare 安全事件。

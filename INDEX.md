@@ -20,7 +20,7 @@ Platform 是管理系统的服务工作区，集中维护 Console、Auth、API�
 | `packages/authz/`          | Auth JWT/JWKS 校验和 scope/role 判定     | [`packages/authz/README.md`](./packages/authz/README.md)                   |
 | `packages/contracts/`      | API 线协议 TypeScript 类型               | [`packages/contracts/README.md`](./packages/contracts/README.md)           |
 | `packages/core-db/`        | Core PostgreSQL schema 与 authoring 查询 | [`packages/core-db/README.md`](./packages/core-db/README.md)               |
-| `packages/object-storage/` | S3-compatible object storage 适配        | [`packages/object-storage/README.md`](./packages/object-storage/README.md) |
+| `packages/object-storage/` | 私有文件和内容发布快照                   | [`packages/object-storage/README.md`](./packages/object-storage/README.md) |
 | `packages/observability/`  | 结构化服务日志                           | [`packages/observability/README.md`](./packages/observability/README.md)   |
 | `packages/env/`            | 动态环境读取、dotenv 入口和 envctl CLI   | [`packages/env/README.md`](./packages/env/README.md)                       |
 | `packages/site-config/`    | 固定服务拓扑和协议常量                   | [`packages/site-config/README.md`](./packages/site-config/README.md)       |

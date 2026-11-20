@@ -260,9 +260,10 @@ function SidebarTrigger({ className, onClick, ...props }: React.ComponentProps<t
       size="icon-sm"
       className={cn(className)}
       aria-label={label}
-      onClick={(event) => {
-        onClick?.(event);
-        toggleSidebar();
+      onClick={(event, details) => {
+        const result = onClick?.(event, details);
+        if (!event.defaultPrevented) toggleSidebar();
+        return result;
       }}
       {...props}
     >

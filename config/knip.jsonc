@@ -1,13 +1,10 @@
 {
   "$schema": "../node_modules/knip/schema.json",
+  "ignoreBinaries": ["uv"],
   "workspaces": {
     "apps/api": {
-      "entry": ["api/index.ts"],
-      "project": [
-        "src/**/*.{ts,tsx,js,mjs,mts,cts}",
-        "api/**/*.{ts,tsx,js,mjs,mts,cts}",
-        "scripts/**/*.{js,mjs}",
-      ],
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.{ts,tsx,js,mjs,mts,cts}", "scripts/**/*.{js,mjs}"],
     },
     "apps/auth": {
       "entry": ["app/**/*.{ts,tsx}"],
@@ -16,17 +13,15 @@
         "app/**/*.css",
         "components/**/*.{ts,tsx,js,mjs,mts,cts}",
         "lib/**/*.{ts,tsx,js,mjs,mts,cts}",
+        "scripts/**/*.mjs",
       ],
       "ignoreIssues": {
         "components/ui/*.tsx": ["exports"],
       },
     },
     "apps/content": {
-      "entry": ["api/index.ts"],
-      "project": [
-        "src/**/*.{ts,tsx,js,mjs,mts,cts}",
-        "api/**/*.{ts,tsx,js,mjs,mts,cts}",
-      ],
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.{ts,tsx,js,mjs,mts,cts}"],
     },
     "packages/authz": {
       "project": ["src/**/*.{ts,tsx,js,mjs,mts,cts}"],

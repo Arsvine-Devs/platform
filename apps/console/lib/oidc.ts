@@ -1,7 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { requiredEnv } from '@arsvine/env';
-import { siteConfig } from '@arsvine/site-config';
+import { internalServiceUrl, siteConfig } from '@arsvine/site-config';
 
 export const OIDC_STATE_COOKIE = '__Host-console_oidc_state';
 export const OIDC_SESSION_COOKIE = '__Host-console_session';
@@ -64,7 +64,8 @@ export function openState(value: string | undefined): OidcState | null {
 }
 
 export function normalizeReturnTo(value: string | null | undefined) {
-  if (!value || !value.startsWith('/') || value.startsWith('//')) return '/library';
+  if (!value || !value.startsWith('/') || value.startsWith('//') || value.includes('\\'))
+    return '/library';
   return value;
 }
 
@@ -106,7 +107,7 @@ export function buildLogoutUrl(idTokenHint: string) {
 export async function exchangeAuthorizationCode(code: string, state: OidcState) {
   const { oidc } = siteConfig.console;
   const credentials = `${required('AUTH_OIDC_CLIENT_ID')}:${required('AUTH_OIDC_CLIENT_SECRET')}`;
-  const response = await fetch(oidc.tokenUrl, {
+  const response = await fetch(internalServiceUrl('auth', oidc.tokenUrl), {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -134,14 +135,14 @@ export async function exchangeAuthorizationCode(code: string, state: OidcState) 
     throw new Error(body?.error_description ?? body?.error ?? 'OIDC token exchange failed.');
   }
 
-  const jwks = createRemoteJWKSet(new URL(oidc.jwksUrl));
+  const jwks = createRemoteJWKSet(new URL(internalServiceUrl('auth', oidc.jwksUrl)));
   const verified = await jwtVerify(body.id_token, jwks, {
     issuer: oidc.issuer,
     audience: required('AUTH_OIDC_CLIENT_ID'),
   });
   if (verified.payload.nonce !== state.nonce) throw new Error('OIDC nonce validation failed.');
 
-  const userInfoResponse = await fetch(oidc.userinfoUrl, {
+  const userInfoResponse = await fetch(internalServiceUrl('auth', oidc.userinfoUrl), {
     headers: { Accept: 'application/json', Authorization: `Bearer ${body.access_token}` },
     signal: AbortSignal.timeout(8000),
     cache: 'no-store',

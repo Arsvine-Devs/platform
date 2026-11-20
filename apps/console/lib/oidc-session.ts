@@ -1,23 +1,14 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
-import { Redis } from '@upstash/redis';
 import { readEnv } from '@arsvine/env';
 import { cookies } from 'next/headers';
 import type { NextRequest, NextResponse } from 'next/server';
 import { OIDC_SESSION_COOKIE, OIDC_SESSION_TTL_SECONDS, type OidcTokens } from './oidc';
 import type { AuthenticatedSession } from './auth';
+import { getConsoleRedis } from './console-redis';
 
 type StoredOidcSession = OidcTokens & AuthenticatedSession & { authSource: 'oidc' };
 
 const localSessions = new Map<string, { value: string; expiresAt: number }>();
-let redis: Redis | null = null;
-
-function getRedis() {
-  const url = readEnv('UPSTASH_REDIS_REST_URL');
-  const token = readEnv('UPSTASH_REDIS_REST_TOKEN');
-  if (!url || !token) return null;
-  redis ??= new Redis({ url, token });
-  return redis;
-}
 
 function key() {
   const secret = readEnv('SESSION_SECRET');
@@ -44,17 +35,17 @@ function decrypt(value: string) {
 }
 
 async function write(id: string, value: string) {
-  const store = getRedis();
+  const store = getConsoleRedis();
   if (store) {
-    await store.set(`console:oidc:${id}`, value, { ex: OIDC_SESSION_TTL_SECONDS });
+    await store.set(`oidc:${id}`, value, 'EX', OIDC_SESSION_TTL_SECONDS);
     return;
   }
   localSessions.set(id, { value, expiresAt: Date.now() + OIDC_SESSION_TTL_SECONDS * 1000 });
 }
 
 async function read(id: string) {
-  const store = getRedis();
-  if (store) return (await store.get<string>(`console:oidc:${id}`)) ?? null;
+  const store = getConsoleRedis();
+  if (store) return store.get(`oidc:${id}`);
   const entry = localSessions.get(id);
   if (!entry || entry.expiresAt <= Date.now()) {
     localSessions.delete(id);
@@ -64,8 +55,8 @@ async function read(id: string) {
 }
 
 async function remove(id: string) {
-  const store = getRedis();
-  if (store) await store.del(`console:oidc:${id}`);
+  const store = getConsoleRedis();
+  if (store) await store.del(`oidc:${id}`);
   localSessions.delete(id);
 }
 

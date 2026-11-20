@@ -75,7 +75,7 @@ function Detail({ item }: { item: LibraryItem }) {
           <dd className="mt-1 font-mono text-xs">{formatDate(item.updatedAt)}</dd>
         </div>
       </dl>
-      <Button nativeButton={false} className="mt-auto min-h-11" render={<Link href={item.href} />}>
+      <Button className="mt-auto min-h-11" render={<Link href={item.href} />}>
         <ExternalLink data-icon="inline-start" />
         {t('library.openEditor')}
       </Button>
@@ -155,7 +155,7 @@ export default function LibraryPageClient() {
         title={t('library.title')}
         description={t('library.description')}
         actions={
-          <Button nativeButton={false} className="min-h-11" render={<Link href="/blog" />}>
+          <Button className="min-h-11" render={<Link href="/blog" />}>
             <Plus data-icon="inline-start" />
             {t('library.newArticle')}
           </Button>

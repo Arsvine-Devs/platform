@@ -11,3 +11,5 @@
 - Use Oxlint as the primary linter; ESLint is only the compatibility layer for
   rules not covered by Oxlint.
 - Run the focused Console tests/typecheck after UI or BFF changes.
+- For UI SDK components, use the package documentation in
+  `node_modules/@ui-sdk/react/docs/llms.txt` and the matching component page.

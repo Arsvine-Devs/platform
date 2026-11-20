@@ -1,5 +1,5 @@
-import { Redis } from '@upstash/redis';
-import { readEnv } from '@arsvine/env';
+import type { Redis } from 'ioredis';
+import { getConsoleRedis } from './console-redis';
 
 type Bucket = {
   count: number;
@@ -13,15 +13,15 @@ type LimiterDecision = {
 };
 
 const buckets = new Map<string, Bucket>();
-const REST_URL = readEnv('UPSTASH_REDIS_REST_URL');
-const REST_TOKEN = readEnv('UPSTASH_REDIS_REST_TOKEN');
-let redis: Redis | null = null;
-
-function getRedis() {
-  if (!REST_URL || !REST_TOKEN) return null;
-  redis ??= new Redis({ url: REST_URL, token: REST_TOKEN });
-  return redis;
-}
+const INCREMENT_WINDOW = `
+local count = redis.call('INCR', KEYS[1])
+local ttl = redis.call('PTTL', KEYS[1])
+if ttl < 0 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+  ttl = tonumber(ARGV[1])
+end
+return {count, ttl}
+`;
 
 function localEnforceRateLimit(key: string, limit: number, windowMs: number): LimiterDecision {
   const now = Date.now();
@@ -55,38 +55,28 @@ async function redisEnforceRateLimit(
   limit: number,
   windowMs: number,
 ): Promise<LimiterDecision> {
-  const windowSeconds = Math.max(1, Math.ceil(windowMs / 1000));
-  const count = await store.incr(key);
-  let ttlSeconds = windowSeconds;
-  if (count === 1) {
-    await store.expire(key, windowSeconds);
-  } else {
-    const pttl = await store.pttl(key);
-    if (pttl < 0) {
-      await store.expire(key, windowSeconds);
-    } else {
-      ttlSeconds = Math.max(1, Math.ceil(pttl / 1000));
-    }
-  }
-
-  const retryAfterMs = ttlSeconds * 1000;
+  const [count, retryAfterMs] = (await store.eval(
+    INCREMENT_WINDOW,
+    1,
+    `rate:${key}`,
+    windowMs,
+  )) as [number, number];
   return count > limit
     ? { ok: false, remaining: 0, retryAfterMs }
     : { ok: true, remaining: Math.max(0, limit - count), retryAfterMs };
 }
 
 export function isRateLimitPersistent() {
-  return Boolean(REST_URL && REST_TOKEN);
+  return Boolean(getConsoleRedis());
 }
 
 export async function enforceRateLimit(key: string, limit: number, windowMs: number) {
-  const store = getRedis();
+  const store = getConsoleRedis();
   if (!store) return localEnforceRateLimit(key, limit, windowMs);
 
   try {
     return await redisEnforceRateLimit(store, key, limit, windowMs);
-  } catch (error) {
-    console.error('[rate-limit] Redis enforcement failed; using local limiter', error);
-    return localEnforceRateLimit(key, limit, windowMs);
+  } catch {
+    return { ok: false, remaining: 0, retryAfterMs: windowMs };
   }
 }

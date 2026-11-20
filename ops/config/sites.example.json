@@ -1,0 +1,83 @@
+{
+  "sites": [
+    {
+      "id": "console",
+      "repository": "Arsvine-Devs/platform",
+      "runtime": "node",
+      "productionRef": "main",
+      "healthPath": "/health/ready",
+      "capabilities": ["oidc", "valkey", "web-console"],
+      "dependencies": ["auth", "api"],
+      "localServices": ["valkey"],
+      "production": {
+        "hostname": "console.arsvine.com",
+        "port": 12000,
+        "accessAudience": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    },
+    {
+      "id": "auth",
+      "repository": "Arsvine-Devs/platform",
+      "runtime": "node",
+      "productionRef": "main",
+      "healthPath": "/health/ready",
+      "capabilities": ["postgres", "identity"],
+      "localServices": ["postgres"],
+      "production": { "hostname": "auth.arsvine.com", "port": 12002 }
+    },
+    {
+      "id": "api",
+      "repository": "Arsvine-Devs/platform",
+      "runtime": "node",
+      "productionRef": "main",
+      "healthPath": "/health/ready",
+      "capabilities": ["postgres", "oidc", "content-publisher"],
+      "dependencies": ["auth", "content", "realm"],
+      "localServices": ["postgres"],
+      "production": { "hostname": "api.arsvine.com", "port": 12004 }
+    },
+    {
+      "id": "content",
+      "repository": "Arsvine-Devs/platform",
+      "runtime": "node",
+      "productionRef": "main",
+      "healthPath": "/health/ready",
+      "capabilities": ["oidc", "content-files"],
+      "dependencies": ["auth"],
+      "storage": "content",
+      "production": { "hostname": "content.arsvine.com", "port": 12006 }
+    },
+    {
+      "id": "realm",
+      "repository": "Arsvine-Devs/realm",
+      "runtime": "node",
+      "productionRef": "master",
+      "healthPath": "/api/health/ready",
+      "capabilities": [
+        "postgres",
+        "valkey",
+        "oidc",
+        "private-catalog",
+        "public-media"
+      ],
+      "dependencies": ["auth", "content"],
+      "localServices": ["postgres", "valkey"],
+      "media": "realm",
+      "production": {
+        "hostname": "arsvine.com",
+        "port": 12008,
+        "redirectAliases": ["www.arsvine.com"]
+      }
+    },
+    {
+      "id": "ripple",
+      "repository": "Arsvine-Devs/ripple-website",
+      "runtime": "static",
+      "productionRef": "dev/system-unify-2026-10",
+      "healthPath": "/",
+      "capabilities": ["public-media"],
+      "media": "ripple",
+      "production": { "hostname": "ripple.arsvine.com" }
+    }
+  ]
+}

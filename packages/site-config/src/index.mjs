@@ -1,13 +1,56 @@
-const origins = Object.freeze({
+const defaultOrigins = {
   realm: "https://arsvine.com",
   ripple: "https://ripple.arsvine.com",
   console: "https://console.arsvine.com",
   auth: "https://auth.arsvine.com",
   api: "https://api.arsvine.com",
   content: "https://content.arsvine.com",
-  cdn: "https://cdn.arsvine.com",
   status: "https://status.arsvine.com",
-});
+};
+
+function configuredOrigins() {
+  const raw =
+    typeof process === "undefined" ? undefined : process.env.ARS_WEB_ORIGINS;
+  if (!raw) return Object.freeze(defaultOrigins);
+  const overrides = JSON.parse(raw);
+  if (!overrides || typeof overrides !== "object" || Array.isArray(overrides)) {
+    throw new Error("ARS_WEB_ORIGINS must be an object of origins");
+  }
+  for (const [service, origin] of Object.entries(overrides)) {
+    if (
+      !Object.hasOwn(defaultOrigins, service) ||
+      typeof origin !== "string" ||
+      new URL(origin).origin !== origin ||
+      !origin.startsWith("https://")
+    ) {
+      throw new Error("Invalid ARS_WEB_ORIGINS entry");
+    }
+  }
+  return Object.freeze({ ...defaultOrigins, ...overrides });
+}
+
+const origins = configuredOrigins();
+
+export function internalServiceUrl(service, publicUrl = origins[service]) {
+  const raw =
+    typeof process === "undefined"
+      ? undefined
+      : process.env.ARS_WEB_INTERNAL_ORIGINS;
+  if (!raw) return publicUrl;
+  const origin = JSON.parse(raw)[service];
+  if (!origin) return publicUrl;
+  const internal = new URL(origin);
+  if (
+    internal.origin !== origin ||
+    internal.protocol !== "http:" ||
+    internal.hostname !== "127.0.0.1" ||
+    !internal.port
+  ) {
+    throw new Error("Invalid internal Web service origin");
+  }
+  const url = new URL(publicUrl);
+  return new URL(url.pathname + url.search, internal).toString();
+}
 
 /** Stable public origins used by every Arsvine site. */
 export const serviceOrigins = origins;
@@ -42,7 +85,6 @@ export const siteConfig = Object.freeze({
     origin: origins.ripple,
     healthLivePath: "/health/live",
     healthReadyPath: "/health/ready",
-    musicPointer: `${catalogNamespaces.ripple}/catalog/current.json`,
     musicApiPath: "/api/music",
   }),
   console: Object.freeze({
@@ -91,6 +133,5 @@ export const siteConfig = Object.freeze({
     healthLivePath: "/health/live",
     healthReadyPath: "/health/ready",
   }),
-  cdn: Object.freeze({ origin: origins.cdn }),
   status: Object.freeze({ origin: origins.status }),
 });

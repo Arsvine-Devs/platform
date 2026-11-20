@@ -22,6 +22,7 @@ beforeEach(() => {
   listPostsMock.mockResolvedValue([
     {
       slug: "hello-world",
+      status: "published",
       tags: ["news"],
       pinned: false,
       accessMode: "public",
@@ -64,7 +65,30 @@ afterEach(() => {
 });
 
 describe("publishCoreRelease", () => {
-  it("publishes Content and then confirms signed Realm revalidation", async () => {
+  it("keeps drafts and private tweets out of published storage", async () => {
+    const [published] = await listPostsMock();
+    listPostsMock.mockResolvedValue([
+      published,
+      { ...published, slug: "draft-entry", status: "draft" },
+    ]);
+    const tweet = {
+      createdAt: "2026-11-20T05:00:00.000Z",
+      updatedAt: "2026-11-20T05:00:00.000Z",
+    };
+    listTweetsMock.mockResolvedValue([
+      { ...tweet, visibility: "public", content: "public-preview" },
+      { ...tweet, visibility: "private", content: "private-preview" },
+    ]);
+    await publishCoreRelease();
+    const body = String(fetchMock.mock.calls[0]?.[1]?.body);
+    expect(body).toContain("hello-world");
+    expect(body).toContain("public-preview");
+    expect(body).not.toContain("draft-entry");
+    expect(body).not.toContain("private-preview");
+  });
+
+  it("publishes an empty replacement snapshot and confirms signed Realm revalidation", async () => {
+    listPostsMock.mockResolvedValue([]);
     const resultPromise = publishCoreRelease();
     const result = await resultPromise;
     const calls = fetchMock.mock.calls;
@@ -79,6 +103,7 @@ describe("publishCoreRelease", () => {
       .digest("hex");
 
     expect(result.realmRevalidated).toBe(true);
+    expect(result.postCount).toBe(0);
     expect(String(publishCall?.[0])).toBe(
       "https://content.arsvine.com/v1/internal/publications",
     );
@@ -92,9 +117,10 @@ describe("publishCoreRelease", () => {
     expect(
       new Headers(revalidationCall?.[1]?.headers).get("x-arsvine-signature"),
     ).toBe(signature);
-    expect(JSON.parse(revalidationBody)).toMatchObject({
+    expect(JSON.parse(revalidationBody)).toEqual({
       event: "content.published",
-      resources: ["posts:hello-world", "tweets"],
+      releaseId: result.releaseId,
+      timestamp: expect.any(String),
     });
   });
 });

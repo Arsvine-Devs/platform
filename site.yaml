@@ -1,0 +1,32 @@
+version: 1
+services:
+  - id: console
+    runtime: node
+    production: { branch: main, hostname: console.arsvine.com }
+    health: /health/ready
+    capabilities: [oidc, valkey, web-console]
+    build: { type: next, directory: apps/console, package: arsvine-admin }
+  - id: auth
+    runtime: node
+    production: { branch: main, hostname: auth.arsvine.com }
+    health: /health/ready
+    capabilities: [postgres, identity]
+    build: { type: next, directory: apps/auth, package: "@arsvine/auth" }
+  - id: api
+    runtime: node
+    production: { branch: main, hostname: api.arsvine.com }
+    health: /health/ready
+    capabilities: [postgres, oidc, content-publisher]
+    build:
+      { type: workspace-node, directory: apps/api, package: "@arsvine/api" }
+  - id: content
+    runtime: node
+    production: { branch: main, hostname: content.arsvine.com }
+    health: /health/ready
+    capabilities: [oidc, content-files]
+    build:
+      {
+        type: workspace-node,
+        directory: apps/content,
+        package: "@arsvine/content",
+      }

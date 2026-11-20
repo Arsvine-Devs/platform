@@ -1,73 +1,93 @@
+import { randomUUID } from "node:crypto";
 import {
-  GetObjectCommand,
-  PutObjectCommand,
-  S3Client,
-  type S3ClientConfig,
-} from "@aws-sdk/client-s3";
+  link,
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  rename,
+  rm,
+} from "node:fs/promises";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { readEnv } from "@arsvine/env";
 
-export type ObjectStorageConfig = {
-  endpoint: string;
-  region: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  bucket: string;
-  forcePathStyle?: boolean;
-};
-
 export function readObjectStorageConfig(env: NodeJS.ProcessEnv = process.env) {
-  const values = {
-    endpoint: readEnv("S3_ENDPOINT", env),
-    region: readEnv("S3_REGION", env),
-    accessKeyId: readEnv("S3_ACCESS_KEY_ID", env),
-    secretAccessKey: readEnv("S3_SECRET_ACCESS_KEY", env),
-    bucket: readEnv("S3_PRIVATE_BUCKET", env),
-    forcePathStyle:
-      readEnv("S3_FORCE_PATH_STYLE", env)?.toLowerCase() !== "false",
-  };
-  if (
-    [
-      values.endpoint,
-      values.region,
-      values.accessKeyId,
-      values.secretAccessKey,
-      values.bucket,
-    ].some((value) => !value)
-  ) {
-    return null;
-  }
-  return values as ObjectStorageConfig;
+  const root = readEnv("CONTENT_STORAGE_ROOT", env);
+  return root && isAbsolute(root) ? { root } : null;
 }
 
-export function createObjectStorage(config: ObjectStorageConfig) {
-  const clientConfig: S3ClientConfig = {
-    endpoint: config.endpoint,
-    region: config.region,
-    forcePathStyle: config.forcePathStyle ?? true,
-    credentials: {
-      accessKeyId: config.accessKeyId,
-      secretAccessKey: config.secretAccessKey,
-    },
-  };
-  const client = new S3Client(clientConfig);
+function isError(error: unknown, code: string) {
+  return (error as NodeJS.ErrnoException | null)?.code === code;
+}
+
+async function requireLocalEntry(path: string) {
+  const info = await lstat(path);
+  if (info.isSymbolicLink() || (!info.isDirectory() && !info.isFile())) {
+    throw new Error("Invalid storage entry");
+  }
+  return info;
+}
+
+export function createObjectStorage(config: { root: string }) {
+  const root = resolve(config.root);
+
+  async function objectPath(key: string, createParents: boolean) {
+    const segments = key.split("/");
+    if (
+      segments.some((segment) => !/^[a-zA-Z0-9_][a-zA-Z0-9_.-]*$/.test(segment))
+    ) {
+      throw new Error("Invalid storage key");
+    }
+    await requireLocalEntry(root);
+    let directory = root;
+    for (const part of segments.slice(0, -1)) {
+      directory = join(directory, part);
+      if (createParents) {
+        await mkdir(directory, { mode: 0o700 }).catch((error: unknown) => {
+          if (!isError(error, "EEXIST")) throw error;
+        });
+      }
+      if (!(await requireLocalEntry(directory)).isDirectory()) {
+        throw new Error("Invalid storage directory");
+      }
+    }
+    return join(directory, segments.at(-1)!);
+  }
 
   return {
     async getText(key: string) {
-      const result = await client.send(
-        new GetObjectCommand({ Bucket: config.bucket, Key: key }),
-      );
-      if (!result.Body) throw new Error(`Object body missing: ${key}`);
-      return result.Body.transformToString();
+      const path = await objectPath(key, false);
+      if (!(await requireLocalEntry(path)).isFile())
+        throw new Error("Invalid storage object");
+      return readFile(path, "utf8");
     },
-    async putText(key: string, body: string, contentType = "application/json") {
-      await client.send(
-        new PutObjectCommand({
-          Bucket: config.bucket,
-          Key: key,
-          Body: body,
-          ContentType: contentType,
-        }),
-      );
+    async putText(key: string, body: string, { replace = false } = {}) {
+      const destination = await objectPath(key, true);
+      const temporary = join(dirname(destination), `.write-${randomUUID()}`);
+      const file = await open(temporary, "wx", 0o600);
+      try {
+        try {
+          await file.writeFile(body, "utf8");
+          await file.sync();
+        } finally {
+          await file.close();
+        }
+        if (replace) {
+          await rename(temporary, destination);
+          return;
+        }
+        try {
+          await link(temporary, destination);
+        } catch (error) {
+          if (!isError(error, "EEXIST")) throw error;
+          if (!(await requireLocalEntry(destination)).isFile()) throw error;
+          if ((await readFile(destination, "utf8")) !== body) {
+            throw new Error("Published object is immutable");
+          }
+        }
+      } finally {
+        await rm(temporary, { force: true });
+      }
     },
   };
 }

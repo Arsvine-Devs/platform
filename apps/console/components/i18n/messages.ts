@@ -8,6 +8,7 @@ type Messages = Record<string, string>;
 
 export const messages: Record<AppLocale, Messages> = {
   'zh-CN': {
+    'nav.projects': '站点项目',
     'nav.library': '内容库',
     'nav.blog': 'Blog',
     'nav.tweets': 'Tweets',
@@ -401,6 +402,7 @@ const traditionalReplacements: Array<[string, string]> = [
 ];
 
 const englishOverrides: Messages = {
+  'nav.projects': 'Projects',
   'nav.library': 'Library',
   'nav.blog': 'Blog',
   'nav.tweets': 'Tweets',

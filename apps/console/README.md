@@ -37,13 +37,12 @@ Blog 和 Tweet authoring 属于 Core/API。Realm 的公开读取属于 Content r
 
 - `SESSION_SECRET`：服务端 session 加密密钥；
 - `AUTH_OIDC_CLIENT_ID`、`AUTH_OIDC_CLIENT_SECRET`：Auth 签发的 Console client credentials；
-- `UPSTASH_REDIS_REST_*`：session 与分布式限流；
+- `REDIS_URL`、`REDIS_KEY_PREFIX`：Valkey 会话与限流；
 - `TRUST_PROXY`：只有可信代理覆盖 client header 时才开启；
-- `NEXT_PUBLIC_ANALYTICS_*`：可选 Vercel telemetry。
 
 Console 的固定 OIDC/API 拓扑由 `@arsvine/site-config` 提供，动态服务端配置读取统一经过 `@arsvine/env`。`next.config.ts` 和浏览器 Analytics 组件保留直接读取 `NEXT_PUBLIC_*`，以便 Next.js 在构建时注入公开值。
 
-Console 配置只覆盖 Session、Auth OIDC、Control API、Upstash session/limiter 和可选 Analytics；Core DB、Content storage 和其他服务凭据由对应服务拥有。
+Console 配置包含浏览器会话、Auth OIDC、Control API、Valkey 和 Web Ops 套接字。Core DB 和 Content storage 的配置由对应服务管理。
 
 ## 本地检查
 

@@ -1,5 +1,6 @@
 import { readEnv } from '@arsvine/env';
 import { healthHeaders, readyBody } from '@arsvine/service-health';
+import { getConsoleRedis } from '@/lib/console-redis';
 
 function notReady(reason: string, status = 503) {
   return Response.json(
@@ -17,5 +18,12 @@ const REQUIRED_CONFIGURATION = [
 export async function GET() {
   const missing = REQUIRED_CONFIGURATION.filter((key) => !readEnv(key));
   if (missing.length > 0) return notReady(`missing_configuration:${missing.join(',')}`);
+  const redis = getConsoleRedis();
+  if (process.env.NODE_ENV === 'production' && !redis) return notReady('session_store');
+  try {
+    if (redis) await redis.ping();
+  } catch {
+    return notReady('session_store');
+  }
   return Response.json(readyBody('console'), { headers: healthHeaders });
 }

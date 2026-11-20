@@ -13,14 +13,14 @@ Browser
        └→ content.arsvine.com (published read plane)
 
 api.arsvine.com → content.arsvine.com/internal publication
-content.arsvine.com → S3-compatible private object storage
+content.arsvine.com → 本机私有发布目录
 auth.arsvine.com → Auth PostgreSQL
 api.arsvine.com → Core PostgreSQL
-console.arsvine.com → Upstash Redis for session/rate-limit state
+console.arsvine.com → Valkey、Unix socket 上的 Web 发布服务
 status.arsvine.com → public health probes and operational status
 ```
 
-Console 浏览器只访问同源 BFF。OAuth access token、Core 数据库连接、Content publish token、object-storage 凭据和 Session secret 不进入浏览器。
+Console 浏览器访问同源 BFF。OAuth access token、Core 数据库连接、Content publish token 和 Session secret 保存在服务端。
 
 `status.arsvine.com` 是独立部署的运维检测与状态展示面。它观察公开健康路由，不参与 Console、Auth、API 或 Content 的业务请求链路。
 
@@ -38,7 +38,7 @@ Console 浏览器只访问同源 BFF。OAuth access token、Core 数据库连接
 - `@arsvine/authz`：验证 Auth JWT、解析 scope 和 role。
 - `@arsvine/contracts`：API response 的线协议类型；应用视图模型仍由消费者拥有。
 - `@arsvine/core-db`：Core schema 和事务/查询实现。
-- `@arsvine/object-storage`：S3-compatible storage 的最小读写接口。
+- `@arsvine/object-storage`：私有文件读取和原子写入。
 - `@arsvine/observability`：结构化日志输出。
 - `@arsvine/env`：环境变量读取、规范化和 Node 服务的 dotenv 加载。
 - `@arsvine/site-config`：固定服务 origin、协议 resource、OIDC endpoint、Passkey origin 和 publication pointer。
@@ -52,6 +52,6 @@ Console 浏览器只访问同源 BFF。OAuth access token、Core 数据库连接
 3. API 将带有 release ID 的 immutable objects 发送到 Content。
 4. Content 验证每个对象，再最后写入 current pointer。
 5. API 对 Realm 发送带毫秒时间戳的 HMAC `content.published` 事件。
-6. Realm 下一次读取通过其 `config/site-config.mjs` 中的 Content origin 获取新的 published release。
+6. Realm 通过登记的 Content 接口读取新快照。
 
 当前运行时拓扑包含 Console、Auth、API、Content 和 Realm 的已发布 Content 读取链路；`status.arsvine.com` 属于独立观测面，检测配置不由本仓库管理。历史输入资料由架构快照独立记录。

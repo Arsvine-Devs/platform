@@ -1,0 +1,22 @@
+name: Web builds
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [preview, production]
+        default: preview
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-web.yml
+    with:
+      environment: ${{ inputs.environment || 'production' }}
+      platform-ref: ${{ github.sha }}

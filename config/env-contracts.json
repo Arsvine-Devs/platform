@@ -116,84 +116,6 @@
       "failureBehavior": "Auth readiness fails and unlisted browser origins are rejected."
     },
     {
-      "key": "S3_ENDPOINT",
-      "services": ["content"],
-      "exampleFiles": ["apps/content/.env.example"],
-      "requiredness": "required",
-      "secret": false,
-      "format": "absolute HTTPS S3-compatible endpoint URL",
-      "example": "https://s3.example.invalid",
-      "scopes": ["local", "preview", "production"],
-      "usedBy": ["packages/object-storage/src/index.ts"],
-      "description": "Object storage endpoint for published Content objects.",
-      "failureBehavior": "Content readiness and reads return not ready."
-    },
-    {
-      "key": "S3_REGION",
-      "services": ["content"],
-      "exampleFiles": ["apps/content/.env.example"],
-      "requiredness": "required",
-      "secret": false,
-      "format": "provider region identifier",
-      "example": "ap-beijing",
-      "scopes": ["local", "preview", "production"],
-      "usedBy": ["packages/object-storage/src/index.ts"],
-      "description": "Object storage region passed to the S3 client.",
-      "failureBehavior": "Content storage cannot be constructed."
-    },
-    {
-      "key": "S3_FORCE_PATH_STYLE",
-      "services": ["content"],
-      "exampleFiles": ["apps/content/.env.example"],
-      "requiredness": "optional",
-      "secret": false,
-      "format": "boolean string: true/false (false selects virtual-hosted style)",
-      "example": "false",
-      "scopes": ["local", "preview", "production"],
-      "usedBy": ["packages/object-storage/src/index.ts"],
-      "description": "S3 addressing mode switch for the configured endpoint.",
-      "failureBehavior": "Defaults to path-style addressing."
-    },
-    {
-      "key": "S3_ACCESS_KEY_ID",
-      "services": ["content"],
-      "exampleFiles": ["apps/content/.env.example"],
-      "requiredness": "required",
-      "secret": true,
-      "format": "read-only object-storage access key ID",
-      "example": "replace-with-read-only-access-key",
-      "scopes": ["local", "preview", "production"],
-      "usedBy": ["packages/object-storage/src/index.ts"],
-      "description": "Object storage credential for Content reads and publication verification.",
-      "failureBehavior": "Content storage is not ready."
-    },
-    {
-      "key": "S3_SECRET_ACCESS_KEY",
-      "services": ["content"],
-      "exampleFiles": ["apps/content/.env.example"],
-      "requiredness": "required",
-      "secret": true,
-      "format": "read-only object-storage secret access key",
-      "example": "replace-with-read-only-secret",
-      "scopes": ["local", "preview", "production"],
-      "usedBy": ["packages/object-storage/src/index.ts"],
-      "description": "Object storage secret paired with S3_ACCESS_KEY_ID.",
-      "failureBehavior": "Content storage is not ready."
-    },
-    {
-      "key": "S3_PRIVATE_BUCKET",
-      "services": ["content"],
-      "exampleFiles": ["apps/content/.env.example"],
-      "requiredness": "required",
-      "secret": true,
-      "format": "bucket name, without protocol or slash",
-      "example": "replace-with-content-bucket",
-      "scopes": ["local", "preview", "production"],
-      "usedBy": ["packages/object-storage/src/index.ts"],
-      "description": "Private bucket containing immutable Content release objects.",
-      "failureBehavior": "Content readiness and reads return not ready."
-    },
-    {
       "key": "SESSION_SECRET",
       "services": ["console"],
       "exampleFiles": ["apps/console/.env.example"],
@@ -239,38 +161,6 @@
       "failureBehavior": "Token exchange fails; the value must never enter browser code."
     },
     {
-      "key": "UPSTASH_REDIS_REST_URL",
-      "services": ["console"],
-      "exampleFiles": ["apps/console/.env.example"],
-      "requiredness": "optional",
-      "secret": false,
-      "format": "absolute HTTPS Upstash REST URL",
-      "example": "https://example.upstash.io",
-      "scopes": ["local", "preview", "production"],
-      "usedBy": [
-        "apps/console/lib/oidc-session.ts",
-        "apps/console/lib/rate-limit.ts"
-      ],
-      "description": "Distributed session and rate-limit store endpoint.",
-      "failureBehavior": "Console uses process-local session/rate-limit state."
-    },
-    {
-      "key": "UPSTASH_REDIS_REST_TOKEN",
-      "services": ["console"],
-      "exampleFiles": ["apps/console/.env.example"],
-      "requiredness": "optional",
-      "secret": true,
-      "format": "Upstash REST bearer token paired with the REST URL",
-      "example": "replace-with-upstash-token",
-      "scopes": ["local", "preview", "production"],
-      "usedBy": [
-        "apps/console/lib/oidc-session.ts",
-        "apps/console/lib/rate-limit.ts"
-      ],
-      "description": "Distributed session and rate-limit store credential.",
-      "failureBehavior": "Console uses process-local session/rate-limit state."
-    },
-    {
       "key": "TRUST_PROXY",
       "services": ["console"],
       "exampleFiles": ["apps/console/.env.example"],
@@ -281,46 +171,77 @@
       "scopes": ["local", "self-hosted"],
       "usedBy": ["apps/console/lib/client-key.ts"],
       "description": "Allows trusted forwarded client headers for rate-limit keys.",
-      "failureBehavior": "Defaults off; Vercel's managed proxy is handled by platform context."
+      "failureBehavior": "Defaults off. Enable only when the trusted Web gateway replaces forwarded client headers."
     },
     {
-      "key": "NEXT_PUBLIC_ANALYTICS_ENABLED",
+      "key": "CONTENT_STORAGE_ROOT",
+      "services": ["content"],
+      "exampleFiles": ["apps/content/.env.example"],
+      "requiredness": "required",
+      "secret": false,
+      "format": "absolute path to the private content directory",
+      "example": "/var/lib/arsvine-web/content/production",
+      "scopes": ["local", "preview", "production"],
+      "usedBy": ["packages/object-storage/src/index.ts"],
+      "description": "Private filesystem root containing published Content snapshots.",
+      "failureBehavior": "Content is not ready until the current publication can be read."
+    },
+    {
+      "key": "REDIS_URL",
+      "services": ["console"],
+      "exampleFiles": ["apps/console/.env.example"],
+      "requiredness": "conditional",
+      "secret": true,
+      "format": "Valkey connection URL including the Console credentials",
+      "example": "redis://console:replace-password@127.0.0.1:6379",
+      "scopes": ["local", "preview", "production"],
+      "usedBy": ["apps/console/lib/console-redis.ts"],
+      "description": "Valkey store for Console opaque sessions and rate limits.",
+      "failureBehavior": "Required for production readiness. Local development can use process memory."
+    },
+    {
+      "key": "REDIS_KEY_PREFIX",
       "services": ["console"],
       "exampleFiles": ["apps/console/.env.example"],
       "requiredness": "optional",
       "secret": false,
-      "format": "feature flag: 1 enables, 0 disables",
-      "example": "0",
+      "format": "Valkey key prefix matching the site's ACL",
+      "example": "console:production:",
       "scopes": ["local", "preview", "production"],
-      "usedBy": ["apps/console/components/analytics.tsx"],
-      "description": "Browser-visible switch for Vercel Analytics.",
-      "failureBehavior": "Analytics is not mounted unless the value is exactly 1."
+      "usedBy": ["apps/console/lib/console-redis.ts"],
+      "description": "Scope Console sessions and rate limits to the active environment.",
+      "failureBehavior": "Defaults to the production namespace."
     },
     {
-      "key": "NEXT_PUBLIC_ANALYTICS_SCRIPT_ORIGIN",
+      "key": "WEB_OPS_SOCKET",
       "services": ["console"],
       "exampleFiles": ["apps/console/.env.example"],
-      "requiredness": "conditional",
+      "requiredness": "optional",
       "secret": false,
-      "format": "absolute HTTPS origin allowed in production CSP script-src",
-      "example": "https://va.vercel-scripts.com",
-      "scopes": ["local", "preview", "production"],
-      "usedBy": ["apps/console/next.config.ts"],
-      "description": "Analytics script origin added to the Console CSP.",
-      "failureBehavior": "No extra script origin is added."
+      "format": "absolute path to the local Web Ops Unix socket",
+      "example": "/run/arsvine-web/control.sock",
+      "scopes": ["local", "production"],
+      "usedBy": ["apps/console/lib/web-ops.ts"],
+      "description": "Local controller interface for listing builds and queuing releases.",
+      "failureBehavior": "Console reports that the deployment controller is unavailable."
     },
     {
-      "key": "NEXT_PUBLIC_ANALYTICS_CONNECT_ORIGIN",
-      "services": ["console"],
-      "exampleFiles": ["apps/console/.env.example"],
+      "key": "ARS_WEB_ORIGINS",
+      "services": ["api", "auth", "console", "content"],
+      "exampleFiles": [
+        "apps/api/.env.example",
+        "apps/auth/.env.example",
+        "apps/console/.env.example",
+        "apps/content/.env.example"
+      ],
       "requiredness": "conditional",
       "secret": false,
-      "format": "absolute HTTPS origin allowed in production CSP connect-src",
-      "example": "https://vitals.vercel-insights.com",
+      "format": "JSON object of service identifiers and canonical HTTPS origins",
+      "example": "{\"console\":\"https://preview-console.arsvine.com\"}",
       "scopes": ["local", "preview", "production"],
-      "usedBy": ["apps/console/next.config.ts"],
-      "description": "Analytics connection origin added to the Console CSP.",
-      "failureBehavior": "No extra connection origin is added."
+      "usedBy": ["packages/site-config/src/index.mjs"],
+      "description": "Runtime site origins generated from the approved deployment environment.",
+      "failureBehavior": "Uses the registered production origins in the absence of overrides. Invalid inputs fail configuration."
     }
   ]
 }

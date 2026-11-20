@@ -1,0 +1,226 @@
+.page {
+  width: min(100%, 76rem);
+  margin-inline: auto;
+  padding: clamp(1rem, 3vw, 2.5rem);
+  display: grid;
+  gap: 1.75rem;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-block-end: 1px solid var(--border);
+  padding-block-end: 1.25rem;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  line-height: 1.12;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
+}
+
+.subtle {
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+
+.section {
+  display: grid;
+  gap: 0.75rem;
+  scroll-margin-block-start: 4rem;
+}
+
+.section h2 {
+  font-size: 1.13rem;
+  font-weight: 620;
+  letter-spacing: -0.015em;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 0.75rem;
+}
+
+.card {
+  min-inline-size: 0;
+  display: grid;
+  gap: 0.65rem;
+  padding: 1rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.cardHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cardHeading h2 {
+  font-weight: 620;
+  font-size: 1rem;
+}
+
+.nav,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.nav a,
+.actionLink {
+  min-block-size: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.375rem;
+  padding-inline: 0.625rem;
+  color: var(--muted-foreground);
+}
+
+.nav a[aria-current],
+.nav a:hover,
+.actionLink:hover {
+  color: var(--foreground);
+  background: var(--muted);
+}
+
+.mono,
+.table td:nth-child(2) {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8125rem;
+}
+
+.status::before {
+  content: '';
+  inline-size: 0.45rem;
+  block-size: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.status[data-state='ready'] {
+  color: var(--success);
+}
+.status[data-state='failed'] {
+  color: var(--destructive);
+}
+.status[data-state='queued'],
+.status[data-state='deploying'] {
+  color: var(--warning);
+}
+
+.tableRegion {
+  overflow: auto;
+  max-block-size: 27rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+
+.table {
+  inline-size: 100%;
+  border-spacing: 0;
+  text-align: start;
+  font-size: 0.875rem;
+}
+
+.table th,
+.table td {
+  padding: 0.7rem 0.9rem;
+  text-align: start;
+  border-block-end: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.table thead th {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  background: var(--muted);
+  white-space: nowrap;
+}
+
+.selectTrigger {
+  min-block-size: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  text-align: start;
+  padding-inline: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--background);
+}
+
+.selectPopup,
+.dialog {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  border-radius: 0.65rem;
+  box-shadow: 0 18px 50px #0003;
+}
+
+.selectPopup {
+  padding: 0.25rem;
+  max-block-size: 16rem;
+  overflow: auto;
+  z-index: 40;
+}
+
+.selectItem {
+  min-block-size: 2.75rem;
+  padding: 0.7rem 0.625rem;
+  border-radius: 0.4rem;
+  cursor: default;
+}
+
+.selectItem[data-highlighted],
+.selectItem[data-selected] {
+  background: var(--muted);
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #0008;
+}
+
+.dialog {
+  position: fixed;
+  z-index: 61;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  translate: -50% -50%;
+  width: min(calc(100% - 2rem), 27rem);
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.page :where(a, button, [tabindex]):focus-visible,
+.dialog :where(button):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

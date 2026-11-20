@@ -13,12 +13,23 @@ import { readEnv, readEnvList } from "@arsvine/env";
 import { siteConfig } from "@arsvine/site-config";
 
 const databaseUrl = readEnv("AUTH_DATABASE_URL");
-const pool = databaseUrl ? new Pool({ connectionString: databaseUrl }) : null;
+const pool = databaseUrl
+  ? new Pool({
+      connectionString: databaseUrl,
+      max: 5,
+      connectionTimeoutMillis: 3000,
+    })
+  : null;
+
+export async function probeAuthDatabase() {
+  if (!pool) throw new Error("Auth database is unavailable");
+  await pool.query("SELECT 1");
+}
 const authBaseUrl = siteConfig.auth.origin;
 const authIssuer = siteConfig.auth.issuer;
 const authDisplayName = siteConfig.auth.displayName;
 const authAudience = [...siteConfig.auth.audience];
-const trustedOrigins = readEnvList("AUTH_TRUSTED_ORIGINS");
+const trustedOrigins = readEnvList("AUTH_TRUSTED_ORIGINS") ?? [];
 const oauthResources = [...siteConfig.auth.oauthResources];
 const passkeyRpId = siteConfig.auth.passkeyRpId;
 const passkeyOrigin = siteConfig.auth.passkeyOrigin;
@@ -42,12 +53,6 @@ const editorRole = accessControl.newRole({
   integrations: ["read"],
   jobs: ["read"],
 });
-
-if (!pool) {
-  // The service can still build and expose liveness locally without credentials.
-  // Auth requests remain unavailable until AUTH_DATABASE_URL and BETTER_AUTH_SECRET exist.
-  console.warn("[auth] AUTH_DATABASE_URL is not configured");
-}
 
 const authPlugins = [
   admin({
@@ -108,24 +113,47 @@ const authPlugins = [
           resources: oauthResources,
           enforcePerClientResources: true,
           allowDynamicClientRegistration: false,
+          clientPrivileges: ({ user }) => user?.role === "owner",
           clientRegistrationRequirePKCE: true,
         }),
       ]
     : []),
 ];
 
-export const auth = betterAuth({
-  database: pool ?? undefined,
-  baseURL: authBaseUrl,
-  secret: readEnv("BETTER_AUTH_SECRET") ?? "development-only-auth-secret",
-  emailAndPassword: {
-    enabled: true,
-    disableSignUp: true,
-    password: {
-      hash: (password) => hashPassword(password),
-      verify: verifyPassword,
+let instance: ReturnType<typeof createAuth> | undefined;
+
+function createAuth(database: Pool, secret: string) {
+  return betterAuth({
+    database,
+    baseURL: authBaseUrl,
+    secret,
+    emailAndPassword: {
+      enabled: true,
+      disableSignUp: true,
+      password: {
+        hash: (password) => hashPassword(password),
+        verify: verifyPassword,
+      },
     },
-  },
-  trustedOrigins,
-  plugins: authPlugins,
-});
+    trustedOrigins,
+    plugins: authPlugins,
+  });
+}
+
+export function getAuth() {
+  const secret = readEnv("BETTER_AUTH_SECRET");
+  if (!pool || !secret || trustedOrigins.length === 0) return null;
+  instance ??= createAuth(pool, secret);
+  return instance;
+}
+
+export function authUnavailable() {
+  return Response.json(
+    { error: "Authentication service is unavailable" },
+    { status: 503, headers: { "Cache-Control": "no-store" } },
+  );
+}
+
+export function handleAuth(request: Request) {
+  return getAuth()?.handler(request) ?? authUnavailable();
+}

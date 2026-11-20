@@ -5,7 +5,6 @@ export type ServiceOrigins = {
   readonly auth: string;
   readonly api: string;
   readonly content: string;
-  readonly cdn: string;
   readonly status: string;
 };
 
@@ -26,7 +25,6 @@ export type SiteConfig = {
     readonly origin: string;
     readonly healthLivePath: string;
     readonly healthReadyPath: string;
-    readonly musicPointer: string;
     readonly musicApiPath: string;
   };
   readonly console: {
@@ -74,14 +72,15 @@ export type SiteConfig = {
     readonly healthLivePath: string;
     readonly healthReadyPath: string;
   };
-  readonly cdn: {
-    readonly origin: string;
-  };
   readonly status: {
     readonly origin: string;
   };
 };
 
 export declare const serviceOrigins: ServiceOrigins;
+export declare function internalServiceUrl(
+  service: keyof ServiceOrigins,
+  publicUrl?: string,
+): string;
 export declare const catalogNamespaces: CatalogNamespaces;
 export declare const siteConfig: SiteConfig;

@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { FileText, Library, LogOut, MessageCircle, Search } from 'lucide-react';
+import { FileText, Globe, Library, LogOut, MessageCircle, Search } from 'lucide-react';
 import { useEffect, useState, useTransition, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 
 import { adminRequest } from '@/lib/admin-api/client';
@@ -47,7 +47,6 @@ type NavItem = {
 };
 
 type AdminShellClientProps = {
-  currentPath: string;
   csrfToken: string;
   email: string;
   role: 'owner' | 'editor';
@@ -55,25 +54,27 @@ type AdminShellClientProps = {
 };
 
 const NAV_ITEMS: NavItem[] = [
+  { href: '/projects', labelKey: 'nav.projects', icon: <Globe /> },
   { href: '/library', labelKey: 'nav.library', icon: <Library /> },
   { href: '/blog', labelKey: 'nav.blog', icon: <FileText /> },
   { href: '/tweets', labelKey: 'nav.tweets', icon: <MessageCircle /> },
 ];
 
 const PAGE_LABELS: Array<{ prefix: string; labelKey: string }> = [
+  { prefix: '/projects', labelKey: 'nav.projects' },
   { prefix: '/library', labelKey: 'nav.library' },
   { prefix: '/blog', labelKey: 'nav.blog' },
   { prefix: '/tweets', labelKey: 'nav.tweets' },
 ];
 
 export default function AdminShellClient({
-  currentPath,
   csrfToken,
   email,
   role,
   children,
 }: AdminShellClientProps) {
   const { t } = useI18n();
+  const currentPath = usePathname();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -105,7 +106,9 @@ export default function AdminShellClient({
 
   const pageLabelKey = PAGE_LABELS.find(({ prefix }) => currentPath.startsWith(prefix))?.labelKey;
   const pageLabel = pageLabelKey ? t(pageLabelKey) : t('shell.admin');
-  const navItems = NAV_ITEMS.map((item) => ({ ...item, label: t(item.labelKey) }));
+  const navItems = NAV_ITEMS.filter((item) => role === 'owner' || item.href !== '/projects').map(
+    (item) => ({ ...item, label: t(item.labelKey) }),
+  );
 
   function navigateFromSearch(href: string) {
     setSearchOpen(false);
@@ -122,7 +125,7 @@ export default function AdminShellClient({
       >
         <SidebarHeader className="gap-3 p-3">
           <Link
-            href="/library"
+            href="/"
             className="flex min-h-11 items-center gap-2.5 rounded-lg px-1.5 text-sm outline-none transition-colors hover:bg-sidebar-accent focus-visible:ring-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
           >
             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-brand text-xs font-bold text-brand-foreground">

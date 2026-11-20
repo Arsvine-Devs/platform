@@ -24,5 +24,8 @@
     "@types/node": "^26.5.1",
     "@types/pg": "^8.23.1",
     "typescript": "^6.0.3"
-  }
+  },
+  "files": [
+    "dist"
+  ]
 }

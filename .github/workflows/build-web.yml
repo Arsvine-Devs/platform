@@ -1,0 +1,106 @@
+name: Build Web artifact
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      platform-ref:
+        type: string
+        default: main
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      populated: ${{ steps.plan.outputs.populated }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: .web-platform
+          repository: Arsvine-Devs/platform
+          ref: ${{ inputs.platform-ref }}
+          persist-credentials: false
+          sparse-checkout: ops
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+          cache-dependency-glob: .web-platform/ops/uv.lock
+      - run: uv sync --project .web-platform/ops --locked --no-dev --python 3.12
+      - id: plan
+        env:
+          WEB_ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          uv run --project .web-platform/ops --locked --no-dev web-build plan \
+            --environment "$WEB_ENVIRONMENT" --branch "$GITHUB_REF_NAME"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.populated == 'true'
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      WEB_ENVIRONMENT: ${{ inputs.environment }}
+      WEB_PROJECT: ${{ matrix.id }}
+      WEB_BUILD_TYPE: ${{ matrix.type }}
+      WEB_DIRECTORY: ${{ matrix.directory }}
+      WEB_PACKAGE: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: .web-platform
+          repository: Arsvine-Devs/platform
+          ref: ${{ inputs.platform-ref }}
+          persist-credentials: false
+          sparse-checkout: ops
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+          cache-dependency-glob: .web-platform/ops/uv.lock
+      - run: uv sync --project .web-platform/ops --locked --no-dev --python 3.12
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        with:
+          run_install: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "26.13.1"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build selected service
+        run: |
+          if [ -n "$WEB_PACKAGE" ]; then
+            pnpm --filter "$WEB_PACKAGE..." --fail-if-no-match -r build
+          else
+            pnpm --dir "$WEB_DIRECTORY" build
+          fi
+      - name: Assemble release
+        run: |
+          prepared=()
+          if [ "$WEB_BUILD_TYPE" = workspace-node ]; then
+            pnpm --filter "$WEB_PACKAGE" --fail-if-no-match deploy --legacy --prod "$RUNNER_TEMP/service"
+            prepared=(--prepared "$RUNNER_TEMP/service")
+          fi
+          uv run --project .web-platform/ops --locked --no-dev web-build package \
+            --project "$WEB_PROJECT" --environment "$WEB_ENVIRONMENT" \
+            --commit "$GITHUB_SHA" --output "$RUNNER_TEMP/web-artifact" "${prepared[@]}"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: web-${{ matrix.id }}-${{ inputs.environment }}
+          path: ${{ runner.temp }}/web-artifact/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 3

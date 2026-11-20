@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import Fastify, { type FastifyReply } from "fastify";
 import swagger from "@fastify/swagger";
 import { readEnv } from "@arsvine/env";
-import { siteConfig } from "@arsvine/site-config";
+import { internalServiceUrl, siteConfig } from "@arsvine/site-config";
 import {
   AuthTokenError,
   hasScopes,
@@ -79,7 +79,7 @@ function readProtectedContentAuthConfig(): AuthVerificationConfig {
   return {
     issuer: siteConfig.auth.issuer,
     audience: siteConfig.content.resource,
-    jwksUrl: siteConfig.auth.jwksUrl,
+    jwksUrl: internalServiceUrl("auth", siteConfig.auth.jwksUrl),
   };
 }
 
@@ -173,9 +173,11 @@ export function buildContentServer(options: ContentServerOptions = {}) {
     if (
       !body ||
       typeof body.releaseId !== "string" ||
+      !/^[a-zA-Z0-9_-]{1,128}$/.test(body.releaseId) ||
       typeof body.publishedAt !== "string" ||
-      typeof body.pointerKey !== "string" ||
-      typeof body.manifestKey !== "string" ||
+      body.pointerKey !== currentPointerKey ||
+      body.manifestKey !==
+        `realm-content/releases/${body.releaseId}/manifest.json` ||
       !Array.isArray(body.objects) ||
       body.objects.some(
         (object) =>
@@ -191,9 +193,7 @@ export function buildContentServer(options: ContentServerOptions = {}) {
     try {
       for (const object of body.objects) {
         if (
-          !object.key ||
-          object.key.startsWith("/") ||
-          object.key.includes("..")
+          !object.key.startsWith(`realm-content/releases/${body.releaseId}/`)
         ) {
           return reply
             .code(422)
@@ -210,26 +210,25 @@ export function buildContentServer(options: ContentServerOptions = {}) {
         publishedAt: body.publishedAt,
         manifest: body.manifestKey,
       };
-      await storage.putText(body.pointerKey, JSON.stringify(pointer));
-      const verified = JSON.parse(
-        await storage.getText(body.pointerKey),
-      ) as typeof pointer;
-      if (
-        verified.releaseId !== pointer.releaseId ||
-        verified.manifest !== pointer.manifest
-      ) {
-        throw new Error("Current release pointer verification failed");
-      }
+      const pointerBody = JSON.stringify(pointer);
+      await readPublishedRelease(
+        {
+          getText: async (key) =>
+            key === currentPointerKey ? pointerBody : storage.getText(key),
+        },
+        currentPointerKey,
+      );
+      await storage.putText(currentPointerKey, pointerBody, { replace: true });
       return {
         releaseId: body.releaseId,
         pointerKey: body.pointerKey,
         objectCount: body.objects.length,
       };
-    } catch (error) {
+    } catch {
       log("error", {
         service: "content",
         operation: "publication.failed",
-        message: error instanceof Error ? error.message : "unknown",
+        requestId: request.id,
       });
       return notReady(reply);
     }

@@ -7,6 +7,11 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
 minimumReleaseAge: 1440
+permissions:
+  "@ui-sdk/core":
+    skills: [ui-sdk]
+skills:
+  dirs: [.agents/skills]
 overrides:
   brace-expansion@1: 1.1.18
   brace-expansion@5: 5.0.9

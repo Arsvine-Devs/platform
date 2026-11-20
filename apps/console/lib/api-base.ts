@@ -1,5 +1,5 @@
-import { siteConfig } from '@arsvine/site-config';
+import { internalServiceUrl } from '@arsvine/site-config';
 
 export function getApiBaseUrl() {
-  return new URL(siteConfig.api.origin);
+  return new URL(internalServiceUrl('api'));
 }

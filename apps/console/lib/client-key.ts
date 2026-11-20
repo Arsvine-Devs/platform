@@ -1,11 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { readEnv } from '@arsvine/env';
 
-// Only honor X-Forwarded-For when an explicit `TRUST_PROXY=1` flag is set —
-// otherwise an unauthenticated client can rotate the header and bypass any
-// rate limit keyed on it. When trust is off we fall back to the socket IP
-// surfaced by Next.js (`request.ip`); if that is also missing we collapse all
-// callers into a single `unknown` bucket so brute-force still hits the limit.
+// Honor forwarded IPs only when the gateway replaces the header. Requests without
+// a trusted address share the unknown-client rate limit.
 function isTruthyEnv(value: string | undefined) {
   if (!value) return false;
   const normalized = value.trim().toLowerCase();
@@ -27,11 +24,6 @@ export function getClientKey(request: NextRequest) {
     const forwarded = firstHopFromForwardedFor(request.headers.get('x-forwarded-for'));
     if (forwarded) return forwarded;
   }
-
-  // `request.ip` is populated by Next.js at the runtime layer (Vercel/Edge)
-  // and is not attacker-controlled.
-  const ip = (request as unknown as { ip?: string }).ip;
-  if (ip && ip.length > 0) return ip;
 
   return 'unknown';
 }

@@ -1,10 +1,7 @@
-import { toNextJsHandler } from "better-auth/next-js";
-import { auth } from "@/lib/auth";
+import { handleAuth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const handler = toNextJsHandler(auth);
 
 function toInternalRequest(request: Request) {
   const url = new URL(request.url);
@@ -13,5 +10,5 @@ function toInternalRequest(request: Request) {
 }
 
 export function GET(request: Request) {
-  return handler.GET(toInternalRequest(request));
+  return handleAuth(toInternalRequest(request));
 }

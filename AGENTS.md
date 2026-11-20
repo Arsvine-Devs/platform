@@ -39,8 +39,11 @@ Control API, published Content read plane, and small shared runtime packages.
    service policy stays in the consuming service.
 7. The current hosted path is Console → Auth/API, API → Content, and Realm →
    Content. Do not add compatibility paths for retired repository workflows.
-8. `infra/compose` and Docker files are a separate reference environment. Do
-   not modify or run them unless the task explicitly reopens that scope.
+8. `ops/src/arsvine_ops/web` owns site deployment, routing, and service isolation. Keep its
+   registration and release contract aligned with `ops/src/arsvine_ops/build` and `site.yaml`.
+9. Read the version-matched Next.js docs in the application's
+   `node_modules/next/dist/docs/` before changing Next routes, rendering, or caches.
+   Next DevTools is configured for local development.
 
 ## Verification
 

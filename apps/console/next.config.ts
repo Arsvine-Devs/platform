@@ -1,8 +1,7 @@
 import type { NextConfig } from 'next';
+import { fileURLToPath } from 'node:url';
 
 const isProduction = process.env.NODE_ENV === 'production';
-const analyticsScriptOrigin = process.env.NEXT_PUBLIC_ANALYTICS_SCRIPT_ORIGIN?.trim();
-const analyticsConnectOrigin = process.env.NEXT_PUBLIC_ANALYTICS_CONNECT_ORIGIN?.trim();
 
 // Admin console only — no third-party iframes, no inline analytics. The CSP
 // keeps `'unsafe-inline'` for styles because Next.js injects critical CSS
@@ -12,17 +11,11 @@ const analyticsConnectOrigin = process.env.NEXT_PUBLIC_ANALYTICS_CONNECT_ORIGIN?
 // Browser calls go through same-origin Console BFF routes; the BFF calls the API service.
 const cspDirectives = [
   "default-src 'self'",
-  [
-    'script-src',
-    "'self'",
-    "'unsafe-inline'",
-    ...(isProduction ? [] : ["'unsafe-eval'"]),
-    ...(analyticsScriptOrigin ? [analyticsScriptOrigin] : []),
-  ].join(' '),
+  ['script-src', "'self'", "'unsafe-inline'", ...(isProduction ? [] : ["'unsafe-eval'"])].join(' '),
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  ['connect-src', "'self'", ...(analyticsConnectOrigin ? [analyticsConnectOrigin] : [])].join(' '),
+  "connect-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -48,7 +41,13 @@ if (isProduction) {
 }
 
 const nextConfig: NextConfig = {
-  agentRules: false,
+  agentRules: true,
+  output: 'standalone',
+  outputFileTracingRoot: fileURLToPath(new URL('../../', import.meta.url)),
+  poweredByHeader: false,
+  cacheMaxMemorySize: 16 * 1024 * 1024,
+  logging: { browserToTerminal: true },
+  experimental: { isrFlushToDisk: false },
   async headers() {
     return [
       {

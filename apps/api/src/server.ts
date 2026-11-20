@@ -3,7 +3,7 @@ import swagger from "@fastify/swagger";
 import { Type } from "@sinclair/typebox";
 import type { MeResponse } from "@arsvine/contracts";
 import { readEnv } from "@arsvine/env";
-import { siteConfig } from "@arsvine/site-config";
+import { internalServiceUrl, siteConfig } from "@arsvine/site-config";
 import {
   AuthTokenError,
   parseBearerToken,
@@ -12,6 +12,7 @@ import {
 } from "@arsvine/authz";
 import { log } from "@arsvine/observability";
 import { liveBody, readyBody } from "@arsvine/service-health";
+import { probeCoreDatabase } from "@arsvine/core-db";
 import { registerContentRoutes } from "./content-routes.js";
 import { publishCoreRelease } from "./publication.js";
 
@@ -70,7 +71,7 @@ async function authenticateRequest(
     request.authPrincipal = await verifyAccessToken(token, {
       issuer: siteConfig.auth.issuer,
       audience: siteConfig.api.resource,
-      jwksUrl: siteConfig.auth.jwksUrl,
+      jwksUrl: internalServiceUrl("auth", siteConfig.auth.jwksUrl),
     });
   } catch (error) {
     log("info", { service: "api", operation: "auth.rejected", requestId });
@@ -102,6 +103,7 @@ export function buildApiServer() {
 
   app.get("/health/live", async () => liveBody("api"));
   app.get("/health/ready", async (_request, reply) => {
+    reply.header("Cache-Control", "no-store");
     const missing = ["CORE_DATABASE_URL"].filter((key) => !readEnv(key));
     if (missing.length > 0) {
       return reply.code(503).send({
@@ -110,7 +112,14 @@ export function buildApiServer() {
         reason: `missing_configuration:${missing.join(",")}`,
       });
     }
-    return readyBody("api");
+    try {
+      await probeCoreDatabase();
+      return readyBody("api");
+    } catch {
+      return reply
+        .code(503)
+        .send({ status: "not_ready", service: "api", reason: "database" });
+    }
   });
 
   app.get(

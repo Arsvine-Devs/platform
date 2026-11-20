@@ -12,7 +12,11 @@ export type CoreDb = ReturnType<typeof createCoreDb>;
 function createCoreDb() {
   const url = readEnv("CORE_DATABASE_URL");
   if (!url) throw new Error("Missing CORE_DATABASE_URL");
-  const pool = new Pool({ connectionString: url, max: 5 });
+  const pool = new Pool({
+    connectionString: url,
+    max: 5,
+    connectionTimeoutMillis: 3000,
+  });
   return drizzle(pool, { schema });
 }
 
@@ -21,6 +25,10 @@ let db: CoreDb | null = null;
 export function getCoreDb() {
   db ??= createCoreDb();
   return db;
+}
+
+export async function probeCoreDatabase() {
+  await getCoreDb().$client.query("SELECT 1");
 }
 
 export type PostVariantInput = {
