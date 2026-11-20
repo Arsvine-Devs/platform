@@ -9,14 +9,11 @@ const platformBoundaryPatterns = [
   '@arsvine/authz/**',
   '@arsvine/core-db',
   '@arsvine/core-db/**',
-  '@arsvine/object-storage',
-  '@arsvine/object-storage/**',
   '@arsvine/observability',
   '@arsvine/observability/**',
   '**/packages/authz/**',
   '**/packages/contracts/**',
   '**/packages/core-db/**',
-  '**/packages/object-storage/**',
   '**/packages/observability/**',
 ];
 

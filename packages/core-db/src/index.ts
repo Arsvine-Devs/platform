@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
-import { and, asc, desc, eq, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ne, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "./schema.js";
 import { readEnv } from "@arsvine/env";
@@ -49,7 +49,7 @@ export type PostInput = {
   status?: "draft" | "published" | "archived";
   date?: string;
   tags?: string[];
-  variant?: PostVariantInput;
+  variants?: PostVariantInput[];
 };
 
 export type TweetInput = {
@@ -76,8 +76,6 @@ function asDate(value: string | Date | undefined, fallback = new Date()) {
 }
 
 function checksum(value: string) {
-  // The checksum is an integrity hint for publication builders. The API does
-  // not use it as an authorization or concurrency primitive.
   return Buffer.from(value, "utf8").toString("base64url");
 }
 
@@ -215,33 +213,36 @@ export async function findPostVariant(idOrSlug: string, locale: string) {
   };
 }
 
-export async function createPost(input: PostInput, actorId: string) {
-  const database = getCoreDb();
-  const now = new Date();
-  const id = randomUUID();
-  const tags = normalizeTags(input.tags);
-  const variant = input.variant;
-  await database.transaction(async (tx) => {
-    await tx.insert(schema.posts).values({
-      id,
-      slug: input.slug,
-      status: input.status ?? "draft",
-      sourceLocale: input.sourceLocale,
-      pinned: input.pinned ?? false,
-      accessMode: input.accessMode ?? "public",
-      accessGroup: input.accessGroup ?? null,
-      publishedAt:
-        input.status === "published" ? asDate(input.date, now) : null,
-      revision: 1,
-      createdBy: actorId,
-      updatedBy: actorId,
-      createdAt: now,
-      updatedAt: now,
-    });
-    if (variant) {
-      await tx.insert(schema.postVariants).values({
+type CoreTransaction = Parameters<Parameters<CoreDb["transaction"]>[0]>[0];
+
+function validatePostAccess(
+  status: string,
+  mode: string,
+  group: string | null,
+) {
+  if (status === "published" && mode === "totp" && !group?.trim()) {
+    throw new Error("Access group is required for a protected published post.");
+  }
+}
+
+async function writePostVariants(
+  tx: CoreTransaction,
+  postId: string,
+  variants: PostVariantInput[],
+  now: Date,
+) {
+  if (!variants.length) return;
+  if (
+    new Set(variants.map((variant) => variant.locale)).size !== variants.length
+  ) {
+    throw new Error("Duplicate post locales are invalid.");
+  }
+  await tx
+    .insert(schema.postVariants)
+    .values(
+      variants.map((variant) => ({
         id: randomUUID(),
-        postId: id,
+        postId,
         locale: variant.locale,
         title: variant.title,
         excerpt: variant.excerpt ?? "",
@@ -251,9 +252,55 @@ export async function createPost(input: PostInput, actorId: string) {
         checksum: checksum(variant.bodyMdx ?? ""),
         createdAt: now,
         updatedAt: now,
-      });
-    }
-    if (tags.length > 0) {
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [schema.postVariants.postId, schema.postVariants.locale],
+      set: {
+        title: sql`excluded.title`,
+        excerpt: sql`excluded.excerpt`,
+        bodyMdx: sql`excluded.body_mdx`,
+        originLocale: sql`excluded.origin_locale`,
+        translationState: sql`excluded.translation_state`,
+        checksum: sql`excluded.checksum`,
+        revision: sql`${schema.postVariants.revision} + 1`,
+        updatedAt: now,
+      },
+    });
+}
+
+export async function createPost(input: PostInput, actorId: string) {
+  const database = getCoreDb();
+  const now = new Date();
+  const id = randomUUID();
+  const tags = normalizeTags(input.tags);
+  const variants = input.variants ?? [];
+  const status = input.status ?? "draft";
+  const mode = input.accessMode ?? "public";
+  const group = mode === "totp" ? input.accessGroup?.trim() || null : null;
+  validatePostAccess(status, mode, group);
+  if (status === "published" && !variants.length) {
+    throw new Error("A published post requires at least one locale variant.");
+  }
+
+  await database.transaction(async (tx) => {
+    await tx.insert(schema.posts).values({
+      id,
+      slug: input.slug,
+      status,
+      sourceLocale: input.sourceLocale,
+      pinned: input.pinned ?? false,
+      accessMode: mode,
+      accessGroup: group,
+      publishedAt: status === "published" ? asDate(input.date, now) : null,
+      revision: 1,
+      createdBy: actorId,
+      updatedBy: actorId,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await writePostVariants(tx, id, variants, now);
+    if (tags.length) {
       await tx
         .insert(schema.postTags)
         .values(tags.map((tag) => ({ postId: id, tag })));
@@ -267,137 +314,83 @@ export async function createPost(input: PostInput, actorId: string) {
       createdAt: now,
     });
   });
-  return findPost(id, true);
+  return findPost(id);
 }
 
 export async function updatePost(
   id: string,
-  input: Omit<Partial<Omit<PostInput, "variant">>, "accessGroup"> & {
+  input: Omit<Partial<PostInput>, "accessGroup"> & {
     accessGroup?: string | null;
   },
   actorId: string,
-  expectedRevision?: number,
+  expectedRevision: number,
 ) {
   const database = getCoreDb();
   const now = new Date();
-  const revisionPredicate =
-    expectedRevision === undefined
-      ? eq(schema.posts.id, id)
-      : and(
-          eq(schema.posts.id, id),
-          eq(schema.posts.revision, expectedRevision),
+  const changed = await database.transaction(async (tx) => {
+    const [current] = await tx
+      .select()
+      .from(schema.posts)
+      .where(eq(schema.posts.id, id))
+      .for("update");
+    if (!current) return false;
+    if (current.revision !== expectedRevision) {
+      const error = new Error("The resource changed since it was loaded.");
+      error.name = "RevisionConflict";
+      throw error;
+    }
+    const status = input.status ?? current.status;
+    const mode = input.accessMode ?? current.accessMode;
+    const group =
+      mode === "totp"
+        ? input.accessGroup === undefined
+          ? current.accessGroup
+          : input.accessGroup?.trim() || null
+        : null;
+    validatePostAccess(status, mode, group);
+    if (status === "published" && !input.variants?.length) {
+      const [variant] = await tx
+        .select({ id: schema.postVariants.id })
+        .from(schema.postVariants)
+        .where(eq(schema.postVariants.postId, id))
+        .limit(1);
+      if (!variant)
+        throw new Error(
+          "A published post requires at least one locale variant.",
         );
-  const updated = await database
-    .update(schema.posts)
-    .set({
-      ...(input.slug ? { slug: input.slug } : {}),
-      ...(input.status ? { status: input.status } : {}),
-      ...(input.sourceLocale ? { sourceLocale: input.sourceLocale } : {}),
-      ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
-      ...(input.accessMode ? { accessMode: input.accessMode } : {}),
-      ...(input.accessGroup === undefined
-        ? {}
-        : { accessGroup: input.accessGroup ?? null }),
-      ...(input.status === "published" ? { publishedAt: now } : {}),
-      revision: sql`${schema.posts.revision} + 1`,
-      updatedBy: actorId,
-      updatedAt: now,
-    })
-    .where(revisionPredicate)
-    .returning({ id: schema.posts.id });
-  if (updated.length === 0) {
-    const existing = await findPost(id, false);
-    if (!existing) return null;
-    const error = new Error("The resource changed since it was loaded.");
-    error.name = "RevisionConflict";
-    throw error;
-  }
-  if (input.tags) {
-    const tags = normalizeTags(input.tags);
-    await database.transaction(async (tx) => {
+    }
+
+    await tx
+      .update(schema.posts)
+      .set({
+        slug: input.slug ?? current.slug,
+        sourceLocale: input.sourceLocale ?? current.sourceLocale,
+        pinned: input.pinned ?? current.pinned,
+        status,
+        accessMode: mode,
+        accessGroup: group,
+        publishedAt:
+          status === "published"
+            ? asDate(input.date, current.publishedAt ?? now)
+            : current.publishedAt,
+        revision: current.revision + 1,
+        updatedBy: actorId,
+        updatedAt: now,
+      })
+      .where(eq(schema.posts.id, id));
+    await writePostVariants(tx, id, input.variants ?? [], now);
+    if (input.tags) {
+      const tags = normalizeTags(input.tags);
       await tx.delete(schema.postTags).where(eq(schema.postTags.postId, id));
-      if (tags.length > 0)
+      if (tags.length) {
         await tx
           .insert(schema.postTags)
           .values(tags.map((tag) => ({ postId: id, tag })));
-    });
-  }
-  return findPost(id, true);
-}
-
-export async function upsertPostVariant(
-  id: string,
-  locale: string,
-  input: Omit<PostVariantInput, "locale">,
-  actorId: string,
-  expectedRevision?: number,
-) {
-  const database = getCoreDb();
-  const post = await findPost(id, false);
-  if (!post) return null;
-  const [existing] = await database
-    .select()
-    .from(schema.postVariants)
-    .where(
-      and(
-        eq(schema.postVariants.postId, id),
-        eq(schema.postVariants.locale, locale),
-      ),
-    )
-    .limit(1);
-  if (
-    existing &&
-    expectedRevision !== undefined &&
-    existing.revision !== expectedRevision
-  ) {
-    const error = new Error("The resource changed since it was loaded.");
-    error.name = "RevisionConflict";
-    throw error;
-  }
-  if (existing && expectedRevision === undefined) {
-    const error = new Error("If-Match is required for edits.");
-    error.name = "PreconditionRequired";
-    throw error;
-  }
-  const now = new Date();
-  if (existing) {
-    await database
-      .update(schema.postVariants)
-      .set({
-        title: input.title,
-        excerpt: input.excerpt ?? "",
-        bodyMdx: input.bodyMdx ?? "",
-        originLocale: input.originLocale ?? null,
-        translationState: input.translationState ?? "source",
-        checksum: checksum(input.bodyMdx ?? ""),
-        revision: sql`${schema.postVariants.revision} + 1`,
-        updatedAt: now,
-      })
-      .where(eq(schema.postVariants.id, existing.id));
-  } else {
-    await database.insert(schema.postVariants).values({
-      id: randomUUID(),
-      postId: id,
-      locale,
-      title: input.title,
-      excerpt: input.excerpt ?? "",
-      bodyMdx: input.bodyMdx ?? "",
-      originLocale: input.originLocale ?? null,
-      translationState: input.translationState ?? "source",
-      checksum: checksum(input.bodyMdx ?? ""),
-      createdAt: now,
-      updatedAt: now,
-    });
-  }
-  await database
-    .update(schema.posts)
-    .set({
-      revision: sql`${schema.posts.revision} + 1`,
-      updatedBy: actorId,
-      updatedAt: now,
-    })
-    .where(eq(schema.posts.id, id));
-  return findPostVariant(id, locale);
+      }
+    }
+    return true;
+  });
+  return changed ? findPost(id) : null;
 }
 
 export async function deletePost(id: string, expectedRevision?: number) {
@@ -476,6 +469,15 @@ export async function listTweets() {
   return Promise.all(rows.map((row) => tweetView(database, row)));
 }
 
+export async function findTweet(id: string) {
+  const database = getCoreDb();
+  const [row] = await database
+    .select()
+    .from(schema.tweets)
+    .where(eq(schema.tweets.id, id));
+  return row ? tweetView(database, row) : null;
+}
+
 export async function createTweet(input: TweetInput, actorId: string) {
   const database = getCoreDb();
   const now = new Date();
@@ -509,66 +511,80 @@ export async function createTweet(input: TweetInput, actorId: string) {
       updatedAt: now,
     });
   });
-  return (await listTweets()).find((tweet) => tweet.id === id) ?? null;
+  return findTweet(id);
 }
 
 export async function updateTweet(
   id: string,
   input: Partial<TweetInput>,
   actorId: string,
-  expectedRevision?: number,
+  expectedRevision: number,
 ) {
   const database = getCoreDb();
-  const current = await database
-    .select()
-    .from(schema.tweets)
-    .where(eq(schema.tweets.id, id))
-    .limit(1);
-  if (current.length === 0) return null;
-  if (
-    expectedRevision !== undefined &&
-    current[0].revision !== expectedRevision
-  ) {
-    const error = new Error("The resource changed since it was loaded.");
-    error.name = "RevisionConflict";
-    throw error;
-  }
   const now = new Date();
-  await database
-    .update(schema.tweets)
-    .set({
-      ...(input.visibility
-        ? {
-            visibility: input.visibility,
-            visible: input.visibility !== "hidden",
-          }
-        : {}),
-      ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
-      ...(input.tags ? { tags: normalizeTags(input.tags) } : {}),
-      ...(input.publishedAt ? { publishedAt: asDate(input.publishedAt) } : {}),
-      revision: sql`${schema.tweets.revision} + 1`,
-      updatedBy: actorId,
-      updatedAt: now,
-    })
-    .where(eq(schema.tweets.id, id));
-  if (input.content !== undefined || input.locale !== undefined) {
-    await database
-      .update(schema.tweetVariants)
+  const changed = await database.transaction(async (tx) => {
+    const [current] = await tx
+      .select()
+      .from(schema.tweets)
+      .where(eq(schema.tweets.id, id))
+      .for("update");
+    if (!current) return false;
+    if (current.revision !== expectedRevision) {
+      const error = new Error("The resource changed since it was loaded.");
+      error.name = "RevisionConflict";
+      throw error;
+    }
+
+    await tx
+      .update(schema.tweets)
       .set({
-        ...(input.content === undefined ? {} : { body: input.content.trim() }),
-        ...(input.locale === undefined ? {} : { originLocale: input.locale }),
-        translationState: "stale",
-        revision: sql`${schema.tweetVariants.revision} + 1`,
+        ...(input.visibility
+          ? {
+              visibility: input.visibility,
+              visible: input.visibility !== "hidden",
+            }
+          : {}),
+        ...(input.pinned === undefined ? {} : { pinned: input.pinned }),
+        ...(input.tags ? { tags: normalizeTags(input.tags) } : {}),
+        ...(input.publishedAt
+          ? { publishedAt: asDate(input.publishedAt) }
+          : {}),
+        revision: current.revision + 1,
+        updatedBy: actorId,
         updatedAt: now,
       })
-      .where(
-        and(
-          eq(schema.tweetVariants.tweetId, id),
-          eq(schema.tweetVariants.locale, "source"),
-        ),
-      );
-  }
-  return (await listTweets()).find((tweet) => tweet.id === id) ?? null;
+      .where(eq(schema.tweets.id, id));
+
+    if (input.content !== undefined || input.locale !== undefined) {
+      await tx
+        .update(schema.tweetVariants)
+        .set({
+          ...(input.content === undefined
+            ? {}
+            : { body: input.content.trim() }),
+          ...(input.locale === undefined ? {} : { originLocale: input.locale }),
+          revision: sql`${schema.tweetVariants.revision} + 1`,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(schema.tweetVariants.tweetId, id),
+            eq(schema.tweetVariants.locale, "source"),
+          ),
+        );
+      await tx
+        .update(schema.tweetVariants)
+        .set({ translationState: "stale" })
+        .where(
+          and(
+            eq(schema.tweetVariants.tweetId, id),
+            ne(schema.tweetVariants.locale, "source"),
+          ),
+        );
+    }
+    return true;
+  });
+  return changed ? findTweet(id) : null;
 }
 
 export async function deleteTweet(id: string, expectedRevision?: number) {

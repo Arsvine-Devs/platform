@@ -78,14 +78,4 @@ export type ApiTweet = {
   revision: number;
 };
 
-export type ApiPublication = {
-  releaseId: string;
-  pointerKey: string;
-  manifestKey: string;
-  postCount: number;
-  tweetCount: number;
-  publishedAt: string;
-  realmRevalidated: true;
-};
-
 export const API_VERSION = "v1" as const;

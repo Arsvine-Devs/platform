@@ -10,20 +10,19 @@ Platform 是管理系统的服务工作区，集中维护 Console、Auth、API�
 | --------------- | ------------------------------------------------------------------ | ---------------------------------------------------- |
 | `apps/console/` | `console.arsvine.com` 的 UI、Host-only session 和 BFF              | [`apps/console/README.md`](./apps/console/README.md) |
 | `apps/auth/`    | `auth.arsvine.com` 的 Better Auth、OAuth/OIDC、JWKS、Passkey、TOTP | [`apps/auth/README.md`](./apps/auth/README.md)       |
-| `apps/api/`     | `api.arsvine.com` 的 Core authoring API 与发布编排                 | [`apps/api/README.md`](./apps/api/README.md)         |
-| `apps/content/` | `content.arsvine.com` 的已发布 release read plane                  | [`apps/content/README.md`](./apps/content/README.md) |
+| `apps/api/`     | `api.arsvine.com` 的文章和短帖写入                                 | [`apps/api/README.md`](./apps/api/README.md)         |
+| `apps/content/` | `content.arsvine.com` 的已发布内容读取                             | [`apps/content/README.md`](./apps/content/README.md) |
 
 ## 共享包
 
-| 范围                       | 责任                                     | 入口                                                                       |
-| -------------------------- | ---------------------------------------- | -------------------------------------------------------------------------- |
-| `packages/authz/`          | Auth JWT/JWKS 校验和 scope/role 判定     | [`packages/authz/README.md`](./packages/authz/README.md)                   |
-| `packages/contracts/`      | API 线协议 TypeScript 类型               | [`packages/contracts/README.md`](./packages/contracts/README.md)           |
-| `packages/core-db/`        | Core PostgreSQL schema 与 authoring 查询 | [`packages/core-db/README.md`](./packages/core-db/README.md)               |
-| `packages/object-storage/` | 私有文件和内容发布快照                   | [`packages/object-storage/README.md`](./packages/object-storage/README.md) |
-| `packages/observability/`  | 结构化服务日志                           | [`packages/observability/README.md`](./packages/observability/README.md)   |
-| `packages/env/`            | 动态环境读取、dotenv 入口和 envctl CLI   | [`packages/env/README.md`](./packages/env/README.md)                       |
-| `packages/site-config/`    | 固定服务拓扑和协议常量                   | [`packages/site-config/README.md`](./packages/site-config/README.md)       |
+| 范围                      | 责任                                     | 入口                                                                     |
+| ------------------------- | ---------------------------------------- | ------------------------------------------------------------------------ |
+| `packages/authz/`         | Auth JWT/JWKS 校验和 scope/role 判定     | [`packages/authz/README.md`](./packages/authz/README.md)                 |
+| `packages/contracts/`     | API 线协议 TypeScript 类型               | [`packages/contracts/README.md`](./packages/contracts/README.md)         |
+| `packages/core-db/`       | Core PostgreSQL schema 与 authoring 查询 | [`packages/core-db/README.md`](./packages/core-db/README.md)             |
+| `packages/observability/` | 结构化服务日志                           | [`packages/observability/README.md`](./packages/observability/README.md) |
+| `packages/env/`           | 动态环境读取、dotenv 入口和 envctl CLI   | [`packages/env/README.md`](./packages/env/README.md)                     |
+| `packages/site-config/`   | 固定服务拓扑和协议常量                   | [`packages/site-config/README.md`](./packages/site-config/README.md)     |
 
 ## 人类文档
 

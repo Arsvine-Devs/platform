@@ -160,14 +160,20 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
 
   async function runMutation(
     url: string,
-    options: { method: 'POST' | 'PUT' | 'DELETE'; body?: unknown },
+    options: { method: 'POST' | 'PATCH' | 'DELETE'; body?: unknown; revision?: number },
     successMessage: string,
     nextMonth?: string,
   ) {
     setSaving(true);
     try {
-      await adminRequest<unknown>(url, { method: options.method, body: options.body, csrfToken });
-      await loadDashboard(nextMonth);
+      const result = await adminRequest<{ month?: string }>(url, {
+        method: options.method,
+        body: options.body,
+        csrfToken,
+        headers:
+          options.revision === undefined ? undefined : { 'If-Match': `"${options.revision}"` },
+      });
+      await loadDashboard(result.month ?? nextMonth);
       toast.success(successMessage);
       return true;
     } catch (caught) {
@@ -195,7 +201,7 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
       if (
         await runMutation(
           `/api/control/tweets/${editingTweet.id}`,
-          { method: 'PUT', body: payload },
+          { method: 'PATCH', body: payload, revision: editingTweet.revision },
           t('tweets.updatedSuccess'),
           editMonth,
         )
@@ -233,7 +239,7 @@ export default function TweetsPageClient({ csrfToken, initialSelection }: Tweets
         : activeGroup?.months[0] || '';
     const deleted = await runMutation(
       `/api/control/tweets/${tweet.id}`,
-      { method: 'DELETE' },
+      { method: 'DELETE', revision: tweet.revision },
       t('tweets.deleted', { id: tweet.id }),
       deleteMonth,
     );

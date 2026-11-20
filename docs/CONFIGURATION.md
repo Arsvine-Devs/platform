@@ -8,8 +8,8 @@
 | ------- | -------------------------------------------------------------------------------------- |
 | Auth    | `AUTH_DATABASE_URL`、`BETTER_AUTH_SECRET` 和 `AUTH_TRUSTED_ORIGINS`                    |
 | Console | OIDC 客户端、`SESSION_SECRET`、`REDIS_URL`、`REDIS_KEY_PREFIX` 和本地 `WEB_OPS_SOCKET` |
-| API     | `CORE_DATABASE_URL`、`CONTENT_PUBLISH_TOKEN` 和 `REVALIDATE_WEBHOOK_SECRET`            |
-| Content | `CONTENT_STORAGE_ROOT` 和 `CONTENT_PUBLISH_TOKEN`                                      |
+| API     | `CORE_DATABASE_URL`，同环境 Core 写入账号                                              |
+| Content | `CORE_DATABASE_URL`，同环境 Core 发布视图的只读账号                                    |
 
 `ARS_WEB_ORIGINS` 传入服务使用的正式 HTTPS origins，值为 JSON 对象。典型预览环境提供自己的 Auth、Console、API 和 Content origins，与预览数据库和客户端注册一起配置。
 

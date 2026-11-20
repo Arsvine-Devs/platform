@@ -2,7 +2,7 @@
 
 [返回文档目录](./INDEX.md)
 
-Web 入口、编排、站点权限和诊断见 [Web 运维](../ops/WEB.md)。应用提供无缓存健康检查。Auth 和 API 检查 PostgreSQL，Console 检查会话配置与 Valkey，Content 检查当前快照。应用部署后可以在 Console 查询版本、健康、部署结果和访问日志。
+Web 入口、编排、站点权限和诊断见 [Web 运维](../ops/WEB.md)。应用提供无缓存健康检查。Auth 和 API 检查 PostgreSQL，Console 检查会话配置与 Valkey，Content 检查同环境 Core 的三个发布视图。应用部署后可以在 Console 查询版本、健康、部署结果和访问日志。
 
 ## 数据服务
 
@@ -16,12 +16,27 @@ sudo ops/.venv/bin/web-data provision --apply
 
 Auth、API 和 Realm 的数据库可以分别初始化。导入已有数据时使用各服务的 PostgreSQL custom dump，密钥文件随目标环境配置。
 
-新环境用 `sudo ops/.venv/bin/web-initialize preview` 创建独立密钥和空发布内容。用同一环境的 Auth 配置执行 `apps/auth/scripts/initialize.mjs`，生成 owner 和 Console、Realm 的 OIDC 客户端。该命令把结果写入指定的私有文件。再用 `sudo ops/.venv/bin/web-initialize preview --auth-state <私有文件>` 关联客户端配置。Core 初始表定义在 [Core schema](../migrations/core/0001_core.sql)。
+已有 Core 数据库时，先在站点登记中为 Content 启用 `localServices: [postgres]` 并应用 Web 配置。在已安装 Node 依赖的 Platform 根目录执行以下命令。预演列出 Content 读角色和各自连接的 Core 数据库。第一次应用创建角色和 DSN，迁移由同环境的 API 角色执行，第二次应用授予三个发布视图的读取权限。
 
-已导出的媒体和发布数据使用 `uv run --project ops --locked web-data import-media --help` 查看暂存参数。
+```sh
+uv run --project ops --locked --no-dev web-data provision --content-reader
+
+(
+  set -e
+  sudo ops/.venv/bin/web-data provision --content-reader --apply
+  for environment in preview production; do
+    sudo "$(command -v node)" --env-file="/etc/arsvine-web/env/api-${environment}.env" apps/api/scripts/migrate-core.mjs
+  done
+  sudo ops/.venv/bin/web-data provision --content-reader --apply
+)
+```
+
+按站点登记中已有的环境调整循环。完成授权后再部署各环境的 Content。其独立账号通过 `CORE_DATABASE_URL` 读取同环境 Core 的发布视图。
+
+新环境用 `sudo ops/.venv/bin/web-initialize preview` 创建独立密钥和空 Realm 媒体 Catalog。用同一环境的 Auth 配置执行 `apps/auth/scripts/initialize.mjs`，生成 owner 和 Console、Realm 的 OIDC 客户端。该命令把结果写入指定的私有文件。再用 `sudo ops/.venv/bin/web-initialize preview --auth-state <私有文件>` 关联客户端配置。
 
 ## 内容发布
 
-API 读取 Core 数据并构建发布快照。Content 验证各对象和清单，然后原子切换当前指针。Realm 接收带时间戳的 HMAC 通知，刷新公开页面。公开媒体在 VPS 的 `/media/` 路径提供。草稿、私有素材与受保护的文章正文由对应服务鉴权。
+API 将编辑与发布状态写入 Core。Content 读取 Core 发布视图，与 API 分别运行。公开媒体在 VPS 的 `/media/` 路径提供。草稿、私有素材与受保护的文章正文由对应服务鉴权。
 
 [公共状态页](https://status.arsvine.com) 从外部探测站点。诊断请求时可用 Console 的应用状态与请求标识关联 Cloudflare 安全事件。

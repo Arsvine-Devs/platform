@@ -29,6 +29,7 @@ type TweetTranslation = {
 
 export type TweetItem = {
   id: string;
+  revision: number;
   createdAt: string;
   updatedAt?: string;
   content: string;

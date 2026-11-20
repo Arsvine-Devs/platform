@@ -16,7 +16,7 @@ def preview_target(sites, project):
     return site.targets["preview"]
 
 
-def plan(sites, path, *, preview=None):
+def plan(sites, path, *, asset_hostname=None, preview=None):
     settings = json.loads(path.read_text(encoding="utf-8"))
     fields(settings, ("accountId", "tunnelId", "zones"), ("teamName",))
     account = match(settings["accountId"], r"[a-f0-9]{32}", "Cloudflare account ID")
@@ -46,6 +46,8 @@ def plan(sites, path, *, preview=None):
         for target in targets
         for domain in (target.hostname, *target.redirect_aliases)
     ]
+    if asset_hostname and preview is None:
+        origins.append((asset_hostname, None))
     for domain, access_audience in origins:
         candidates = [
             suffix for suffix in zones if domain == suffix or domain.endswith("." + suffix)

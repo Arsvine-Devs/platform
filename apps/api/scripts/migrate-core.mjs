@@ -13,19 +13,20 @@ const databaseUrl = readEnv("CORE_DATABASE_URL");
 if (!databaseUrl) throw new Error("CORE_DATABASE_URL is required");
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const migrationPath = path.resolve(
-  here,
-  "../../../migrations/core/0001_core.sql",
-);
-const migration = await readFile(migrationPath, "utf8");
+const migrationRoot = path.resolve(here, "../../../migrations/core");
+const migrations = ["0001_core.sql", "0002_published_content.sql"];
 const pool = new Pool({ connectionString: databaseUrl, max: 1 });
 
 try {
   await pool.query("BEGIN");
-  await pool.query(migration);
+  for (const filename of migrations) {
+    await pool.query(
+      await readFile(path.join(migrationRoot, filename), "utf8"),
+    );
+  }
   await pool.query("COMMIT");
   const result = await pool.query(
-    "SELECT to_regclass('public.posts') AS posts, to_regclass('public.tweets') AS tweets, to_regclass('public.publications') AS publications",
+    "SELECT to_regclass('public.posts') AS posts, to_regclass('public.tweets') AS tweets, to_regclass('public.realm_published_posts') AS published_posts",
   );
   console.log(JSON.stringify({ migrated: true, tables: result.rows[0] }));
 } catch (error) {

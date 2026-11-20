@@ -55,7 +55,7 @@ corepack pnpm build
 
 ## 测试边界
 
-- `apps/api/src/publication.test.ts` 保护 Content 发布和 Realm revalidation 的签名顺序。
+- `apps/api/src/content-routes.test.ts` 检查发布权限及同一次写入包含所有语言版本。
 - `apps/content/src/server.test.ts` 保护 release 读取、公开清理和受保护读取边界。
 - `apps/console/**/*.test.*` 保护 BFF、OIDC、限流、预览和当前 UI helper。
 - `apps/auth` 当前依赖 typecheck/build 与运行时服务验证；增加测试前应先证明测试隔离能保护真实 Auth 契约。

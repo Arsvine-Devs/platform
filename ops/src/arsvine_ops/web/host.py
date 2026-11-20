@@ -308,8 +308,6 @@ def node_unit(site, environment):
         account_groups.append(media_group(environment))
     if account_groups:
         extra.append("SupplementaryGroups=" + " ".join(account_groups))
-    if site.storage == "content":
-        extra.append(f"ReadWritePaths={STATE}/content/{environment}")
     extra_options = "\n".join(extra)
     hidden_paths = " ".join("-" + path for path in inaccessible)
     return f"""[Unit]
@@ -372,6 +370,13 @@ After=nftables.service
 Type=oneshot
 RemainAfterExit=true
 ExecStart={WEB_RUNTIME} apply-firewall
+CapabilityBoundingSet=CAP_NET_ADMIN
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
 
 [Install]
 WantedBy=multi-user.target
@@ -456,7 +461,7 @@ RestartSec=3
     return units
 
 
-def install(sites, *, origin_only=False):
+def install(sites, *, asset_hostname=None, origin_only=False):
     if origin_only and (UNITS / "arsvine-web-tunnel.service").exists():
         raise ValueError("Local-origin mode requires a host without an installed Web Tunnel")
     dependencies = [
@@ -549,19 +554,17 @@ def install(sites, *, origin_only=False):
                     f"PORT={target.port}",
                 ]
                 runtime.extend(origin_environment(site, sites, environment))
-                if site.storage == "content":
-                    root = STATE / "content" / environment
-                    directory(root, 0o700, owner=user.pw_uid, group=user.pw_gid)
-                    runtime.append(f"CONTENT_STORAGE_ROOT={root}")
                 if site.media == "realm":
                     media = STATE / "media" / environment
                     directory(media / "private", 0o2750, group=user.pw_gid)
                     runtime.extend(
                         (
                             f"REALM_CATALOG_ROOT={media}/private",
-                            f"REALM_CATALOG_POINTER={media}/public/realm/site-catalog/current.json",
+                            f"REALM_CATALOG_POINTER={media}/private/realm/catalog/current.json",
                         )
                     )
+                    if asset_hostname and environment == "production":
+                        runtime.append(f"ARSVINE_PUBLIC_MEDIA_ORIGIN=https://{asset_hostname}")
                 write(CONFIG / "run" / f"{slot}.env", "\n".join(runtime) + "\n", 0o600)
                 app_units.append(unit)
     previous_units = CONFIG / "installed-units.json"
@@ -605,7 +608,7 @@ def install(sites, *, origin_only=False):
     rules = firewall(sites, uid, origin_only=origin_only)
     apply_firewall(rules, validate=True)
     write(CONFIG / "origin.nft", rules)
-    contents = caddyfile(sites)
+    contents = caddyfile(sites, asset_hostname=asset_hostname)
     with tempfile.NamedTemporaryFile(dir=CONFIG, mode="w", encoding="utf-8") as candidate:
         candidate.write(contents)
         candidate.flush()

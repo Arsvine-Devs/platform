@@ -8,11 +8,12 @@ import {
   deleteTweet,
   findPost,
   findPostVariant,
+  findTweet,
   listPosts,
   listTweets,
   updatePost,
   updateTweet,
-  upsertPostVariant,
+  type PostVariantInput,
 } from "@arsvine/core-db";
 import { log } from "@arsvine/observability";
 
@@ -46,27 +47,23 @@ const postWriteSchema = Type.Object(
     tags: Type.Optional(
       Type.Array(Type.String({ maxLength: 80 }), { maxItems: 64 }),
     ),
-    variant: Type.Optional(
-      Type.Object({
-        locale: Type.String({ minLength: 2, maxLength: 16 }),
-        title: Type.String({ minLength: 1, maxLength: 300 }),
-        excerpt: Type.Optional(Type.String({ maxLength: 2000 })),
-        bodyMdx: Type.Optional(Type.String({ maxLength: 2_000_000 })),
-        originLocale: Type.Optional(Type.String({ maxLength: 16 })),
-        translationState: Type.Optional(Type.String({ maxLength: 32 })),
-      }),
+    date: Type.Optional(Type.String()),
+    variants: Type.Optional(
+      Type.Array(
+        Type.Object(
+          {
+            locale: Type.String({ minLength: 2, maxLength: 16 }),
+            title: Type.String({ minLength: 1, maxLength: 300 }),
+            excerpt: Type.Optional(Type.String({ maxLength: 2000 })),
+            bodyMdx: Type.Optional(Type.String({ maxLength: 2_000_000 })),
+            originLocale: Type.Optional(Type.String({ maxLength: 16 })),
+            translationState: Type.Optional(Type.String({ maxLength: 32 })),
+          },
+          { additionalProperties: false },
+        ),
+        { minItems: 1, maxItems: 16 },
+      ),
     ),
-  },
-  { additionalProperties: false },
-);
-
-const variantWriteSchema = Type.Object(
-  {
-    title: Type.String({ minLength: 1, maxLength: 300 }),
-    excerpt: Type.Optional(Type.String({ maxLength: 2000 })),
-    bodyMdx: Type.Optional(Type.String({ maxLength: 2_000_000 })),
-    originLocale: Type.Optional(Type.String({ maxLength: 16 })),
-    translationState: Type.Optional(Type.String({ maxLength: 32 })),
   },
   { additionalProperties: false },
 );
@@ -143,6 +140,13 @@ function requireScope(scope: string) {
       );
     }
   };
+}
+
+const requirePublishScope = requireScope("content:publish");
+
+function canPublish(request: FastifyRequest) {
+  const actor = principal(request);
+  return actor && hasScopes(actor, ["content:publish"]);
 }
 
 function parseRevision(request: FastifyRequest) {
@@ -256,6 +260,9 @@ export function registerContentRoutes(
             "AUTH_REQUIRED",
             "Authentication is required.",
           );
+        if (body.status === "published" && !canPublish(request)) {
+          return requirePublishScope(request, reply);
+        }
         const post = await createPost(
           {
             slug: validateSlug(body.slug),
@@ -267,6 +274,7 @@ export function registerContentRoutes(
             status: body.status as
               "draft" | "published" | "archived" | undefined,
             pinned: body.pinned as boolean | undefined,
+            date: body.date as string | undefined,
             accessMode: body.accessMode as "public" | "totp" | undefined,
             accessGroup:
               typeof body.accessGroup === "string"
@@ -277,7 +285,7 @@ export function registerContentRoutes(
                   (tag): tag is string => typeof tag === "string",
                 )
               : [],
-            variant: body.variant as never,
+            variants: body.variants as PostVariantInput[] | undefined,
           },
           actor.subject,
         );
@@ -361,6 +369,13 @@ export function registerContentRoutes(
             "PRECONDITION_REQUIRED",
             "If-Match is required for edits.",
           );
+        if (
+          !canPublish(request) &&
+          (body.status === "published" ||
+            (await findPost(id, false))?.status === "published")
+        ) {
+          return requirePublishScope(request, reply);
+        }
         const post = await updatePost(
           id,
           {
@@ -378,6 +393,8 @@ export function registerContentRoutes(
             ...(body.status === undefined
               ? {}
               : { status: body.status as "draft" | "published" | "archived" }),
+            date: body.date as string | undefined,
+            variants: body.variants as PostVariantInput[] | undefined,
             ...(body.pinned === undefined
               ? {}
               : { pinned: Boolean(body.pinned) }),
@@ -436,6 +453,12 @@ export function registerContentRoutes(
             "PRECONDITION_REQUIRED",
             "If-Match is required for deletion.",
           );
+        if (
+          !canPublish(request) &&
+          (await findPost(id, false))?.status === "published"
+        ) {
+          return requirePublishScope(request, reply);
+        }
         const result = await deletePost(id, revision);
         if (!result)
           return sendError(reply, request, 404, "NOT_FOUND", "Post not found.");
@@ -471,64 +494,6 @@ export function registerContentRoutes(
             "NOT_FOUND",
             "Post variant not found.",
           );
-        reply.header("ETag", `"${result.variant.revision}"`);
-        return result;
-      } catch (error) {
-        return handleDomainError(error, request, reply);
-      }
-    },
-  );
-
-  app.put(
-    "/v1/posts/:id/variants/:locale",
-    {
-      schema: {
-        body: variantWriteSchema,
-        response: {
-          200: Type.Object({ post: Type.Unknown(), variant: Type.Unknown() }),
-          401: errorSchema,
-          403: errorSchema,
-          404: errorSchema,
-          412: errorSchema,
-        },
-      },
-      preHandler: [authenticateRequest, requireScope("content:write")],
-    },
-    async (request, reply) => {
-      const { id, locale } = request.params as { id: string; locale: string };
-      try {
-        const actor = principal(request);
-        if (!actor)
-          return sendError(
-            reply,
-            request,
-            401,
-            "AUTH_REQUIRED",
-            "Authentication is required.",
-          );
-        const body = request.body as Record<string, unknown>;
-        const revision = parseRevision(request);
-        const result = await upsertPostVariant(
-          id,
-          locale,
-          {
-            title: validateString(body.title, "title"),
-            excerpt: typeof body.excerpt === "string" ? body.excerpt : "",
-            bodyMdx: typeof body.bodyMdx === "string" ? body.bodyMdx : "",
-            originLocale:
-              typeof body.originLocale === "string"
-                ? body.originLocale
-                : undefined,
-            translationState:
-              typeof body.translationState === "string"
-                ? body.translationState
-                : undefined,
-          },
-          actor.subject,
-          revision,
-        );
-        if (!result)
-          return sendError(reply, request, 404, "NOT_FOUND", "Post not found.");
         reply.header("ETag", `"${result.variant.revision}"`);
         return result;
       } catch (error) {
@@ -584,6 +549,12 @@ export function registerContentRoutes(
             "Authentication is required.",
           );
         const body = request.body as Record<string, unknown>;
+        if (
+          (body.visibility ?? "public") === "public" &&
+          !canPublish(request)
+        ) {
+          return requirePublishScope(request, reply);
+        }
         const content = validateString(body.content, "content");
         const tweet = await createTweet(
           {
@@ -643,7 +614,7 @@ export function registerContentRoutes(
     async (request, reply) => {
       const { id } = request.params as { id: string };
       try {
-        const tweet = (await listTweets()).find((item) => item.id === id);
+        const tweet = await findTweet(id);
         if (!tweet)
           return sendError(
             reply,
@@ -697,6 +668,13 @@ export function registerContentRoutes(
             "PRECONDITION_REQUIRED",
             "If-Match is required for edits.",
           );
+        if (
+          !canPublish(request) &&
+          (body.visibility === "public" ||
+            (await findTweet(id))?.visibility === "public")
+        ) {
+          return requirePublishScope(request, reply);
+        }
         const tweet = await updateTweet(
           id,
           {
@@ -761,6 +739,12 @@ export function registerContentRoutes(
             "PRECONDITION_REQUIRED",
             "If-Match is required for deletion.",
           );
+        if (
+          !canPublish(request) &&
+          (await findTweet(id))?.visibility === "public"
+        ) {
+          return requirePublishScope(request, reply);
+        }
         const result = await deleteTweet(id, revision);
         if (!result)
           return sendError(

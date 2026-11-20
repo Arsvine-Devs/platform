@@ -62,11 +62,11 @@ def root_required():
         raise ValueError("Run this host operation as root")
 
 
-def configure_edge(sites, preview=None):
+def configure_edge(sites, *, asset_hostname=None, preview=None):
     root_required()
     if ORIGIN_ONLY.exists():
         raise ValueError("Local-origin mode cannot publish Cloudflare routes")
-    desired = plan(sites, CONFIG / "edge.json", preview=preview)
+    desired = plan(sites, CONFIG / "edge.json", asset_hostname=asset_hostname, preview=preview)
     planned = {entry["record"]["name"] for entry in desired["records"]}
     active = set()
     for site in sites.values():
@@ -297,17 +297,25 @@ def main(argv=None):
             root_required()
             apply_firewall((CONFIG / "origin.nft").read_text(encoding="utf-8"))
             return 0
-        sites = load_registry(args.registry)
+        registry = load_registry(args.registry)
+        sites = registry.sites
         if args.command == "validate":
             print(f"Validated {len(sites)} sites")
         elif args.command == "caddy":
-            print(caddyfile(sites), end="")
+            print(caddyfile(sites, asset_hostname=registry.asset_hostname), end="")
         elif args.command == "doctor":
             doctor(sites)
         elif args.command == "edge-plan":
-            print(json.dumps(plan(sites, args.edge_config, preview=args.preview), indent=2))
+            desired = plan(
+                sites,
+                args.edge_config,
+                asset_hostname=registry.asset_hostname,
+                preview=args.preview,
+            )
+            print(json.dumps(desired, indent=2))
         elif args.command in ("security-plan", "sync-security"):
-            desired = policy(sites, plan(sites, args.edge_config), args.rate_limit)
+            edge = plan(sites, args.edge_config, asset_hostname=registry.asset_hostname)
+            desired = policy(sites, edge, args.rate_limit)
             if args.command == "security-plan":
                 print(json.dumps(desired, indent=2))
             else:
@@ -326,7 +334,7 @@ def main(argv=None):
             root_required()
             if args.registry != CONFIG / "sites.json":
                 raise ValueError("Install using the root-owned host registry path")
-            install(sites, origin_only=args.origin_only)
+            install(sites, asset_hostname=registry.asset_hostname, origin_only=args.origin_only)
         elif args.command == "bootstrap-archive":
             if args.registry != CONFIG / "sites.json":
                 raise ValueError("Bootstrap using the root-owned host registry path")
@@ -348,7 +356,7 @@ def main(argv=None):
         elif args.command == "sync-edge":
             if args.registry != CONFIG / "sites.json":
                 raise ValueError("Publish using the root-owned host registry path")
-            configure_edge(sites, preview=args.preview)
+            configure_edge(sites, asset_hostname=registry.asset_hostname, preview=args.preview)
     except (
         OSError,
         ValueError,

@@ -19,10 +19,18 @@ from unittest.mock import patch
 
 from arsvine_ops.web.artifacts import approved_run, extract_tree, unpack
 from arsvine_ops.web.controller import ApiServer, Controller, PeerScope, active_id
-from arsvine_ops.web.edge import plan, publish
+from arsvine_ops.web.edge import CloudflareError, plan, publish
 from arsvine_ops.web.observation import ingress
 from arsvine_ops.web.registry import caddyfile, load_registry
-from arsvine_ops.web.security import CACHE_PHASE, CACHE_REF, RATE_PHASE, policy, sync
+from arsvine_ops.web.security import (
+    CACHE_PHASE,
+    CACHE_REF,
+    RATE_PHASE,
+    SCAN_REF,
+    WAF_PHASE,
+    policy,
+    sync,
+)
 
 COMMIT = "a" * 40
 AUDIENCE = "b" * 64
@@ -141,7 +149,7 @@ class RuntimeTest(unittest.TestCase):
         self.path = Path(self.temporary.name)
         self.registry = self.path / "sites.json"
         self.registry.write_text(json.dumps({"sites": [SITE]}), encoding="utf-8")
-        self.sites = load_registry(self.registry)
+        self.sites = load_registry(self.registry).sites
         self.site = self.sites["app"]
 
     def test_release_tampering_and_links_fail_before_activation(self):
@@ -202,7 +210,7 @@ class RuntimeTest(unittest.TestCase):
         from arsvine_ops.web.host import CONTROLLER, GATEWAY, firewall, origin_environment
 
         self.registry.write_text(json.dumps({"sites": dependency_sites()}), encoding="utf-8")
-        sites = load_registry(self.registry)
+        sites = load_registry(self.registry).sites
         realm = sites["realm"]
         values = dict(value.split("=", 1) for value in origin_environment(realm, sites, "preview"))
         self.assertEqual(
@@ -240,7 +248,7 @@ class RuntimeTest(unittest.TestCase):
             }
         )
         self.registry.write_text(json.dumps({"sites": rows}), encoding="utf-8")
-        sites = load_registry(self.registry)
+        sites = load_registry(self.registry).sites
         values = dict(
             line.split("=", 1) for line in origin_environment(sites["auth"], sites, "preview")
         )
@@ -345,6 +353,9 @@ class RuntimeTest(unittest.TestCase):
         self.assertIn("skip_install_trust", rendered)
         self.assertIn("tls internal", rendered)
         self.assertIn("strict_sni_host on", rendered)
+        self.assertIn("max_header_size 64KiB", rendered)
+        self.assertIn("read_header 10s", rendered)
+        self.assertIn("idle 2m", rendered)
         self.assertIn("respond 404", rendered)
         self.assertIn("bind 127.0.0.1", rendered)
         self.assertIn("https://preview.example.com:8080", rendered)
@@ -353,7 +364,7 @@ class RuntimeTest(unittest.TestCase):
         rows = dependency_sites()
         rows[0]["production"]["redirectAliases"] = ["www.example.com"]
         self.registry.write_text(json.dumps({"sites": rows}), encoding="utf-8")
-        sites = load_registry(self.registry)
+        sites = load_registry(self.registry).sites
         edge = self.path / "edge.json"
         edge.write_text(
             json.dumps(
@@ -495,18 +506,24 @@ class RuntimeTest(unittest.TestCase):
     def test_cloudflare_security_updates_its_rule_without_replacing_the_zone(self):
         security_site = dict(SITE, capabilities=["identity"])
         self.registry.write_text(json.dumps({"sites": [security_site]}), encoding="utf-8")
-        sites = load_registry(self.registry)
+        sites = load_registry(self.registry).sites
         zone_id = "2" * 32
         edge = {
             "records": [
                 {"zoneId": zone_id, "record": {"name": host}}
-                for host in ("app.example.com", "preview.example.com")
+                for host in ("app.example.com", "preview.example.com", "cdn.example.com")
             ]
         }
         desired = policy(sites, edge, "host-post")
-        cache, rate = desired["zones"][0]["rules"]
+        cache, rate, scanner = desired["zones"][0]["rules"]
         self.assertEqual(cache["phase"], CACHE_PHASE)
         self.assertEqual(rate["phase"], RATE_PHASE)
+        self.assertEqual(scanner["phase"], WAF_PHASE)
+        self.assertEqual(scanner["rule"]["ref"], SCAN_REF)
+        self.assertEqual(scanner["rule"]["action"], "block")
+        self.assertIn('"cdn.example.com"', scanner["rule"]["expression"])
+        self.assertIn('"/.aws/"', scanner["rule"]["expression"])
+        self.assertNotIn('"/.well-known/', scanner["rule"]["expression"])
         self.assertIn('"preview.example.com"', cache["rule"]["expression"])
         self.assertNotIn('"app.example.com"', cache["rule"]["expression"])
         self.assertIn('http.request.method eq "POST"', rate["rule"]["expression"])
@@ -517,6 +534,8 @@ class RuntimeTest(unittest.TestCase):
         calls = []
 
         class Client:
+            deny_waf = False
+
             def call(self, path, method="GET", data=None):
                 calls.append((path, method, data))
                 if CACHE_PHASE in path:
@@ -529,14 +548,24 @@ class RuntimeTest(unittest.TestCase):
                     }
                 if RATE_PHASE in path:
                     return {"id": "6" * 32, "rules": []}
+                if WAF_PHASE in path:
+                    if self.deny_waf:
+                        raise CloudflareError(method, 403)
+                    return {"id": "7" * 32, "rules": []}
                 return {}
 
         sync(Client(), desired)
         writes = [entry for entry in calls if entry[1] != "GET"]
-        self.assertEqual([method for _, method, _ in writes], ["PATCH", "POST"])
+        self.assertEqual([method for _, method, _ in writes], ["PATCH", "POST", "POST"])
         self.assertTrue(writes[0][0].endswith("/rules/" + "4" * 32))
         self.assertEqual(writes[0][2]["position"], {"after": ""})
         self.assertNotIn("other-team-rule", str(writes))
+        calls.clear()
+        denied = Client()
+        denied.deny_waf = True
+        with self.assertRaises(CloudflareError):
+            sync(denied, desired)
+        self.assertTrue(all(method == "GET" for _, method, _ in calls))
 
     @unittest.skipUnless(os.name == "posix", "Uses POSIX release symlinks")
     def test_unhealthy_dynamic_release_restores_the_previous_healthy_runtime(self):
@@ -613,6 +642,9 @@ class RuntimeTest(unittest.TestCase):
         socket_unit = shared_units()["arsvine-web-controller.socket"]
         self.assertIn("SocketGroup=ars-web-console", socket_unit)
         self.assertIn("SocketMode=0660", socket_unit)
+        guard = shared_units()["arsvine-web-guard.service"]
+        self.assertIn("CapabilityBoundingSet=CAP_NET_ADMIN", guard)
+        self.assertIn("NoNewPrivileges=true", guard)
 
     @unittest.skipUnless(os.name == "posix", "Uses POSIX origin ownership checks")
     def test_install_rejects_port_owned_by_another_systemd_unit(self):

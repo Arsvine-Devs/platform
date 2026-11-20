@@ -2,7 +2,7 @@
 
 [返回仓库地图](../../INDEX.md) · [安全边界](../../docs/SECURITY.md)
 
-`console.arsvine.com` 是 ARSVINE Platform 的管理界面。它使用 Auth OIDC 建立身份，再把加密的 Host-only opaque session 保存在服务端；浏览器代码不会接触 OAuth token、数据库连接或 Content storage 凭据。
+`console.arsvine.com` 使用 Auth OIDC 登录。访问令牌和数据库凭据保存在服务端，浏览器通过当前站点的会话访问 BFF。
 
 ## 当前流程
 
@@ -11,11 +11,9 @@ Console UI
   → same-origin Console BFF (/api/control/*)
   → https://api.arsvine.com/v1/*
   → Core PostgreSQL
-  → Content release publication
-  → Realm revalidation
 ```
 
-Blog 和 Tweet authoring 属于 Core/API。Realm 的公开读取属于 Content read plane。
+Core 提交文章或短帖后，Realm 的下一次请求通过 Content 读取已提交数据。
 
 ## 路由
 

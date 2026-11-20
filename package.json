@@ -18,7 +18,7 @@
     "format": "prettier --write . --ignore-path .gitignore --ignore-path config/prettier.ignore --log-level warn",
     "format:check": "prettier --check . --ignore-path .gitignore --ignore-path config/prettier.ignore --log-level warn",
     "docs:check": "node scripts/check-doc-links.mjs",
-    "check:unused": "pnpm --filter arsvine-admin check:unused && knip --config config/knip.jsonc --workspace . --workspace apps/api --workspace apps/auth --workspace apps/content --workspace packages/authz --workspace packages/contracts --workspace packages/core-db --workspace packages/env --workspace packages/object-storage --workspace packages/observability --workspace packages/site-config --workspace packages/service-health --no-progress",
+    "check:unused": "pnpm --filter arsvine-admin check:unused && knip --config config/knip.jsonc --workspace . --workspace apps/api --workspace apps/auth --workspace apps/content --workspace packages/authz --workspace packages/contracts --workspace packages/core-db --workspace packages/env --workspace packages/observability --workspace packages/site-config --workspace packages/service-health --no-progress",
     "check:duplicates": "jscpd --config config/jscpd.json",
     "quality": "pnpm check:unused && pnpm check:duplicates",
     "typecheck": "pnpm --recursive --filter \"./packages/**\" --if-present build && pnpm --recursive --if-present typecheck",
@@ -31,7 +31,6 @@
     "knip": "6.41.0",
     "oxlint": "1.88.0",
     "prettier": "3.9.10",
-    "typescript": "6.0.3",
-    "vitest": "5.0.5"
+    "typescript": "6.0.3"
   }
 }

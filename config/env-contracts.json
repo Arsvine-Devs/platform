@@ -29,8 +29,8 @@
     },
     {
       "key": "CORE_DATABASE_URL",
-      "services": ["api"],
-      "exampleFiles": ["apps/api/.env.example"],
+      "services": ["api", "content"],
+      "exampleFiles": ["apps/api/.env.example", "apps/content/.env.example"],
       "requiredness": "required",
       "secret": true,
       "format": "PostgreSQL connection URL, with TLS required for hosted databases",
@@ -38,37 +38,12 @@
       "scopes": ["local", "preview", "production"],
       "usedBy": [
         "apps/api/src/server.ts",
+        "apps/content/src/content.ts",
         "packages/core-db/src/index.ts",
         "apps/api/scripts/migrate-core.mjs"
       ],
-      "description": "Core authoring and publication database connection.",
-      "failureBehavior": "Core routes and migration commands fail closed."
-    },
-    {
-      "key": "CONTENT_PUBLISH_TOKEN",
-      "services": ["api", "content"],
-      "exampleFiles": ["apps/api/.env.example", "apps/content/.env.example"],
-      "requiredness": "conditional",
-      "secret": true,
-      "format": "same opaque high-entropy token on API and Content",
-      "example": "replace-with-a-long-random-internal-publish-token",
-      "scopes": ["local", "preview", "production"],
-      "usedBy": ["apps/api/src/publication.ts", "apps/content/src/server.ts"],
-      "description": "Service authentication for API to Content publication.",
-      "failureBehavior": "Publication is rejected with 401 or unavailable status."
-    },
-    {
-      "key": "REVALIDATE_WEBHOOK_SECRET",
-      "services": ["api"],
-      "exampleFiles": ["apps/api/.env.example"],
-      "requiredness": "conditional",
-      "secret": true,
-      "format": "long random shared HMAC secret",
-      "example": "replace-with-a-long-random-secret",
-      "scopes": ["local", "preview", "production"],
-      "usedBy": ["apps/api/src/publication.ts"],
-      "description": "HMAC key shared by API and Realm revalidation handler.",
-      "failureBehavior": "Revalidation cannot be authenticated."
+      "description": "Core PostgreSQL connection. Use the authoring role for API and a separate published-view reader for Content.",
+      "failureBehavior": "Core writes or published reads for the affected service are unavailable."
     },
     {
       "key": "AUTH_DATABASE_URL",
@@ -172,19 +147,6 @@
       "usedBy": ["apps/console/lib/client-key.ts"],
       "description": "Allows trusted forwarded client headers for rate-limit keys.",
       "failureBehavior": "Defaults off. Enable only when the trusted Web gateway replaces forwarded client headers."
-    },
-    {
-      "key": "CONTENT_STORAGE_ROOT",
-      "services": ["content"],
-      "exampleFiles": ["apps/content/.env.example"],
-      "requiredness": "required",
-      "secret": false,
-      "format": "absolute path to the private content directory",
-      "example": "/var/lib/arsvine-web/content/production",
-      "scopes": ["local", "preview", "production"],
-      "usedBy": ["packages/object-storage/src/index.ts"],
-      "description": "Private filesystem root containing published Content snapshots.",
-      "failureBehavior": "Content is not ready until the current publication can be read."
     },
     {
       "key": "REDIS_URL",

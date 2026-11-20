@@ -1,8 +1,8 @@
-"""Provision Web data services or stage a published-media import."""
+"""Provision Web data services."""
 
 import argparse
 
-from . import media_import, provision
+from . import provision
 
 
 def main() -> None:
@@ -10,11 +10,6 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     provision_parser = commands.add_parser("provision", help=provision.__doc__)
     provision.add_arguments(provision_parser)
-    import_parser = commands.add_parser("import-media", help=media_import.__doc__)
-    media_import.add_arguments(import_parser)
 
     args = parser.parse_args()
-    if args.command == "provision":
-        provision.command(args, provision_parser)
-    else:
-        media_import.command(args, import_parser)
+    provision.command(args, provision_parser)

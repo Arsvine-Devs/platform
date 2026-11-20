@@ -1,4 +1,5 @@
 {
+  "assets": { "hostname": "cdn.arsvine.com" },
   "sites": [
     {
       "id": "console",
@@ -31,8 +32,8 @@
       "runtime": "node",
       "productionRef": "main",
       "healthPath": "/health/ready",
-      "capabilities": ["postgres", "oidc", "content-publisher"],
-      "dependencies": ["auth", "content", "realm"],
+      "capabilities": ["postgres", "oidc"],
+      "dependencies": ["auth"],
       "localServices": ["postgres"],
       "production": { "hostname": "api.arsvine.com", "port": 12004 }
     },
@@ -42,9 +43,9 @@
       "runtime": "node",
       "productionRef": "main",
       "healthPath": "/health/ready",
-      "capabilities": ["oidc", "content-files"],
+      "capabilities": ["oidc", "postgres"],
       "dependencies": ["auth"],
-      "storage": "content",
+      "localServices": ["postgres"],
       "production": { "hostname": "content.arsvine.com", "port": 12006 }
     },
     {

@@ -10,14 +10,12 @@ export type ServiceOrigins = {
 
 export type CatalogNamespaces = {
   readonly realmAssets: string;
-  readonly realmContent: string;
   readonly ripple: string;
 };
 
 export type SiteConfig = {
   readonly realm: {
     readonly origin: string;
-    readonly revalidateUrl: string;
     readonly healthLivePath: string;
     readonly healthReadyPath: string;
   };
@@ -67,8 +65,6 @@ export type SiteConfig = {
     readonly origin: string;
     readonly displayName: string;
     readonly resource: string;
-    readonly pointerKey: string;
-    readonly publicationUrl: string;
     readonly healthLivePath: string;
     readonly healthReadyPath: string;
   };

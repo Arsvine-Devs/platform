@@ -55,10 +55,9 @@ export function internalServiceUrl(service, publicUrl = origins[service]) {
 /** Stable public origins used by every Arsvine site. */
 export const serviceOrigins = origins;
 
-/** Immutable Catalog / Content object-key namespaces on CDN or private storage. */
+/** Media namespaces used for public assets and private catalogs. */
 export const catalogNamespaces = Object.freeze({
   realmAssets: "realm",
-  realmContent: "realm-content",
   ripple: "ripple",
 });
 
@@ -77,7 +76,6 @@ const contentOrigin = origins.content;
 export const siteConfig = Object.freeze({
   realm: Object.freeze({
     origin: origins.realm,
-    revalidateUrl: `${origins.realm}/api/internal/revalidate`,
     healthLivePath: "/api/health/live",
     healthReadyPath: "/api/health/ready",
   }),
@@ -128,8 +126,6 @@ export const siteConfig = Object.freeze({
     origin: contentOrigin,
     displayName: "Arsvine Published Content",
     resource: contentOrigin,
-    pointerKey: `${catalogNamespaces.realmContent}/current.json`,
-    publicationUrl: `${contentOrigin}/v1/internal/publications`,
     healthLivePath: "/health/live",
     healthReadyPath: "/health/ready",
   }),

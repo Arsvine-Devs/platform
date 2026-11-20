@@ -14,7 +14,6 @@ import { log } from "@arsvine/observability";
 import { liveBody, readyBody } from "@arsvine/service-health";
 import { probeCoreDatabase } from "@arsvine/core-db";
 import { registerContentRoutes } from "./content-routes.js";
-import { publishCoreRelease } from "./publication.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -154,65 +153,6 @@ export function buildApiServer() {
 
   app.register(async (api) => {
     registerContentRoutes(api, authenticateRequest);
-
-    api.post(
-      "/v1/publications",
-      {
-        preHandler: [authenticateRequest],
-        schema: {
-          response: {
-            201: Type.Object({ publication: Type.Unknown() }),
-            401: errorSchema,
-            403: errorSchema,
-            503: errorSchema,
-          },
-        },
-      },
-      async (request, reply) => {
-        const principal = request.authPrincipal;
-        if (!principal)
-          return sendAuthError(
-            reply,
-            request.id,
-            401,
-            "AUTH_REQUIRED",
-            "Authentication is required.",
-          );
-        if (!principal.scopes.includes("content:publish")) {
-          return reply.code(403).send({
-            error: {
-              code: "INSUFFICIENT_SCOPE",
-              message: "Scope content:publish is required.",
-              requestId: request.id,
-            },
-          });
-        }
-        try {
-          const publication = await publishCoreRelease();
-          log("info", {
-            service: "api",
-            operation: "publication.activate",
-            requestId: request.id,
-            releaseId: publication.releaseId,
-          });
-          return reply.code(201).send({ publication });
-        } catch (error) {
-          log("error", {
-            service: "api",
-            operation: "publication.failed",
-            requestId: request.id,
-            message: error instanceof Error ? error.message : "unknown",
-          });
-          return reply.code(503).send({
-            error: {
-              code: "PUBLICATION_UNAVAILABLE",
-              message: "Publication could not be completed.",
-              requestId: request.id,
-            },
-          });
-        }
-      },
-    );
   });
 
   return app;

@@ -110,7 +110,7 @@ export function groupTweetsByGranularity(
 
   for (const monthRecord of months) {
     for (const tweet of monthRecord.tweets) {
-      const key = dateGroupKeyFromCreatedAt(tweet.createdAt, granularity);
+      const key = dateGroupKeyFromCreatedAt(formatDateTimeLocal(tweet.createdAt), granularity);
       if (!key) continue;
 
       const current = grouped.get(key) ?? {

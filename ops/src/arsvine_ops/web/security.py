@@ -7,12 +7,27 @@ from .registry import match
 
 CACHE_PHASE = "http_request_cache_settings"
 RATE_PHASE = "http_ratelimit"
+WAF_PHASE = "http_request_firewall_custom"
 CACHE_REF = "arsvine-web-private-cache-bypass"
 RATE_REF = "arsvine-web-auth-throttle"
+SCAN_REF = "arsvine-web-scan-block"
+SCAN_PATHS = (
+    "/.aws",
+    "/.env",
+    "/.env.local",
+    "/.git",
+    "/phpmyadmin",
+    "/server-status",
+    "/wp-admin",
+    "/wp-login.php",
+    "/xmlrpc.php",
+)
+SCAN_PREFIXES = ("/.aws/", "/.env.", "/.git/", "/phpmyadmin/", "/wp-admin/")
 AUTH_PATHS = (
     "/api/auth/sign-in/email",
     "/api/auth/passkey/verify-authentication",
     "/api/auth/two-factor/verify-totp",
+    "/api/protected-verify",
 )
 
 
@@ -29,6 +44,7 @@ def policy(sites, desired_edge, rate_limit):
     enrolled = {row["record"]["name"]: row["zoneId"] for row in desired_edge["records"]}
     groups = {
         zone_id: {
+            "web": set(),
             "protected": set(),
             "realm": set(),
             "ripple": set(),
@@ -36,6 +52,8 @@ def policy(sites, desired_edge, rate_limit):
         }
         for zone_id in enrolled.values()
     }
+    for host, zone_id in enrolled.items():
+        groups[zone_id]["web"].add(host)
     for site in sites.values():
         for target in site.targets.values():
             group = groups[enrolled[target.hostname]]
@@ -43,7 +61,7 @@ def policy(sites, desired_edge, rate_limit):
                 group["protected"].add(target.hostname)
             if site.media:
                 group[site.media].add(target.hostname)
-            if "identity" in site.capabilities:
+            if "identity" in site.capabilities or site.id == "realm":
                 group["identity"].add(target.hostname)
     zones = []
     for zone_id, group in sorted(groups.items()):
@@ -90,16 +108,36 @@ def policy(sites, desired_edge, rate_limit):
                         "enabled": True,
                         "action": "block",
                         "description": "Arsvine Web: slow repeated authentication attempts",
-                        "expression": expression,
+                        "expression": f"(cf.waf.credential_check.password_leaked) or ({expression})",
                         "ratelimit": {
                             "characteristics": ["cf.colo.id", "ip.src"],
                             "period": 10,
-                            "requests_per_period": 10,
+                            "requests_per_period": 5,
                             "mitigation_timeout": 10,
                         },
                     },
                 }
             )
+        path = "lower(http.request.uri.path)"
+        scan_conditions = [
+            path + " in {" + " ".join(json.dumps(candidate) for candidate in SCAN_PATHS) + "}",
+            *(f"starts_with({path}, {json.dumps(prefix)})" for prefix in SCAN_PREFIXES),
+        ]
+        entries.append(
+            {
+                "phase": WAF_PHASE,
+                "rule": {
+                    "ref": SCAN_REF,
+                    "enabled": True,
+                    "action": "block",
+                    "description": "Arsvine Web: block probes for private config and unused software",
+                    "expression": conditions(group["web"])
+                    + " and ("
+                    + " or ".join(scan_conditions)
+                    + ")",
+                },
+            }
+        )
         zones.append({"zoneId": zone_id, "rules": entries})
     return {
         "managedProtections": [
@@ -121,6 +159,7 @@ def contains(actual, expected):
 
 def sync(client, desired):
     """Create missing phase rulesets or update only the named platform rules."""
+    changes = []
     for zone in desired["zones"]:
         base = f"/zones/{zone['zoneId']}/rulesets"
         for entry in zone["rules"]:
@@ -130,15 +169,17 @@ def sync(client, desired):
             except CloudflareError as exc:
                 if exc.status != 404:
                     raise
-                client.call(
-                    base,
-                    "POST",
-                    {
-                        "name": "Arsvine Web",
-                        "kind": "zone",
-                        "phase": phase,
-                        "rules": [rule],
-                    },
+                changes.append(
+                    (
+                        base,
+                        "POST",
+                        {
+                            "name": "Arsvine Web",
+                            "kind": "zone",
+                            "phase": phase,
+                            "rules": [rule],
+                        },
+                    )
                 )
                 continue
             ruleset_id = match(ruleset["id"], r"[a-f0-9]{32}", "Cloudflare ruleset ID")
@@ -148,7 +189,7 @@ def sync(client, desired):
             if len(found) > 1:
                 raise ValueError(f"Cloudflare contains duplicate rule references for {rule['ref']}")
             if not found:
-                client.call(rules_url, "POST", rule)
+                changes.append((rules_url, "POST", rule))
                 continue
             current = found[0]
             patch = dict(rule)
@@ -157,4 +198,6 @@ def sync(client, desired):
                 patch["position"] = {"after": ""}
             if not contains(current, rule) or "position" in patch:
                 rule_id = match(current["id"], r"[a-f0-9]{32}", "Cloudflare rule ID")
-                client.call(f"{rules_url}/{rule_id}", "PATCH", patch)
+                changes.append((f"{rules_url}/{rule_id}", "PATCH", patch))
+    for path, method, body in changes:
+        client.call(path, method, body)

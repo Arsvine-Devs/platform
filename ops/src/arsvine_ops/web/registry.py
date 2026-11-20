@@ -58,7 +58,6 @@ class Site:
     health_path: str
     targets: dict[str, Target]
     media: str | None
-    storage: str | None
     local_services: tuple[str, ...]
     memory_mib: int
     capabilities: tuple[str, ...]
@@ -89,9 +88,15 @@ class Site:
         }
 
 
-def load_registry(path: Path) -> dict[str, Site]:
+@dataclass(frozen=True)
+class Registry:
+    sites: dict[str, Site]
+    asset_hostname: str | None
+
+
+def load_registry(path: Path) -> Registry:
     raw = json.loads(path.read_text(encoding="utf-8"))
-    fields(raw, ("sites",))
+    fields(raw, ("sites",), ("assets",))
     if not isinstance(raw["sites"], list):
         raise ValueError("Expected a list of sites")
     sites: dict[str, Site] = {}
@@ -106,7 +111,6 @@ def load_registry(path: Path) -> dict[str, Site]:
                 "healthPath",
                 "workflow",
                 "media",
-                "storage",
                 "localServices",
                 "memoryMiB",
                 "capabilities",
@@ -135,13 +139,6 @@ def load_registry(path: Path) -> dict[str, Site]:
                 raise ValueError("Realm's catalog requires a Node runtime")
         if media and any(site.media == media for site in sites.values()):
             raise ValueError(f"Media route already owned by another project: {media}")
-        storage = row.get("storage")
-        if storage is not None and (
-            storage != "content"
-            or runtime != "node"
-            or any(site.storage == storage for site in sites.values())
-        ):
-            raise ValueError("Invalid or duplicate content storage binding")
         local_services = row.get("localServices", [])
         if not isinstance(local_services, list) or any(
             not isinstance(name, str) or name not in LOCAL_SERVICES for name in local_services
@@ -205,7 +202,6 @@ def load_registry(path: Path) -> dict[str, Site]:
             health,
             targets,
             media,
-            storage,
             tuple(dict.fromkeys(local_services)),
             memory_mib,
             grants,
@@ -221,7 +217,13 @@ def load_registry(path: Path) -> dict[str, Site]:
                     raise ValueError(
                         f"{site.id} {environment} needs {name} registered for {environment}"
                     )
-    return sites
+    asset_hostname = None
+    if "assets" in raw:
+        fields(raw["assets"], ("hostname",))
+        asset_hostname = hostname(raw["assets"]["hostname"])
+        if asset_hostname in hosts:
+            raise ValueError(f"Duplicate hostname: {asset_hostname}")
+    return Registry(sites, asset_hostname)
 
 
 def capabilities(values):
@@ -233,7 +235,7 @@ def capabilities(values):
     return entries
 
 
-def caddyfile(sites, *, state=STATE):
+def caddyfile(sites, *, asset_hostname=None, state=STATE):
     storage = state.with_name(GATEWAY_STATE.name) / "caddy"
     lines = [
         "{",
@@ -246,6 +248,11 @@ def caddyfile(sites, *, state=STATE):
         "  servers {",
         "    protocols h1 h2",
         "    strict_sni_host on",
+        "    max_header_size 64KiB",
+        "    timeouts {",
+        "      read_header 10s",
+        "      idle 2m",
+        "    }",
         "  }",
         "}",
     ]
@@ -284,7 +291,9 @@ def caddyfile(sites, *, state=STATE):
                     "  }",
                 )
             )
-            if site.media == "realm" or (site.media == "ripple" and environment == "preview"):
+            if (site.media == "realm" and (environment == "preview" or not asset_hostname)) or (
+                site.media == "ripple" and environment == "preview"
+            ):
                 lines.append("  handle_path /media/* {")
                 ripple_target = (
                     ripple.targets.get(environment) if ripple and site.media == "realm" else None
@@ -318,24 +327,16 @@ def caddyfile(sites, *, state=STATE):
             if site.media == "ripple":
                 lines.extend(
                     (
-                        "  @published_music {",
-                        "    path /api/music",
-                        "    file {",
-                        f"      root {state}/media/{environment}/public",
-                        "      try_files /ripple/music.json",
-                        "    }",
-                        "  }",
-                        "  handle @published_music {",
+                        "  handle /api/music {",
                         f"    root * {state}/media/{environment}/public",
                         '    header Content-Type "application/json; charset=utf-8"',
+                        '    header Cache-Control "no-store"',
                         "    rewrite * /ripple/music.json",
                         "    file_server",
                         "  }",
                     )
                 )
             lines.append("  handle {")
-            if site.media == "ripple":
-                lines.append('    header /api/music Content-Type "application/json; charset=utf-8"')
             if site.runtime == "static":
                 lines.extend(
                     (
@@ -366,6 +367,45 @@ def caddyfile(sites, *, state=STATE):
                 if target.access_audience:
                     lines.append('  header Cache-Control "private, no-store"')
                 lines.extend((f"  redir https://{target.hostname}{{uri}} 308", "}"))
+    if asset_hostname:
+        lines.extend(
+            (
+                f"https://{asset_hostname}:{ORIGIN_PORT} {{",
+                "  bind 127.0.0.1",
+                "  tls internal",
+                "  handle_path /media/* {",
+                "    route {",
+                "      header {",
+                "        Access-Control-Allow-Origin *",
+                '        Access-Control-Allow-Methods "GET, HEAD, OPTIONS"',
+                "        Access-Control-Allow-Headers Range",
+                '        Access-Control-Expose-Headers "Accept-Ranges, Content-Range, Content-Length, ETag"',
+                "        Cross-Origin-Resource-Policy cross-origin",
+                "        X-Content-Type-Options nosniff",
+                "        Referrer-Policy no-referrer",
+                "        Content-Security-Policy \"default-src 'none'; sandbox\"",
+                '        Cache-Control "public, max-age=300"',
+                "      }",
+                "      @preflight method OPTIONS",
+                "      respond @preflight 204",
+                "      @unsupported not method GET HEAD",
+                "      respond @unsupported 405",
+                "      @catalog path *.json",
+                '      header @catalog Cache-Control "no-store"',
+                r"      @fingerprinted path_regexp fingerprinted \.[0-9a-f]{8,64}\.(avif|bmp|css|flac|gif|ico|jpe?g|js|m4a|mp[34]|ogg|opus|png|svg|wav|webm|webp|woff2?)$",
+                '      header @fingerprinted Cache-Control "public, max-age=31536000, immutable"',
+                f"      root * {state}/media/production/public",
+                "      file_server {",
+                "        hide .*",
+                "      }",
+                "    }",
+                "  }",
+                "  handle {",
+                "    respond 404",
+                "  }",
+                "}",
+            )
+        )
     lines.extend(
         (f"https://:{ORIGIN_PORT} {{", "  bind 127.0.0.1", "  tls internal", "  respond 404", "}")
     )

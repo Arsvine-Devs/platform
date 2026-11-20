@@ -6,13 +6,7 @@ import { PanelLeft, PanelRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { adminRequest, isAdminApiError } from '@/lib/admin-api/client';
-import type {
-  BlogIndexData,
-  BlogPublishBatchInput,
-  BlogPublishInput,
-  BlogPublishResponse,
-  BlogVariantData,
-} from '@/lib/admin-api/contracts';
+import type { BlogIndexData, BlogPublishInput, BlogVariantData } from '@/lib/admin-api/contracts';
 import { DetailSheet, PageFrame, PageHeader } from '@/components/admin/blocks';
 import { useI18n } from '@/components/i18n/locale-provider';
 import { Button } from '@/components/ui/button';
@@ -329,14 +323,11 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
     setPublishing(true);
     try {
       const normalizedSlug = form.slug.trim().toLowerCase();
-      const data = await adminRequest<BlogPublishResponse>('/api/control/publish', {
+      await adminRequest('/api/control/publish', {
         method: 'POST',
         csrfToken,
         body: {
           slug: normalizedSlug,
-          locale: form.locale,
-          title: form.title,
-          excerpt: form.excerpt,
           date: form.date,
           tags: form.tags
             .split(',')
@@ -345,11 +336,18 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
           pinned: form.pinned,
           accessMode: form.accessMode,
           accessGroup: form.accessGroup,
-          originLocale: optionalBlogLocale(form.originLocale),
-          content: form.content,
+          variants: [
+            {
+              locale: form.locale,
+              title: form.title,
+              excerpt: form.excerpt,
+              originLocale: optionalBlogLocale(form.originLocale),
+              content: form.content,
+            },
+          ],
         } satisfies BlogPublishInput,
       });
-      toast.success(t('blog.published', { releaseId: data.publication.releaseId }));
+      toast.success(t('blog.published'));
       clearDraftsForSlug(normalizedSlug, [form.locale]);
       await loadIndex();
       setSelectedKey(`${normalizedSlug}:${form.locale}`);
@@ -397,7 +395,7 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
 
     setBatchPublishing(true);
     try {
-      const data = await adminRequest<BlogPublishResponse>('/api/control/publish-batch', {
+      await adminRequest('/api/control/publish', {
         method: 'POST',
         csrfToken,
         body: {
@@ -406,18 +404,18 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
           pinned: form.pinned,
           accessMode: form.accessMode,
           accessGroup: form.accessGroup,
+          tags: form.tags
+            .split(',')
+            .map((tag) => tag.trim())
+            .filter(Boolean),
           variants: slugDrafts.map((draft) => ({
             locale: draft.locale,
             title: draft.title,
             excerpt: draft.excerpt,
-            tags: draft.tags
-              .split(',')
-              .map((tag) => tag.trim())
-              .filter(Boolean),
             content: draft.content,
             originLocale: optionalBlogLocale(draft.originLocale),
           })),
-        } satisfies BlogPublishBatchInput,
+        } satisfies BlogPublishInput,
       });
       clearDraftsForSlug(
         normalizedSlug,
@@ -426,7 +424,6 @@ export default function BlogPageClient({ csrfToken, initialSelection }: BlogPage
       toast.success(
         t('blog.publishedBatch', {
           count: slugDrafts.length,
-          releaseId: data.publication.releaseId,
         }),
       );
       await loadIndex();

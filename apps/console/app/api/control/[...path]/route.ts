@@ -3,12 +3,16 @@ import { callControlApi, controlSuccess, isControlApiSuccess } from '../../../..
 import type { ApiPost, ApiTweet } from '@arsvine/contracts';
 import type {
   BlogIndexData,
-  BlogPublishBatchInput,
   BlogPublishInput,
   BlogVariantData,
   LibraryData,
 } from '../../../../lib/admin-api/contracts';
-import type { TweetItem, TweetsDashboardData } from '../../../../lib/tweets-types';
+import type {
+  CreateTweetInput,
+  TweetItem,
+  TweetsDashboardData,
+  UpdateTweetInput,
+} from '../../../../lib/tweets-types';
 
 type Context = { params: Promise<{ path: string[] }> };
 
@@ -50,11 +54,24 @@ function postIndexItem(post: ApiPost): BlogIndexData['posts'][number] {
 }
 
 function tweetMonth(tweet: ApiTweet) {
-  return new Intl.DateTimeFormat('en-CA', {
+  const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Shanghai',
     year: 'numeric',
     month: '2-digit',
-  }).format(new Date(tweet.createdAt));
+  }).formatToParts(new Date(tweet.createdAt));
+  return `${parts.find(({ type }) => type === 'year')!.value}-${parts.find(({ type }) => type === 'month')!.value}`;
+}
+
+function tweetWriteBody(input: CreateTweetInput | UpdateTweetInput) {
+  return {
+    content: input.content,
+    locale: input.lang,
+    tags: input.tags,
+    visibility: input.visibility,
+    pinned: input.pinned,
+    // The composer displays and accepts China Standard Time.
+    publishedAt: 'createdAt' in input && input.createdAt ? `${input.createdAt}+08:00` : undefined,
+  };
 }
 
 function tweetDashboard(tweets: ApiTweet[]): TweetsDashboardData {
@@ -67,6 +84,7 @@ function tweetDashboard(tweets: ApiTweet[]): TweetsDashboardData {
   }
   const toTweetItem = (tweet: ApiTweet): TweetItem => ({
     id: tweet.id,
+    revision: tweet.revision,
     createdAt: tweet.createdAt,
     updatedAt: tweet.updatedAt,
     content: tweet.content,
@@ -217,130 +235,52 @@ async function mutation(request: NextRequest, segments: string[]) {
   const method = request.method;
   const requireCsrf = method !== 'GET';
 
-  if (route === 'publish' || route === 'publish-batch') {
-    const input = raw as BlogPublishInput | BlogPublishBatchInput;
-    const slug = input.slug?.trim().toLowerCase();
-    if (!slug)
+  if (route === 'publish') {
+    const input = raw as BlogPublishInput;
+    const slug = typeof input.slug === 'string' ? input.slug.trim().toLowerCase() : '';
+    if (!slug || !Array.isArray(input.variants) || input.variants.length === 0) {
       return NextResponse.json(
-        { ok: false, error: { message: 'slug is required.' } },
+        { ok: false, error: { message: 'A slug and at least one locale variant are required.' } },
         { status: 422 },
       );
+    }
     const existing = await callControlApi(request, `/v1/posts/${encodeURIComponent(slug)}`);
-    if (!isControlApiSuccess(existing) && existing.response.status !== 404)
+    if (!isControlApiSuccess(existing) && existing.response.status !== 404) {
       return existing.response;
-    let post: ApiPost | null = isControlApiSuccess(existing)
-      ? (bodyValue(existing.data).post as ApiPost)
-      : null;
-    if (!post) {
-      const first =
-        route === 'publish'
-          ? {
-              locale: (input as BlogPublishInput).locale,
-              title: (input as BlogPublishInput).title,
-              excerpt: (input as BlogPublishInput).excerpt,
-              content: (input as BlogPublishInput).content,
-              originLocale: (input as BlogPublishInput).originLocale,
-            }
-          : (input as BlogPublishBatchInput).variants[0];
-      const created = await callControlApi(request, '/v1/posts', {
-        method: 'POST',
+    }
+    const post = isControlApiSuccess(existing) ? (bodyValue(existing.data).post as ApiPost) : null;
+    const saved = await callControlApi(
+      request,
+      post ? `/v1/posts/${encodeURIComponent(post.id)}` : '/v1/posts',
+      {
+        method: post ? 'PATCH' : 'POST',
         requireCsrf,
+        headers: post ? { 'If-Match': `"${post.revision}"` } : undefined,
         body: {
           slug,
-          sourceLocale: 'zh-CN',
+          ...(!post ? { sourceLocale: input.variants[0].locale } : {}),
           status: 'published',
+          date: input.date || undefined,
           pinned: input.pinned,
           accessMode: input.accessMode,
           accessGroup: input.accessGroup,
-          tags:
-            route === 'publish'
-              ? (input as BlogPublishInput).tags
-              : (input as BlogPublishBatchInput).variants[0]?.tags,
-          variant: first
-            ? {
-                locale: first.locale,
-                title: first.title,
-                excerpt: first.excerpt,
-                bodyMdx: first.content,
-                originLocale: first.originLocale,
-              }
-            : undefined,
+          tags: input.tags,
+          variants: input.variants.map(({ content, ...variant }) => ({
+            ...variant,
+            bodyMdx: content,
+          })),
         },
-      });
-      if (!isControlApiSuccess(created)) return created.response;
-      post = bodyValue(created.data).post as ApiPost;
-    } else {
-      const updated = await callControlApi(request, `/v1/posts/${encodeURIComponent(post.id)}`, {
-        method: 'PATCH',
-        requireCsrf,
-        body: {
-          status: 'published',
-          pinned: input.pinned,
-          accessMode: input.accessMode,
-          accessGroup: input.accessGroup,
-          tags:
-            route === 'publish'
-              ? (input as BlogPublishInput).tags
-              : (input as BlogPublishBatchInput).variants[0]?.tags,
-        },
-        headers: { 'If-Match': `"${post.revision}"` },
-      });
-      if (!isControlApiSuccess(updated)) return updated.response;
-      post = bodyValue(updated.data).post as ApiPost;
-    }
-    const variants =
-      route === 'publish'
-        ? [
-            {
-              locale: (input as BlogPublishInput).locale,
-              title: (input as BlogPublishInput).title,
-              excerpt: (input as BlogPublishInput).excerpt,
-              content: (input as BlogPublishInput).content,
-              originLocale: (input as BlogPublishInput).originLocale,
-            },
-          ]
-        : (input as BlogPublishBatchInput).variants.map((variant) => ({
-            locale: variant.locale,
-            title: variant.title,
-            excerpt: variant.excerpt,
-            content: variant.content,
-            originLocale: variant.originLocale,
-          }));
-    for (const variant of variants) {
-      const saved = await callControlApi(
-        request,
-        `/v1/posts/${encodeURIComponent(post.id)}/variants/${encodeURIComponent(variant.locale)}`,
-        {
-          method: 'PUT',
-          requireCsrf,
-          body: {
-            title: variant.title,
-            excerpt: variant.excerpt,
-            bodyMdx: variant.content,
-            originLocale: variant.originLocale,
-          },
-          headers: (() => {
-            const previous = post.variants.find((candidate) => candidate.locale === variant.locale);
-            return previous ? { 'If-Match': `"${previous.revision}"` } : undefined;
-          })(),
-        },
-      );
-      if (!isControlApiSuccess(saved)) return saved.response;
-    }
-    const publication = await callControlApi(request, '/v1/publications', {
-      method: 'POST',
-      requireCsrf,
-      body: { idempotencyKey: request.headers.get('idempotency-key') ?? crypto.randomUUID() },
-    });
-    if (!isControlApiSuccess(publication)) return publication.response;
-    return controlSuccess(publication, bodyValue(publication.data).publication);
+      },
+    );
+    if (!isControlApiSuccess(saved)) return saved.response;
+    return controlSuccess(saved, bodyValue(saved.data).post);
   }
 
   if (route === 'tweets') {
     const result = await callControlApi(request, '/v1/tweets', {
       method: 'POST',
       requireCsrf,
-      body: { ...raw, locale: raw.lang },
+      body: tweetWriteBody(raw as CreateTweetInput),
     });
     if (!isControlApiSuccess(result)) return result.response;
     return controlSuccess(
@@ -354,16 +294,14 @@ async function mutation(request: NextRequest, segments: string[]) {
   }
 
   const tweetMatch = /^tweets\/([^/]+)$/.exec(route);
-  if (tweetMatch && (method === 'PUT' || method === 'PATCH' || method === 'DELETE')) {
+  if (tweetMatch && (method === 'PATCH' || method === 'DELETE')) {
     const path = `/v1/tweets/${encodeURIComponent(tweetMatch[1])}`;
-    const current = await callControlApi(request, path);
-    if (!isControlApiSuccess(current)) return current.response;
-    const currentTweet = bodyValue(current.data).tweet as ApiTweet;
+    const revision = request.headers.get('If-Match');
     const result = await callControlApi(request, path, {
-      method: method === 'PUT' ? 'PATCH' : method,
+      method,
       requireCsrf,
-      body: method === 'DELETE' ? undefined : { ...raw, locale: raw.lang },
-      headers: { 'If-Match': `"${currentTweet.revision}"` },
+      body: method === 'DELETE' ? undefined : tweetWriteBody(raw as UpdateTweetInput),
+      headers: revision ? { 'If-Match': revision } : undefined,
     });
     if (!isControlApiSuccess(result)) return result.response;
     if (method === 'DELETE') return controlSuccess(result, { deletedId: tweetMatch[1] });
@@ -382,10 +320,6 @@ export async function GET(request: NextRequest, context: Context) {
 }
 
 export async function POST(request: NextRequest, context: Context) {
-  return mutation(request, (await context.params).path);
-}
-
-export async function PUT(request: NextRequest, context: Context) {
   return mutation(request, (await context.params).path);
 }
 

@@ -1,5 +1,3 @@
-import type { ApiPublication } from '@arsvine/contracts';
-
 export type AdminApiSuccess<T> = { ok: true; data: T };
 export type AdminApiVoidSuccess = { ok: true };
 export type AdminApiFailure = {
@@ -52,38 +50,20 @@ export type BlogVariantData = {
 
 export type BlogPublishInput = {
   slug: string;
-  locale: BlogLocale;
-  title: string;
-  excerpt: string;
   date: string;
   tags: string[];
-  pinned: boolean;
-  accessMode: BlogAccessMode;
-  accessGroup?: string;
-  content: string;
-  originLocale?: BlogLocale;
-};
-
-export type BlogPublishVariantInput = {
-  locale: BlogLocale;
-  title: string;
-  excerpt: string;
-  tags: string[];
-  content: string;
-  originLocale?: BlogLocale;
-};
-
-export type BlogPublishBatchInput = {
-  slug: string;
-  date: string;
   pinned: boolean;
   accessMode: BlogAccessMode;
   accessGroup?: string;
   variants: BlogPublishVariantInput[];
 };
 
-export type BlogPublishResponse = {
-  publication: ApiPublication;
+export type BlogPublishVariantInput = {
+  locale: BlogLocale;
+  title: string;
+  excerpt: string;
+  content: string;
+  originLocale?: BlogLocale;
 };
 
 export type LibraryItem = {

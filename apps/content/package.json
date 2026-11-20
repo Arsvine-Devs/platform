@@ -12,8 +12,8 @@
   },
   "dependencies": {
     "@arsvine/authz": "workspace:*",
+    "@arsvine/core-db": "workspace:*",
     "@arsvine/env": "workspace:*",
-    "@arsvine/object-storage": "workspace:*",
     "@arsvine/observability": "workspace:*",
     "@arsvine/service-health": "workspace:*",
     "@arsvine/site-config": "workspace:*",

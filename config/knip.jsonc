@@ -32,9 +32,6 @@
     "packages/core-db": {
       "project": ["src/**/*.{ts,tsx,js,mjs,mts,cts}"],
     },
-    "packages/object-storage": {
-      "project": ["src/**/*.{ts,tsx,js,mjs,mts,cts}"],
-    },
     "packages/observability": {
       "project": ["src/**/*.{ts,tsx,js,mjs,mts,cts}"],
     },

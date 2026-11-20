@@ -28,17 +28,17 @@ Control API, published Content read plane, and small shared runtime packages.
 
 1. `apps/console` owns the browser UI, the host-only Console session, and the
    same-origin BFF. It MUST call the Control API rather than Core DB,
-   object-storage, or Auth storage directly.
+   or Auth storage directly.
 2. `apps/auth` owns Better Auth, OAuth/OIDC, JWKS, passkeys, TOTP, and Auth DB.
 3. `apps/api` owns Core authoring and publication orchestration.
-4. `apps/content` owns the published release read plane and its object-storage
-   publication endpoint.
+4. `apps/content` owns the read-only published content service. It uses a
+   dedicated PostgreSQL role restricted to the publication views.
 5. `packages/*` own only their named shared boundary; do not reintroduce
    service-specific behavior into a generic package.
 6. `@arsvine/env` owns dotenv loading and primitive environment normalization;
    service policy stays in the consuming service.
-7. The current hosted path is Console → Auth/API, API → Content, and Realm →
-   Content. Do not add compatibility paths for retired repository workflows.
+7. Console calls Auth and API. API writes Core. Realm reads published content
+   through Content. Only protected Content reads need Auth.
 8. `ops/src/arsvine_ops/web` owns site deployment, routing, and service isolation. Keep its
    registration and release contract aligned with `ops/src/arsvine_ops/build` and `site.yaml`.
 9. Read the version-matched Next.js docs in the application's

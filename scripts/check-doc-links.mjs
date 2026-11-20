@@ -125,12 +125,13 @@ async function checkRequiredEntrypoints() {
       withFileTypes: true,
     });
     for (const entry of entries) {
-      if (entry.isDirectory()) {
-        required.push(
-          `${parent}/${entry.name}/README.md`,
-          `${parent}/${entry.name}/AGENTS.md`,
-        );
-      }
+      if (!entry.isDirectory()) continue;
+      const members = await readdir(path.join(root, parent, entry.name));
+      if (!members.includes("package.json")) continue;
+      required.push(
+        `${parent}/${entry.name}/README.md`,
+        `${parent}/${entry.name}/AGENTS.md`,
+      );
     }
   }
 

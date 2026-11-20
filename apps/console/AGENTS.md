@@ -1,7 +1,7 @@
 # Console application scope
 
 - Console owns the browser UI, host-only opaque session, CSRF, and same-origin
-  BFF only. It MUST NOT import Core DB, object-storage, or Auth storage.
+  BFF only. It MUST NOT import Core DB or Auth storage.
 - Browser code calls `/api/control/*`; the BFF calls API with the current OIDC
   access token and preserves no-store/private response headers.
 - Keep OIDC callback state/nonce, RP-initiated logout, session deletion, and

@@ -9,21 +9,14 @@ import os
 import secrets
 from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from arsvine_ops.data.provision import CONFIG, ENVIRONMENTS, atomic_write, update_environment
 from arsvine_ops.web.registry import Site, load_registry
 
-if TYPE_CHECKING:
-    from pwd import struct_passwd
-
-
 STATE = Path("/var/lib/arsvine-web")
 
 
-def seed_files(
-    root: Path, contents: Mapping[str, object], uid: int, gid: int, *, public: bool = False
-) -> None:
+def seed_files(root: Path, contents: Mapping[str, object], uid: int, gid: int) -> None:
     if root.is_symlink():
         raise ValueError("Seed root may not be a symbolic link")
     owns_files = hasattr(os, "geteuid") and os.geteuid() == 0
@@ -38,7 +31,7 @@ def seed_files(
         for parent in reversed(folders):
             if parent.is_symlink():
                 raise ValueError("Seed directory may not be a symbolic link")
-            parent.mkdir(mode=0o2750 if public else 0o750, exist_ok=True)
+            parent.mkdir(mode=0o750, exist_ok=True)
             if owns_files:
                 os.chown(parent, uid, gid, follow_symlinks=False)
         if file.is_symlink():
@@ -50,26 +43,9 @@ def seed_files(
             os.chown(file, uid, gid, follow_symlinks=False)
 
 
-def seed_content_as_owner(
-    root: Path, contents: Mapping[str, object], account: struct_passwd
-) -> None:
-    child = os.fork()
-    if child == 0:
-        try:
-            os.setgroups([])
-            os.setgid(account.pw_gid)
-            os.setuid(account.pw_uid)
-            seed_files(root, contents, account.pw_uid, account.pw_gid)
-        except BaseException:
-            os._exit(1)
-        os._exit(0)
-    if os.waitstatus_to_exitcode(os.waitpid(child, 0)[1]) != 0:
-        raise ValueError("Unable to initialize Content as its service account")
-
-
 def lookup_password_file(slot: str) -> dict[str, str]:
     file = CONFIG / "environment-credentials" / f"{slot}.json"
-    keys = ("auth", "console", "publisher", "refresh", "visitor", "protected")
+    keys = ("auth", "console", "visitor", "protected")
     if file.exists():
         stored = json.loads(file.read_text(encoding="utf-8"))
         if not isinstance(stored, dict) or not all(
@@ -106,15 +82,9 @@ def environment_values(
             ),
         },
         "console": {"SESSION_SECRET": values["console"], "TRUST_PROXY": "1"},
-        "api": {
-            "CONTENT_PUBLISH_TOKEN": values["publisher"],
-            "REVALIDATE_WEBHOOK_SECRET": values["refresh"],
-        },
-        "content": {"CONTENT_PUBLISH_TOKEN": values["publisher"]},
         "realm": {
             "ACCESS_GRANT_SECRET": values["protected"],
             "VISITOR_STATS_SECRET": values["visitor"],
-            "REVALIDATE_WEBHOOK_SECRET": values["refresh"],
             "TRUST_PROXY": "1",
         },
     }
@@ -134,38 +104,18 @@ def environment_values(
 
 
 def seed_empty(environment: str) -> None:
-    import grp
     import pwd
 
     timestamp = datetime.datetime.now(datetime.UTC)
     version = timestamp.strftime("%Y%m%dT%H%M%SZ")
     suffix = "live" if environment == "production" else "pr"
-    content = STATE / "content" / environment
-    pointer = content / "realm-content/current.json"
-    if not pointer.exists():
-        account = pwd.getpwnam(f"aw-content-{suffix}")
-        release_id = "initial"
-        key = f"realm-content/releases/{release_id}/manifest.json"
-        seed_content_as_owner(
-            content,
-            {
-                key: {"schemaVersion": 1, "releaseId": release_id},
-                "realm-content/current.json": {
-                    "schemaVersion": 1,
-                    "releaseId": release_id,
-                    "publishedAt": timestamp.isoformat(),
-                    "manifest": key,
-                },
-            },
-            account,
-        )
-    media = STATE / "media" / environment
-    public = "realm/site-catalog/current.json"
-    if not (media / "public" / public).exists():
+    private = STATE / "media" / environment / "private"
+    pointer = "realm/catalog/current.json"
+    if not (private / pointer).exists():
         account = pwd.getpwnam(f"aw-realm-{suffix}")
         directory = f"realm/catalog/versions/{version}"
         seed_files(
-            media / "private",
+            private,
             {
                 f"{directory}/audio.json": [],
                 f"{directory}/home.json": [],
@@ -173,21 +123,10 @@ def seed_empty(environment: str) -> None:
                 f"{directory}/links.json": [],
                 f"{directory}/collections.json": {"collections": []},
                 f"{directory}/static-assets.json": {"assets": {}},
+                pointer: {"version": version},
             },
             0,
             account.pw_gid,
-        )
-        group = grp.getgrnam(f"ars-web-media-{suffix}")
-        manifest = f"realm/site-catalog/versions/{version}/assets.json"
-        seed_files(
-            media / "public",
-            {
-                manifest: {"version": version, "assets": {}},
-                public: {"version": version},
-            },
-            0,
-            group.gr_gid,
-            public=True,
         )
 
 
@@ -199,7 +138,7 @@ def main() -> None:
     if not hasattr(os, "geteuid") or os.geteuid() != 0:
         parser.error("Run as the Web host administrator")
     try:
-        registrations = load_registry(CONFIG / "sites.json")
+        registrations = load_registry(CONFIG / "sites.json").sites
         environment_values(registrations, args.environment, args.auth_state)
         seed_empty(args.environment)
     except (OSError, ValueError, KeyError, TypeError) as error:
