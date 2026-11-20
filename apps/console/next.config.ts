@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next';
 import { fileURLToPath } from 'node:url';
+import { mediaImageSources } from './lib/media-policy';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
@@ -13,7 +14,7 @@ const cspDirectives = [
   "default-src 'self'",
   ['script-src', "'self'", "'unsafe-inline'", ...(isProduction ? [] : ["'unsafe-eval'"])].join(' '),
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  ["img-src 'self' data: blob:", ...mediaImageSources].join(' '),
   "font-src 'self' data:",
   "connect-src 'self'",
   "frame-ancestors 'none'",

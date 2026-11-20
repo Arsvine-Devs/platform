@@ -55,6 +55,7 @@ async function authenticateRequest(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
+  reply.header("Cache-Control", "private, no-store");
   const requestId = request.id;
   try {
     const token = parseBearerToken(request.headers.authorization);

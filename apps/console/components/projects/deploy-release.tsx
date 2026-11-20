@@ -19,7 +19,7 @@ import {
 } from '@ui-sdk/react/select';
 import { ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { Button, buttonVariants } from '@/components/ui/button';
 import type { WebBuild, WebEnvironment } from '@/lib/web-ops';
 import styles from './operations.module.css';
@@ -47,6 +47,10 @@ export function DeployRelease({
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [notice, setNotice] = useState('');
+  const [pending, setPending] = useState(false);
+  const submission = useRef(false);
+  const [refreshing, startRefresh] = useTransition();
+  const busy = pending || refreshing;
   const build = builds.find(({ runId }) => String(runId) === selected);
 
   useEffect(() => {
@@ -56,7 +60,9 @@ export function DeployRelease({
   }, [router, running]);
 
   async function deploy() {
-    if (!build) return;
+    if (!build || running || busy || submission.current) return;
+    submission.current = true;
+    setPending(true);
     setNotice('');
     try {
       const response = await fetch('/api/web/deployments', {
@@ -71,9 +77,12 @@ export function DeployRelease({
       }
       setOpen(false);
       setNotice('Deployment queued. Progress appears in the deployment history.');
-      router.refresh();
+      startRefresh(() => router.refresh());
     } catch {
       setNotice('Connection interrupted. Check the deployment history before retrying.');
+    } finally {
+      submission.current = false;
+      setPending(false);
     }
   }
 
@@ -107,14 +116,19 @@ export function DeployRelease({
       </Select>
       <div className={styles.actions}>
         {environment === 'preview' ? (
-          <Button className="min-h-11" disabled={!build || running} onClick={deploy}>
-            Deploy preview
+          <Button className="min-h-11" disabled={!build || running || busy} onClick={deploy}>
+            {pending ? 'Requesting deployment…' : 'Deploy preview'}
           </Button>
         ) : (
-          <AlertDialog open={open} onOpenChange={setOpen}>
+          <AlertDialog
+            open={open}
+            onOpenChange={(nextOpen) => {
+              if (!pending) setOpen(nextOpen);
+            }}
+          >
             <AlertDialogTrigger
               className={buttonVariants({ className: 'min-h-11' })}
-              disabled={!build || running}
+              disabled={!build || running || busy}
             >
               Deploy to production
             </AlertDialogTrigger>
@@ -129,14 +143,15 @@ export function DeployRelease({
               <div className={styles.actions}>
                 <AlertDialogClose
                   className={buttonVariants({ variant: 'outline', className: 'min-h-11' })}
+                  disabled={pending}
                 >
                   Cancel
                 </AlertDialogClose>
-                <Button className="min-h-11" onClick={deploy}>
-                  Deploy
+                <Button className="min-h-11" disabled={!build || running || busy} onClick={deploy}>
+                  {pending ? 'Requesting deployment…' : 'Deploy'}
                 </Button>
               </div>
-              {open && <p role="status">{notice}</p>}
+              <p role="status">{open ? (pending ? 'Requesting deployment…' : notice) : ''}</p>
             </AlertDialogContent>
           </AlertDialog>
         )}
@@ -154,7 +169,7 @@ export function DeployRelease({
           </a>
         )}
       </div>
-      {!open && <p role="status">{notice}</p>}
+      <p role="status">{!open ? (pending ? 'Requesting deployment…' : notice) : ''}</p>
     </div>
   );
 }

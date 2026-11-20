@@ -1,3 +1,5 @@
+import { isPreviewImageSource } from '@/lib/media-policy';
+
 const SAFE_ABSOLUTE_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 const URI_SCHEME_PATTERN = /^[a-z][a-z\d+.-]*:/i;
 const KNOWN_MDX_TAG_PATTERN = /<\/?(?:Term|Explain|Spoiler|Lead|Aside|Mark|Ref)(?:\s+[^>]*)?>/g;
@@ -26,6 +28,11 @@ export function sanitizeUrl(value: unknown): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+export function previewImageUrl(value: unknown): string | undefined {
+  const safe = sanitizeUrl(value);
+  return safe && isPreviewImageSource(safe) ? safe : undefined;
 }
 
 export function buildPreviewContent(

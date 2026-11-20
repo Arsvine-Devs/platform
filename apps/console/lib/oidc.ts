@@ -64,9 +64,11 @@ export function openState(value: string | undefined): OidcState | null {
 }
 
 export function normalizeReturnTo(value: string | null | undefined) {
-  if (!value || !value.startsWith('/') || value.startsWith('//') || value.includes('\\'))
-    return '/library';
-  return value;
+  if (!value?.startsWith('/') || value.startsWith('//')) return '/library';
+  const { origin } = siteConfig.console;
+  const target = URL.parse(value, origin);
+  if (!target || target.origin !== origin || target.pathname.startsWith('//')) return '/library';
+  return `${target.pathname}${target.search}${target.hash}`;
 }
 
 export function buildAuthorizationRequest(returnTo: string) {

@@ -123,6 +123,7 @@ export const messages: Record<AppLocale, Messages> = {
       '富文本编辑器会保留 Markdown/MDX 字符串；无法识别的 JSX 可切换到 source mode 修复。',
     'blog.preview': '站点预览',
     'blog.previewSecurity': '安全 Markdown 渲染',
+    'blog.previewImageUnavailable': '此图片无法预览',
     'blog.previewEmpty': '在编辑器中输入内容，这里会显示站点预览。',
     'blog.unknownMdx': '检测到未识别的 MDX 组件',
     'blog.unknownMdxHint': '预览不会执行未知 JSX。切换编辑器的 source mode 可检查并保留原始语法。',
@@ -520,6 +521,7 @@ const englishOverrides: Messages = {
     'The editor preserves Markdown/MDX strings; switch to source mode to repair unknown JSX.',
   'blog.preview': 'Site preview',
   'blog.previewSecurity': 'Safe Markdown rendering',
+  'blog.previewImageUnavailable': 'Image preview unavailable',
   'blog.previewEmpty': 'Start writing to see the site preview here.',
   'blog.unknownMdx': 'Unrecognized MDX component',
   'blog.unknownMdxHint':

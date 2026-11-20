@@ -5,7 +5,12 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { EmptyState } from '@/components/admin/blocks';
-import { buildPreviewContent, hasUnsupportedMdx, sanitizeUrl } from './blog-preview-utils';
+import {
+  buildPreviewContent,
+  hasUnsupportedMdx,
+  previewImageUrl,
+  sanitizeUrl,
+} from './blog-preview-utils';
 import { useI18n } from '@/components/i18n/locale-provider';
 
 type BlogPreviewPanelProps = {
@@ -84,12 +89,22 @@ export default function BlogPreviewPanel({ content }: BlogPreviewPanelProps) {
                 );
               },
               img: ({ src, alt }) => {
-                const safe = sanitizeUrl(src);
+                const safe = previewImageUrl(src);
                 if (!safe)
-                  return <span className="text-muted-foreground italic">[blocked image]</span>;
-                // The preview accepts arbitrary sanitized Markdown image URLs.
-                // oxlint-disable-next-line nextjs/no-img-element -- next/image cannot represent this URL boundary.
-                return <img src={safe} alt={alt ?? ''} className="max-w-full rounded-xl" />;
+                  return (
+                    <span className="text-muted-foreground italic">
+                      {alt || t('blog.previewImageUnavailable')}
+                    </span>
+                  );
+                return (
+                  // oxlint-disable-next-line nextjs/no-img-element -- Preview media is requested directly with the browser's Access session.
+                  <img
+                    src={safe}
+                    alt={alt ?? ''}
+                    referrerPolicy="no-referrer"
+                    className="max-w-full rounded-xl"
+                  />
+                );
               },
             }}
           >

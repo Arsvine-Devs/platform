@@ -117,6 +117,12 @@ export default function AdminShellClient({
 
   return (
     <SidebarProvider>
+      <a
+        href="#main-content"
+        className="sr-only z-50 rounded-md bg-background px-3 py-2 text-sm font-medium focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:ring-2"
+      >
+        {t('shell.skip')}
+      </a>
       <Toaster richColors position="top-right" />
       <Sidebar
         collapsible="icon"
@@ -163,11 +169,14 @@ export default function AdminShellClient({
               <SidebarMenu>
                 {NAV_ITEMS.map((item) => {
                   const label = t(item.labelKey);
+                  const current = currentPath === item.href;
+                  const active = current || currentPath.startsWith(`${item.href}/`);
                   return (
                     <SidebarMenuItem key={item.href}>
                       <SidebarMenuButton
-                        render={<Link href={item.href} />}
-                        isActive={currentPath.startsWith(item.href)}
+                        render={<Link href={item.href} aria-label={label} />}
+                        isActive={active}
+                        aria-current={current ? 'page' : active ? 'location' : undefined}
                         tooltip={label}
                       >
                         {item.icon}
@@ -215,12 +224,6 @@ export default function AdminShellClient({
       </Sidebar>
 
       <SidebarInset>
-        <a
-          href="#main-content"
-          className="sr-only z-50 rounded-md bg-background px-3 py-2 text-sm font-medium focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:ring-2"
-        >
-          {t('shell.skip')}
-        </a>
         <header className="flex min-h-14 shrink-0 items-center gap-3 border-b px-4 sm:px-6">
           <SidebarTrigger
             className="-ml-1"
@@ -239,7 +242,9 @@ export default function AdminShellClient({
             </div>
           </div>
         </header>
-        <div className="flex-1 overflow-auto">{children}</div>
+        <div id="main-content" tabIndex={-1} className="flex-1 overflow-auto">
+          {children}
+        </div>
       </SidebarInset>
       <CommandDialog
         open={searchOpen}

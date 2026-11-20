@@ -3,6 +3,11 @@ import { passkey } from "@better-auth/passkey";
 import { hashPassword, verifyPassword } from "better-auth/crypto";
 import { betterAuth } from "better-auth";
 import {
+  APIError,
+  createAuthMiddleware,
+  getSessionFromCtx,
+} from "better-auth/api";
+import {
   admin,
   createAccessControl,
   jwt,
@@ -89,35 +94,31 @@ const authPlugins = [
       userVerification: "required",
     },
   }),
-  ...(authBaseUrl
-    ? [
-        oauthProvider({
-          loginPage: "/sign-in",
-          consentPage: "/consent",
-          customUserInfoClaims: ({ user }) => ({ role: user.role }),
-          scopes: [
-            "openid",
-            "profile",
-            "email",
-            "content:read",
-            "content:write",
-            "content:publish",
-            "assets:read",
-            "assets:write",
-            "integrations:read",
-            "integrations:write",
-            "jobs:read",
-            "jobs:run",
-            "content:protected:read",
-          ],
-          resources: oauthResources,
-          enforcePerClientResources: true,
-          allowDynamicClientRegistration: false,
-          clientPrivileges: ({ user }) => user?.role === "owner",
-          clientRegistrationRequirePKCE: true,
-        }),
-      ]
-    : []),
+  oauthProvider({
+    loginPage: "/sign-in",
+    consentPage: "/consent",
+    customUserInfoClaims: ({ user }) => ({ role: user.role }),
+    scopes: [
+      "openid",
+      "profile",
+      "email",
+      "content:read",
+      "content:write",
+      "content:publish",
+      "assets:read",
+      "assets:write",
+      "integrations:read",
+      "integrations:write",
+      "jobs:read",
+      "jobs:run",
+      "content:protected:read",
+    ],
+    resources: oauthResources,
+    enforcePerClientResources: true,
+    allowDynamicClientRegistration: false,
+    clientPrivileges: ({ user }) => user?.role === "owner",
+    clientRegistrationRequirePKCE: true,
+  }),
 ];
 
 let instance: ReturnType<typeof createAuth> | undefined;
@@ -136,6 +137,19 @@ function createAuth(database: Pool, secret: string) {
       },
     },
     trustedOrigins,
+    hooks: {
+      before: createAuthMiddleware(async (context) => {
+        if (
+          context.path !== "/passkey/delete-passkey" &&
+          context.path !== "/passkey/update-passkey"
+        ) {
+          return;
+        }
+        const session = await getSessionFromCtx(context);
+        if (!session) throw new APIError("UNAUTHORIZED");
+        if (session.user.role !== "owner") throw new APIError("FORBIDDEN");
+      }),
+    },
     plugins: authPlugins,
   });
 }
@@ -154,6 +168,11 @@ export function authUnavailable() {
   );
 }
 
-export function handleAuth(request: Request) {
-  return getAuth()?.handler(request) ?? authUnavailable();
+export async function handleAuth(request: Request) {
+  const auth = getAuth();
+  if (!auth) return authUnavailable();
+  const response = await auth.handler(request);
+  const headers = new Headers(response.headers);
+  headers.set("Cache-Control", "private, no-store");
+  return new Response(response.body, { status: response.status, headers });
 }

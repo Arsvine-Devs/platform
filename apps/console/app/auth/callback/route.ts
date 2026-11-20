@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { siteConfig } from '@arsvine/site-config';
 import {
   exchangeAuthorizationCode,
   normalizeReturnTo,
@@ -9,8 +10,8 @@ import { applyOidcSessionCookies, createOidcSession } from '@/lib/oidc-session';
 
 export const dynamic = 'force-dynamic';
 
-function redirectError(request: NextRequest, reason: string) {
-  const url = new URL('/auth/error', request.url);
+function redirectError(reason: string) {
+  const url = new URL('/auth/error', siteConfig.console.origin);
   url.searchParams.set('reason', reason);
   return NextResponse.redirect(url);
 }
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
       hasDecodedState: Boolean(state),
       stateMatches,
     });
-    return redirectError(request, 'invalid_callback');
+    return redirectError('invalid_callback');
   }
 
   try {
@@ -37,7 +38,9 @@ export async function GET(request: NextRequest) {
     console.info('[oidc/callback] authorization code exchanged', { role: tokens.role });
     const created = await createOidcSession(tokens);
     console.info('[oidc/callback] console session created', { role: created.session.role });
-    const response = NextResponse.redirect(new URL(normalizeReturnTo(state.returnTo), request.url));
+    const response = NextResponse.redirect(
+      new URL(normalizeReturnTo(state.returnTo), siteConfig.console.origin),
+    );
     applyOidcSessionCookies(response, created.id, created.session.csrf);
     response.cookies.set(OIDC_STATE_COOKIE, '', {
       httpOnly: true,
@@ -56,6 +59,6 @@ export async function GET(request: NextRequest) {
       message === 'OIDC identity claims are incomplete.'
         ? 'identity_claims_incomplete'
         : 'oidc_callback_failed';
-    return redirectError(request, reason);
+    return redirectError(reason);
   }
 }

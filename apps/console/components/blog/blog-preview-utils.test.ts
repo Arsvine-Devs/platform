@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildPreviewContent, hasUnsupportedMdx, sanitizeUrl } from './blog-preview-utils';
+import {
+  buildPreviewContent,
+  hasUnsupportedMdx,
+  previewImageUrl,
+  sanitizeUrl,
+} from './blog-preview-utils';
 
 describe('blog preview URL safety', () => {
   it('allows supported absolute and relative links', () => {
@@ -16,6 +21,16 @@ describe('blog preview URL safety', () => {
     expect(sanitizeUrl('//evil.example/path')).toBeUndefined();
     expect(sanitizeUrl('\\\\evil.example\\path')).toBeUndefined();
     expect(sanitizeUrl('https://example.com/\u0000')).toBeUndefined();
+  });
+
+  it('loads production and preview images within the media paths only', () => {
+    for (const source of ['https://cdn.arsvine.com', 'https://preview-realm.arsvine.com']) {
+      const publicImage = `${source}/media/example.webp`;
+      expect(previewImageUrl(publicImage)).toBe(publicImage);
+      expect(previewImageUrl(`${source}/example.webp`)).toBeUndefined();
+    }
+    expect(previewImageUrl('/example.webp')).toBe('/example.webp');
+    expect(previewImageUrl('https://example.com/media/example.webp')).toBeUndefined();
   });
 });
 

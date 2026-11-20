@@ -268,6 +268,16 @@ def caddyfile(sites, *, asset_hostname=None, state=STATE):
             )
             if target.access_audience:
                 lines.append('  header Cache-Control "private, no-store"')
+            if site.media == "ripple":
+                lines.extend(
+                    (
+                        "  header {",
+                        "    Content-Security-Policy \"frame-ancestors 'self'; object-src 'none'; base-uri 'self'\"",
+                        "    Referrer-Policy strict-origin-when-cross-origin",
+                        "    X-Content-Type-Options nosniff",
+                        "  }",
+                    )
+                )
             lines.extend(
                 (
                     "  log_append <path {http.request.uri.path}",

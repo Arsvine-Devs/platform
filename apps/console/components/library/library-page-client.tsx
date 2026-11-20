@@ -29,6 +29,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -36,6 +37,8 @@ import {
 } from '@/components/ui/table';
 import { EmptyState, PageFrame, PageHeader } from '@/components/admin/blocks';
 import { useI18n } from '@/components/i18n/locale-provider';
+
+const INLINE_LIBRARY_DETAILS = '(min-width: 96rem)';
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -144,9 +147,18 @@ export default function LibraryPageClient() {
   }, [deferredQuery, items, language, status, type]);
   const selected = filtered.find((item) => item.id === selectedId) ?? filtered[0];
 
+  useEffect(() => {
+    const inlineDetails = window.matchMedia(INLINE_LIBRARY_DETAILS);
+    function updateDetailPresentation() {
+      if (inlineDetails.matches) setMobileDetailOpen(false);
+    }
+    inlineDetails.addEventListener('change', updateDetailPresentation);
+    return () => inlineDetails.removeEventListener('change', updateDetailPresentation);
+  }, []);
+
   function select(item: LibraryItem) {
     setSelectedId(item.id);
-    setMobileDetailOpen(true);
+    if (!window.matchMedia(INLINE_LIBRARY_DETAILS).matches) setMobileDetailOpen(true);
   }
 
   return (
@@ -167,7 +179,10 @@ export default function LibraryPageClient() {
       ) : (
         <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_22rem]">
           <section className="min-w-0" aria-label={t('library.list')}>
-            <div className="mb-4 flex flex-wrap gap-2 rounded-xl border bg-card p-4">
+            <search
+              className="mb-4 flex flex-wrap gap-2 rounded-xl border bg-card p-4"
+              aria-label={t('library.search')}
+            >
               <InputGroup className="min-w-56 flex-1">
                 <InputGroupAddon>
                   <Search aria-hidden="true" />
@@ -248,17 +263,18 @@ export default function LibraryPageClient() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-            </div>
+            </search>
 
             <div className="hidden overflow-hidden rounded-xl border bg-card lg:block">
-              <Table>
+              <Table scrollLabel={t('library.list')} aria-busy={loading || undefined}>
+                <TableCaption className="sr-only">{t('library.list')}</TableCaption>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t('library.content')}</TableHead>
-                    <TableHead>{t('library.type')}</TableHead>
-                    <TableHead>{t('common.language')}</TableHead>
-                    <TableHead>{t('library.updated')}</TableHead>
-                    <TableHead>{t('common.status')}</TableHead>
+                    <TableHead scope="col">{t('library.content')}</TableHead>
+                    <TableHead scope="col">{t('library.type')}</TableHead>
+                    <TableHead scope="col">{t('common.language')}</TableHead>
+                    <TableHead scope="col">{t('library.updated')}</TableHead>
+                    <TableHead scope="col">{t('common.status')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -277,16 +293,17 @@ export default function LibraryPageClient() {
                         key={item.id}
                         data-state={selected?.id === item.id ? 'selected' : undefined}
                       >
-                        <TableCell className="max-w-sm font-medium">
+                        <TableHead scope="row" className="max-w-sm font-medium">
                           <button
                             type="button"
+                            aria-current={selected?.id === item.id || undefined}
                             className="flex min-h-11 w-full items-center gap-2 truncate text-left outline-none focus-visible:rounded-md focus-visible:ring-2"
                             onClick={() => select(item)}
                           >
                             <ItemIcon type={item.type} />
                             <span className="truncate">{item.title}</span>
                           </button>
-                        </TableCell>
+                        </TableHead>
                         <TableCell>{typeLabel(item.type, t)}</TableCell>
                         <TableCell className="text-muted-foreground">{item.locale}</TableCell>
                         <TableCell className="font-mono text-xs text-muted-foreground">
@@ -321,6 +338,7 @@ export default function LibraryPageClient() {
                   <button
                     key={item.id}
                     type="button"
+                    aria-current={selected?.id === item.id || undefined}
                     className="flex min-h-20 w-full flex-col gap-3 rounded-xl border bg-card p-4 text-left outline-none transition-colors hover:bg-muted/40 focus-visible:ring-2"
                     onClick={() => select(item)}
                   >
