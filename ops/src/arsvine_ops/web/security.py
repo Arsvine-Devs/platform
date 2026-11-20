@@ -9,6 +9,7 @@ CACHE_PHASE = "http_request_cache_settings"
 RATE_PHASE = "http_ratelimit"
 WAF_PHASE = "http_request_firewall_custom"
 CACHE_REF = "arsvine-web-private-cache-bypass"
+ASSET_CACHE_REF = "arsvine-web-public-assets"
 RATE_REF = "arsvine-web-auth-throttle"
 SCAN_REF = "arsvine-web-scan-block"
 SCAN_PATHS = (
@@ -40,7 +41,7 @@ def conditions(hosts, *, path=None, prefix=None):
     return f"({target})"
 
 
-def policy(sites, desired_edge, rate_limit):
+def policy(sites, desired_edge, rate_limit, *, asset_hostname=None):
     enrolled = {row["record"]["name"]: row["zoneId"] for row in desired_edge["records"]}
     groups = {
         zone_id: {
@@ -73,6 +74,25 @@ def policy(sites, desired_edge, rate_limit):
         if group["ripple"]:
             cache_conditions.append(conditions(group["ripple"], path="/api/music"))
         entries = []
+        if asset_hostname and enrolled.get(asset_hostname) == zone_id:
+            entries.append(
+                {
+                    "phase": CACHE_PHASE,
+                    "rule": {
+                        "ref": ASSET_CACHE_REF,
+                        "enabled": True,
+                        "action": "set_cache_settings",
+                        "description": "Arsvine CDN: follow origin caching for public files",
+                        "expression": conditions({asset_hostname}, prefix="/media/")
+                        + ' and http.request.method in {"GET" "HEAD"}',
+                        "action_parameters": {
+                            "cache": True,
+                            "edge_ttl": {"mode": "bypass_by_default"},
+                            "browser_ttl": {"mode": "respect_origin"},
+                        },
+                    },
+                }
+            )
         if cache_conditions:
             entries.append(
                 {
@@ -193,7 +213,7 @@ def sync(client, desired):
                 continue
             current = found[0]
             patch = dict(rule)
-            if phase == CACHE_PHASE and rules[-1] != current:
+            if phase == CACHE_PHASE and rule["ref"] == CACHE_REF and rules[-1] != current:
                 # Cache Rules use the last matching cache setting.
                 patch["position"] = {"after": ""}
             if not contains(current, rule) or "position" in patch:

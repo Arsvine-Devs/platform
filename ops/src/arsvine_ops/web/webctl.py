@@ -315,7 +315,7 @@ def main(argv=None):
             print(json.dumps(desired, indent=2))
         elif args.command in ("security-plan", "sync-security"):
             edge = plan(sites, args.edge_config, asset_hostname=registry.asset_hostname)
-            desired = policy(sites, edge, args.rate_limit)
+            desired = policy(sites, edge, args.rate_limit, asset_hostname=registry.asset_hostname)
             if args.command == "security-plan":
                 print(json.dumps(desired, indent=2))
             else:
