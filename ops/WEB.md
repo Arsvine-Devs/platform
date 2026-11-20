@@ -54,6 +54,8 @@ sudo /usr/local/libexec/arsvine-ops/web.pyz doctor --json
 
 Cloudflare Tunnel 使用 HTTPS 连接 `127.0.0.1:8080`，按登记主机名校验 SNI 和 Caddy 本地 CA。Caddy 自动续期证书，私钥保存在网关账号的专用状态目录。安装只为控制器和 Tunnel 安排 CA 公钥信任。Console 与预览还要求对应的 Cloudflare Access 应用及 audience。Caddy 拒绝未知 SNI，并对 Host 与 SNI 不匹配的请求响应 421。宿主机应用可通过指定 DB/缓存端口访问本地数据，Web 源站和相邻站点的 loopback 接口受独立 nftables 规则限制。
 
+更新 Caddy 时使用正式发行包，并核对发行页公布的 SHA-256。用暂存的新二进制以网关账号运行 `caddy validate --config /etc/arsvine-web/Caddyfile`，将 `HOME` 设为 `/var/lib/arsvine-web-gateway`。校验通过后替换 `/usr/bin/caddy`，重启 `arsvine-web-gateway.service` 和 `arsvine-web-tunnel.service`，用 `web.pyz doctor --json` 检查各站源站健康。
+
 Realm 生产站的 `redirectAliases` 为已登记别名提供 308 跳转。示例把 `www.arsvine.com` 跳转到 `arsvine.com`，保留路径和查询参数。预览有独立的登记主机名。
 
 [Cloudflare 登记示例](config/edge.example.json) 放在 `/etc/arsvine-web/edge.json`。`web.pyz edge-plan` 输出建议的入口与 DNS 记录。对于受管的 Cloudflare Zone，`web.pyz sync-edge` 可在本机源站健康后配置 Tunnel 并补齐不存在的 CNAME。该命令仅由 root 执行，并使用两个独立文件 `credentials/edge-tunnel-token` 和 `credentials/edge-dns-token`。已有冲突记录应在切换完成后再同步。只给该命令指定 Web 专用 Tunnel。
