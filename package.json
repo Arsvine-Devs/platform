@@ -21,7 +21,7 @@
     "check:unused": "pnpm --filter arsvine-admin check:unused && knip --config config/knip.jsonc --workspace . --workspace apps/api --workspace apps/auth --workspace apps/content --workspace packages/authz --workspace packages/contracts --workspace packages/core-db --workspace packages/env --workspace packages/object-storage --workspace packages/observability --workspace packages/site-config --workspace packages/service-health --no-progress",
     "check:duplicates": "jscpd --config config/jscpd.json",
     "quality": "pnpm check:unused && pnpm check:duplicates",
-    "typecheck": "pnpm --recursive --if-present typecheck",
+    "typecheck": "pnpm --recursive --filter \"./packages/**\" --if-present build && pnpm --recursive --if-present typecheck",
     "test": "pnpm --recursive --if-present test",
     "check": "pnpm format:check && pnpm docs:check && pnpm env:check && pnpm lint && pnpm typecheck && pnpm quality && pnpm test && pnpm build",
     "build:services": "pnpm --recursive --if-present build"
