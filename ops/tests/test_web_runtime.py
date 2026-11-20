@@ -643,6 +643,7 @@ class RuntimeTest(unittest.TestCase):
         self.assertIn("SocketGroup=ars-web-console", socket_unit)
         self.assertIn("SocketMode=0660", socket_unit)
         guard = shared_units()["arsvine-web-guard.service"]
+        self.assertIn("ExecReload=/usr/local/libexec/arsvine-ops/web.pyz apply-firewall", guard)
         self.assertIn("CapabilityBoundingSet=CAP_NET_ADMIN", guard)
         self.assertIn("NoNewPrivileges=true", guard)
 

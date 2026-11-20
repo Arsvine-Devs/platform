@@ -370,6 +370,7 @@ After=nftables.service
 Type=oneshot
 RemainAfterExit=true
 ExecStart={WEB_RUNTIME} apply-firewall
+ExecReload={WEB_RUNTIME} apply-firewall
 CapabilityBoundingSet=CAP_NET_ADMIN
 NoNewPrivileges=true
 ProtectSystem=strict
@@ -636,7 +637,7 @@ def install(sites, *, asset_hostname=None, origin_only=False):
     run("/usr/bin/systemctl", "daemon-reload")
     run("/usr/bin/systemctl", "enable", "arsvine-web-guard.service", *app_units)
     write(previous_units, json.dumps(app_units) + "\n", 0o600)
-    run("/usr/bin/systemctl", "restart", "arsvine-web-guard.service")
+    run("/usr/bin/systemctl", "reload-or-restart", "arsvine-web-guard.service")
     run("/usr/bin/systemctl", "enable", "--now", "arsvine-web-gateway.service")
     run("/usr/bin/systemctl", "reload", "arsvine-web-gateway.service")
     root_certificate = GATEWAY_STATE / "caddy/pki/authorities/local/root.crt"
